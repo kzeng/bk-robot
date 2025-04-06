@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>图书馆机器人调试界面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .control-panel {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .status-panel {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">机器人控制</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/">控制面板</a>
+                <a class="nav-link" href="/tasks">盘点任务</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <h1 class="text-center my-4">图书馆机器人调试界面</h1>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="control-panel">
+                    <h3>机器人控制A</h3>
+                    <div class="mb-3">
+                        <label class="form-label">接口 <a id="api-help-link" href="#" target="_blank"> 【?】</a></label>
+                        <select class="form-select" id="robot-cmd" onchange="updateApiHelpLink()">
+                            {% for all_apis in robot_all_apis_options %}
+                            <option value="{{ all_apis.cmd }}" data-url="{{ all_apis.url }}">{{ all_apis.title }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">参数列表</label>
+                        <input type="text" class="form-control" id="params" placeholder="p1=v1&p2=v2&p3=v3">
+                    </div>
+                   
+                    <button class="btn btn-primary" onclick="doRobotCmd()">
+                        执行 <i class="fas fa-paper-plane ms-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="control-panel">
+                    <h3>摄像头控制</h3>
+                    <button class="btn btn-danger" onclick="startRecording()">
+                        开始录制 <i class="fas fa-circle ms-2"></i>
+                    </button>
+                    <button class="btn btn-warning" onclick="stopRecording()">
+                        停止录制 <i class="fas fa-stop ms-2"></i>
+                    </button>
+                    <br>
+                    <hr>
+                    <button class="btn btn-info" onclick="takeScreenshot()">
+                        拍摄截图 <i class="fas fa-camera ms-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="status-panel">
+                    <h3>全局状态</h3>
+                    <pre id="status-info">等待获取全局状态...</pre>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="status-panel">
+                    <h3>操作状态</h3>
+                    <pre id="opt-info">等待获取操作状态...</pre>
+                </div>
+            </div>
+        </div>
+
+        
+    </div>
+
+    <script>
+
+        async function doRobotCmd() {
+            const cmd = document.getElementById('robot-cmd').value;
+            const params = document.getElementById('params').value;
+            
+            const response = await fetch('/api/robot/cmd', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({cmd, params})
+            });
+            const result = await response.json();
+            updateOperationResult(result);
+                
+        }
+        
+        async function startRecording() {
+            const response = await fetch('/api/obs/start_recording', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '开始录制'
+            });
+        }
+        
+        async function stopRecording() {
+            const response = await fetch('/api/obs/stop_recording', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '停止录制'
+            });
+        }
+        
+        async function takeScreenshot() {
+            const response = await fetch('/api/obs/screenshot', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '拍摄截图'
+            });
+        }
+        
+        async function updateOperationResult(data) {
+            if (data.container === 'opt-info') {
+                const optText = `[${new Date().toLocaleString()}] 
+Command: ${data.command || 'N/A'}
+Status: ${data.status || 'N/A'}
+${data.error_message ? 'Error: ' + data.error_message : ''}
+${data.results ? 'Data: ' + JSON.stringify(data.results, null, 2) : ''}`;
+                
+                document.getElementById('opt-info').textContent = optText;
+            } else if (data.container === 'status-info') {
+                document.getElementById('status-info').textContent = JSON.stringify(data, null, 2);
+            }
+        }
+        
+        // 更新API帮助链接
+        function updateApiHelpLink() {
+            const select = document.getElementById('robot-cmd');
+            const selectedOption = select.options[select.selectedIndex];
+            const url = selectedOption.dataset.url;
+            document.getElementById('api-help-link').href = url;
+        }
+
+        // 初始化时设置帮助链接
+        updateApiHelpLink();
+
+        // 定期轮询状态
+        async function pollStatus() {
+            try {
+                const response = await fetch('/api/robot/poll_status');
+                const result = await response.json();
+                
+                if (result.container === 'status-info') {
+                    const statusText = `[${new Date(result.timestamp * 1000).toLocaleString()}] 
+Command: ${result.command}
+Status: ${result.status}
+${result.error_message ? 'Error: ' + result.error_message : ''}
+${result.results ? 'Data: ' + JSON.stringify(result.results, null, 2) : ''}`;
+                    
+                    document.getElementById('status-info').textContent = statusText;
+                }
+                
+                setTimeout(pollStatus, 1000); // 每秒轮询一次
+            } catch (error) {
+                document.getElementById('status-info').textContent = `Error polling status: ${error.message}`;
+                setTimeout(pollStatus, 1000); // 继续轮询即使出错
+            }
+        }
+        // 启动状态轮询
+        pollStatus();
+    </script>
+</body>
+</html>
