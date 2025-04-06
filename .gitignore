@@ -144,3 +144,8 @@ cython_debug/
 
 # Windows
 Thumbs.db
+
+
+# kzeng add 
+static/screenshots/
+static/video/
