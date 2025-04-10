@@ -22,9 +22,9 @@ def create_app(test_config=None):
     )
 
     if test_config is None:
-        # Load config.py from root directory to ensure OBS settings are available
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.py')
-        app.config.from_pyfile(config_path, silent=False)
+        # Load configuration directly from Config class to ensure all settings are available
+        from config import Config
+        app.config.from_object(Config)
     else:
         app.config.from_mapping(test_config)
 
@@ -38,15 +38,14 @@ def create_app(test_config=None):
     socketio.init_app(app)
     robot_control.init_app(app)
     
-    # Initialize OBS control only if config is present
-    if 'OBS_WS_URL' in app.config and 'OBS_PASSWORD' in app.config:
-        obs_control.init_app(app)
-    else:
-        app.logger.warning("OBS configuration not found - OBS features will be disabled")
-        app.obs_control = None
-
+    # Initialize OBS control with app
+    obs_control.init_app(app)
     app.robot_control = robot_control
-    app.obs_control = obs_control if 'OBS_WS_URL' in app.config and 'OBS_PASSWORD' in app.config else None
+    app.obs_control = obs_control
+    
+    # Verify OBS config was loaded
+    if not app.config.get('OBS_WS_URL') or not app.config.get('OBS_PASSWORD'):
+        app.logger.warning("OBS configuration not properly loaded - check config.py")
 
     from . import routes
     app.register_blueprint(routes.bp)
