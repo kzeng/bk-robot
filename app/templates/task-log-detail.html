@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务日志详情</title>
+    <link href="{{ url_for('static', filename='res/bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+        .thumbnail-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .thumbnail {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+        .thumbnail:hover {
+            transform: scale(1.05);
+        }
+        .status-badge {
+            font-size: 1rem;
+            padding: 0.5em 0.75em;
+        }
+        .marker-timeline {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+        .marker-point {
+            position: relative;
+            text-align: center;
+            flex: 1;
+        }
+        .marker-dot {
+            width: 36px;
+            height: 36px;
+            background-color: #bbb;
+            border-radius: 50%;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+        .marker-dot.active {
+            background-color: #007bff;
+        }
+        .marker-line {
+            position: absolute;
+            top: 5px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #ddd;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">机器人控制</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/">控制面板</a>
+                <a class="nav-link" href="/tasks">盘点任务</a>
+                <a class="nav-link active" href="/task-logs">任务日志</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">任务日志详情</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>基本信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <strong>日志ID:</strong> <span id="logId"></span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>任务ID:</strong> <span id="taskId"></span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>标记点:</strong> <span id="marker"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <strong>操作类型:</strong> <span id="action"></span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>开始时间:</strong> <span id="startTime"></span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>结束时间:</strong> <span id="endTime"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <strong>状态:</strong> 
+                    <span id="statusBadge" class="badge"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>标记点路线</h5>
+            </div>
+            <div class="card-body">
+                <div id="markerTimeline" class="marker-timeline">
+                    <div class="marker-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>拍摄文件</h5>
+            </div>
+            <div class="card-body">
+                <div id="fileList" class="thumbnail-container">
+                    <!-- Files will be populated here -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logId = new URLSearchParams(window.location.search).get('log_id') || 
+                          window.location.pathname.split('/').pop();
+            
+            fetch(`/api/task-logs/${logId}`)
+                .then(response => response.json())
+                .then(log => {
+                    // Set basic info
+                    document.getElementById('logId').textContent = log.log_id;
+                    document.getElementById('taskId').textContent = log.task_id;
+                    document.getElementById('marker').textContent = log.marker;
+                    document.getElementById('action').textContent = 
+                        log.action === 0 ? '拍照' : '录像';
+                    document.getElementById('startTime').textContent = log.start_time;
+                    document.getElementById('endTime').textContent = log.end_time;
+                    
+                    // Set status badge
+                    const statusBadge = document.getElementById('statusBadge');
+                    statusBadge.textContent = log.status === 1 ? '成功' : '失败';
+                    statusBadge.className = `badge ${log.status === 1 ? 'bg-success' : 'bg-danger'}`;
+                    
+                    // Build marker timeline
+                    const markers = log.marker.split(',');
+                    const timeline = document.getElementById('markerTimeline');
+                    
+                    markers.forEach((marker, index) => {
+                        const markerPoint = document.createElement('div');
+                        markerPoint.className = 'marker-point';
+                        
+                        const markerDot = document.createElement('div');
+                        markerDot.className = 'marker-dot';
+                        if(index === 0) markerDot.classList.add('active');
+                        
+                        const markerLabel = document.createElement('div');
+                        markerLabel.textContent = marker;
+                        
+                        markerPoint.appendChild(markerDot);
+                        markerPoint.appendChild(markerLabel);
+                        timeline.insertBefore(markerPoint, timeline.querySelector('.marker-line'));
+                    });
+
+                    // Set files
+                    const fileList = document.getElementById('fileList');
+                    log.file_paths.forEach(file => {
+                        const img = document.createElement('img');
+                        img.src = file;
+                        img.className = 'thumbnail';
+                        img.onclick = () => window.open(file, '_blank');
+                        fileList.appendChild(img);
+                    });
+                });
+        });
+
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务日志</title>
+    <link href="{{ url_for('static', filename='res/bootstrap.min.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">机器人控制</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/">控制面板</a>
+                <a class="nav-link" href="/tasks">盘点任务</a>
+                <a class="nav-link active" href="/task-logs">任务日志</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">任务执行日志</h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>日志列表</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>日志ID</th>
+                            <th>任务ID</th>
+                            <th>开始时间</th>
+                            <th>结束时间</th>
+                            <th>状态</th>
+                            <th>文件数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTable">
+                        <!-- Logs will be populated here -->
+                    </tbody>
+                </table>
+                
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item">
+                            <a class="page-link" href="#" id="prevPage">上一页</a>
+                        </li>
+                        <li class="page-item">
+                            <span class="page-link" id="currentPage">1</span>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="#" id="nextPage">下一页</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="card-footer">
+                <button id="clearLogsBtn" class="btn btn-danger">清空日志</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Bootstrap JS -->
+    <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- Include main JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Setup clear logs button
+        document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
+        // Load logs when page loads
+        document.addEventListener('DOMContentLoaded', loadLogs);
+
+        let currentPage = 1;
+        const pageSize = 20;
+        
+        function loadLogs() {
+            fetch(`/api/task-logs?page=${currentPage}&size=${pageSize}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.getElementById('logsTable');
+                    tableBody.innerHTML = '';
+                    document.getElementById('currentPage').textContent = currentPage;
+                    
+                    data.logs.forEach(log => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${log.log_id}</td>
+                            <td>${log.task_id}</td>
+                            <td>${log.start_time}</td>
+                            <td>${log.end_time}</td>
+                            <td>
+                                <span class="badge ${log.status === 1 ? 'bg-success' : 'bg-danger'}">
+                                    ${log.status === 1 ? '成功' : '失败'}
+                                </span>
+                            </td>
+                            <td>${log.file_count}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewLogDetails(${log.log_id})">
+                                    查看详情
+                                </button>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+        
+        document.getElementById('prevPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) {
+                currentPage--;
+                loadLogs();
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            currentPage++;
+            loadLogs();
+        });
+
+        function viewLogDetails(logId) {
+            window.location.href = `/task-logs/${logId}`;
+        }
+    </script>
+</body>
+</html>

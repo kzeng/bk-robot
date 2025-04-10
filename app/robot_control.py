@@ -69,6 +69,37 @@ class RobotControl:
         Returns:
             dict: Response from robot
         """
+    
+    def move_to_marker(self, marker_name):
+        """
+        Move robot to specified marker location
+        
+        Args:
+            marker_name (str): Name of the marker to move to
+            
+        Returns:
+            dict: Response from robot
+        """
+        if not self.connected and not self.connect():
+            return {'status': 'error', 'message': 'Connection failed'}
+
+        if self.mock:
+            time.sleep(0.1)  # Simulate movement delay
+            return {
+                'status': 'ok',
+                'command': f'/api/move_to_marker/{marker_name}',
+                'message': f'Mock movement to marker {marker_name}'
+            }
+            
+        try:
+            cmd_str = f'/api/move_to_marker/{marker_name}'
+            self.socket.send(cmd_str.encode('utf-8'))
+            rx = self.socket.recv(self.buffer_size)
+            return json.loads(rx.decode('utf-8'))
+        except Exception as e:
+            self._get_logger().error(f"Marker movement failed: {str(e)}")
+            self.disconnect()
+            return {'status': 'error', 'message': str(e)}
         if not self.connected and not self.connect():
             return {'status': 'error', 'message': 'Connection failed'}
 

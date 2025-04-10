@@ -98,12 +98,20 @@ class OBSControl:
         except exceptions.ConnectionFailure as e:
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
-    def take_screenshot_all_cameras(self, position_info):
-        """拍摄所有摄像头的截图"""
+    def take_screenshot_all_cameras(self, marker_name, camera_id=None):
+        """拍摄所有摄像头的截图
+        
+        Args:
+            marker_name (str): Name of the marker where photo is taken
+            camera_id (str|int): Optional specific camera ID to capture
+            
+        Returns:
+            dict: Results including file paths and status
+        """
         results = []
         # 使用日期作为文件夹名
         date_str = datetime.now().strftime("%Y%m%d")
-        # 在文件名中添加日期和时间
+        # 获取当前时间戳
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_dir = os.path.join("static", "screenshots", date_str)
         os.makedirs(base_dir, exist_ok=True)
@@ -163,8 +171,8 @@ class OBSControl:
                         # 等待场景切换完成
                         time.sleep(0.5)
                         
-                        # 拍摄截图
-                        filename = f"{timestamp}_camera{i}_x{position_info['x']:.2f}_y{position_info['y']:.2f}_theta{position_info['theta']:.2f}.jpg"
+                        # 拍摄截图 - 新文件名格式: 标记点_摄像头编号_时间戳.jpg
+                        filename = f"{marker_name}_camera{i}_{timestamp}.jpg"
                         filepath = os.path.join(base_dir, filename)
                         
                         # 使用场景名称
@@ -207,8 +215,17 @@ class OBSControl:
             "results": results
         }
 
-    def start_recording(self):
-        """开始录制"""
+    def start_recording(self, marker_names):
+        """开始录制
+        
+        Args:
+            marker_names (list): List of marker names that will be visited during recording
+            
+        Returns:
+            dict: Recording start status with timestamp
+        """
+        self.recording_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.recording_markers = "_".join(marker_names)
         if self.simulation_mode:
             return {
                 "status": "OK",
@@ -334,7 +351,7 @@ class OBSControl:
                 output_dir = os.path.abspath(os.path.join("static", "videos", date_str))
                 os.makedirs(output_dir, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-                filename = f"{timestamp}-Camera1.mkv"
+                filename = f"{self.recording_markers}_Camera1_{self.recording_start_time}.mkv"
                 current_app.logger.info(f"Configured output directory: {output_dir}")
                 
                 # Try to set recording settings if possible
@@ -381,7 +398,8 @@ class OBSControl:
                 # Move file to our desired location if found
                 if recording_path and os.path.exists(recording_path):
                     file_ext = os.path.splitext(recording_path)[1]
-                    new_filename = f"{timestamp}-Camera1{file_ext}"
+                    end_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    new_filename = f"{self.recording_markers}_Camera1_{self.recording_start_time}_{end_time}{file_ext}"
                     new_path = os.path.join(output_dir, new_filename)
                     
                     # Ensure target directory exists

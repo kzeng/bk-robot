@@ -1,5 +1,7 @@
 from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for
-from app.models import Task
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import json
+from app.models import Task, TaskLog
 from app import db
 from datetime import datetime
 import asyncio
@@ -152,17 +154,29 @@ def robot_cmd():
     data = request.get_json()
     print(f"Received operation command: {data}")
 
-    api_request = f"{data['cmd']}?{data['params']}"
-    robot_control = current_app.robot_control
-    result = robot_control.send_command(api_request)
-    
-    # Operation results go to opt-info container
-    return jsonify({
-        "container": "opt-info",  # 指令操作结果容器
-        "timestamp": time.time(),
-        "command": data['cmd'],
-        **result
-    })
+    try:
+        api_request = f"{data['cmd']}?{data['params']}"
+        robot_control = current_app.robot_control
+        result = robot_control.send_command(api_request) or {}
+        
+        # Operation results go to opt-info container
+        return jsonify({
+            "container": "opt-info",  # 指令操作结果容器
+            "timestamp": time.time(),
+            "command": data['cmd'],
+            "status": result.get("status", "ERROR"),
+            "error_message": result.get("error_message", "Unknown error"),
+            "results": result.get("results", None)
+        })
+    except Exception as e:
+        return jsonify({
+            "container": "opt-info",
+            "timestamp": time.time(),
+            "command": data.get('cmd', 'unknown'),
+            "status": "ERROR",
+            "error_message": str(e),
+            "results": None
+        }), 500
 
 
 
@@ -316,10 +330,8 @@ def list_tasks():
         'task_id': task.task_id,
         'marker': task.marker,
         'action': task.action,
-        'status': task.status,
         'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
         'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
-        'run_at': task.run_at.strftime("%Y-%m-%d %H:%M:%S") if task.run_at else None,
         'description': task.description
     } for task in tasks])
 
@@ -331,7 +343,6 @@ def create_task():
     task = Task(
         marker=data.get('marker', ''),
         action=data.get('action', 0),
-        status=data.get('status', 0),
         description=data.get('description', '')
     )
     db.session.add(task)
@@ -347,10 +358,8 @@ def get_task(task_id):
         'task_id': task.task_id,
         'marker': task.marker,
         'action': task.action,
-        'status': task.status,
         'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
         'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
-        'run_at': task.run_at.strftime("%Y-%m-%d %H:%M:%S") if task.run_at else None,
         'description': task.description
     })
 
@@ -363,7 +372,6 @@ def update_task(task_id):
     
     task.marker = data.get('marker', task.marker)
     task.action = data.get('action', task.action)
-    task.status = data.get('status', task.status)
     task.description = data.get('description', task.description)
     task.update_at = datetime.now()
     
@@ -389,4 +397,210 @@ async def get_obs_scenes():
     return jsonify({
         "status": "OK",
         "scenes": scenes
+    })
+
+@bp.route('/run_task', methods=['POST'])
+def run_task():
+    data = request.json
+    task_id = data.get('task_id')
+    task = Task.query.get(task_id)
+    
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+
+    # Simulate robot movement and task execution
+    marker_points = task.marker.split(',')
+    action = task.action
+    start_time = datetime.utcnow()
+    file_paths = []
+    status = 1  # Assume success
+
+    try:
+        for marker in marker_points:
+            # Simulate robot movement
+            time.sleep(2)  # Simulate 2-second pause at each marker
+            # Simulate taking a photo or recording
+            file_path = f'/path/to/files/{marker}.jpg'  # Example file path
+            file_paths.append(file_path)
+        
+        # Simulate returning to the initial marker
+        time.sleep(2)
+    except Exception as e:
+        status = 0  # Mark as failed
+
+    end_time = datetime.utcnow()
+
+    # Log task execution
+    task_log = TaskLog(
+        task_id=task_id,
+        marker=task.marker,
+        action=action,
+        start_time=start_time,
+        end_time=end_time,
+        status=status,
+        file_count=len(file_paths),
+        file_paths=str(file_paths)
+    )
+    db.session.add(task_log)
+    db.session.commit()
+
+    return jsonify({'message': 'Task executed', 'status': status})
+
+
+@bp.route('/api/tasks/<int:task_id>/logs', methods=['GET'])
+def get_task_logs(task_id):
+    """Get all execution logs for a task"""
+    logs = TaskLog.query.filter_by(task_id=task_id).order_by(TaskLog.start_time.desc()).all()
+    return jsonify([{
+        'log_id': log.log_id,
+        'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'status': log.status,
+        'file_count': log.file_count
+    } for log in logs])
+
+@bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
+def run_task_api(task_id):
+    task = Task.query.get(task_id)
+    if not task:
+        return jsonify({'status': 'error', 'message': 'Task not found'}), 404
+
+    # Get robot control and OBS instances
+    robot_control = current_app.robot_control
+    obs_control = current_app.obs_control
+    
+    # Parse marker points
+    marker_points = task.marker.split(',')
+    start_marker = marker_points[0]
+    file_paths = []
+    start_time = datetime.utcnow()
+    status = 1  # Assume success
+    
+    try:
+        # Move to each marker point
+        for marker in marker_points:
+            # Move robot to marker
+            move_result = robot_control.send_command(f'/api/move?marker={marker}')
+            if move_result.get('status') != 'ok':
+                raise Exception(f"Failed to move to marker {marker}: {move_result.get('message')}")
+            
+            # Wait 2 seconds for stabilization
+            time.sleep(2)
+            
+            # Take photo
+            position_info = {
+                'x': 0.0,  # TODO: Get actual position from robot
+                'y': 0.0,
+                'theta': 0.0
+            }
+            photo_result = obs_control.take_screenshot_all_cameras(position_info)
+            if photo_result['status'] != 'OK':
+                raise Exception(f"Failed to take photo at marker {marker}")
+            
+            # Save file paths
+            for result in photo_result['results']:
+                if result['status'] == 'OK':
+                    file_paths.append(result['filepath'])
+        
+        # Return to start position
+        move_result = robot_control.send_command(f'/api/move?marker={start_marker}')
+        if move_result.get('status') != 'ok':
+            raise Exception(f"Failed to return to start marker: {move_result.get('message')}")
+            
+    except Exception as e:
+        status = 0  # Mark as failed
+        error_message = str(e)
+        # Attempt to return to start position even if failed
+        try:
+            robot_control.send_command(f'/api/move?marker={start_marker}')
+        except:
+            pass
+    finally:
+        end_time = datetime.utcnow()
+        
+        # Log task execution
+        task_log = TaskLog(
+            task_id=task_id,
+            marker=task.marker,
+            action=task.action,
+            start_time=start_time,
+            end_time=end_time,
+            status=status,
+            file_count=len(file_paths),
+            file_paths=json.dumps(file_paths)
+        )
+        db.session.add(task_log)
+        db.session.commit()
+
+        return jsonify({
+            'success': True if status else False,
+            'error': error_message if not status else None,
+            'log_id': task_log.log_id,
+            'file_paths': file_paths
+        })
+
+@bp.route('/task-logs')
+def task_logs_page():
+    """任务日志页面"""
+    return render_template('task-logs.html')
+
+@bp.route('/api/task-logs', methods=['GET'])
+def get_all_task_logs():
+    """获取分页任务日志"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('size', 20, type=int)
+    pagination = TaskLog.query.order_by(TaskLog.start_time.desc()).paginate(
+        page=page, per_page=per_page, error_out=False)
+    logs = pagination.items
+    
+    return jsonify({
+        'logs': [{
+            'log_id': log.log_id,
+            'task_id': log.task_id,
+            'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            'status': log.status,
+            'file_count': log.file_count
+        } for log in logs],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': pagination.page
+    })
+
+@bp.route('/api/task-logs/clear', methods=['POST'])
+def clear_task_logs():
+    """清空所有任务日志"""
+    try:
+        num_deleted = db.session.query(TaskLog).delete()
+        db.session.commit()
+        return jsonify({
+            'status': 'OK',
+            'message': f'成功删除 {num_deleted} 条日志'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'清空日志失败: {str(e)}'
+        }), 500
+
+@bp.route('/task-logs/<int:log_id>', methods=['GET'])
+def task_log_detail_page(log_id):
+    """单个任务日志详情页面"""
+    return render_template('task-log-detail.html', log_id=log_id)
+
+@bp.route('/api/task-logs/<int:log_id>', methods=['GET'])
+def get_task_log_detail(log_id):
+    """获取单个任务日志详情"""
+    log = TaskLog.query.get_or_404(log_id)
+    return jsonify({
+        'log_id': log.log_id,
+        'task_id': log.task_id,
+        'marker': log.marker,
+        'action': log.action,
+        'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'status': log.status,
+        'file_count': log.file_count,
+        'file_paths': json.loads(log.file_paths)
     })
