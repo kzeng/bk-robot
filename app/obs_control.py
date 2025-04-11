@@ -98,11 +98,11 @@ class OBSControl:
         except exceptions.ConnectionFailure as e:
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
-    def take_screenshot_all_cameras(self, marker_name, camera_id=None):
+    def take_screenshot_all_cameras(self, position_info, camera_id=None):
         """拍摄所有摄像头的截图
         
         Args:
-            marker_name (str): Name of the marker where photo is taken
+            position_info (dict): Dictionary containing x, y, theta position info
             camera_id (str|int): Optional specific camera ID to capture
             
         Returns:
@@ -171,8 +171,8 @@ class OBSControl:
                         # 等待场景切换完成
                         time.sleep(0.5)
                         
-                        # 拍摄截图 - 新文件名格式: 标记点_摄像头编号_时间戳.jpg
-                        filename = f"{marker_name}_camera{i}_{timestamp}.jpg"
+                        # 拍摄截图 - 新文件名格式: 位置_摄像头编号_时间戳.jpg
+                        filename = f"x{position_info['x']:.2f}_y{position_info['y']:.2f}_theta{position_info['theta']:.2f}_camera{i}_{timestamp}.jpg"
                         filepath = os.path.join(base_dir, filename)
                         
                         # 使用场景名称
@@ -215,17 +215,18 @@ class OBSControl:
             "results": results
         }
 
-    def start_recording(self, marker_names):
+    def start_recording(self, marker_names=None):
         """开始录制
         
         Args:
-            marker_names (list): List of marker names that will be visited during recording
+            marker_names (list, optional): List of marker names that will be visited during recording.
+                Defaults to empty list if not provided.
             
         Returns:
             dict: Recording start status with timestamp
         """
         self.recording_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.recording_markers = "_".join(marker_names)
+        self.recording_markers = "_".join(marker_names) if marker_names else ""
         if self.simulation_mode:
             return {
                 "status": "OK",
