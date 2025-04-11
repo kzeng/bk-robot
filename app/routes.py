@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import json
 from app.models import Task, TaskLog
 from app import db
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 import os
 from functools import wraps
@@ -413,7 +413,7 @@ def run_task():
     
     marker_list = task.marker.split(',')
     action = task.action
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     file_paths = []
     status = 1  # Assume success
     error_message = None
@@ -473,7 +473,7 @@ def run_task():
         error_message = str(e)
         current_app.logger.error(f"Task execution failed: {error_message}")
     finally:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         
         # Log task execution
         task_log = TaskLog(
@@ -523,7 +523,7 @@ def run_task_api(task_id):
     marker_points = task.marker.split(',')
     start_marker = marker_points[0]
     file_paths = []
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     status = 1  # Assume success
     
     try:
@@ -566,7 +566,7 @@ def run_task_api(task_id):
         except:
             pass
     finally:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         
         # Log task execution
         task_log = TaskLog(
