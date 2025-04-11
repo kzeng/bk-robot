@@ -50,7 +50,7 @@ async function runTask(taskId) {
         if (taskIdElement) taskIdElement.textContent = taskId;
         if (actionElement) actionElement.textContent = task.action === 0 ? '拍照' : '录像';
         if (descriptionElement) descriptionElement.textContent = task.description;
-        if (statusElement) statusElement.innerHTML = '<span class="text-muted" style="font-size: 3em; font-weight: bold;">准备就绪</span>';
+        if (statusElement) statusElement.innerHTML = '<span class="text-muted" style="font-size: 1.1em; font-weight: bold;">准备就绪</span>';
     }
     
 
@@ -76,7 +76,7 @@ async function runTask(taskId) {
                     // Update status
                     const statusElement = document.getElementById('taskStatus');
                     if (statusElement) {
-                        statusElement.innerHTML = '<span class="text-primary" style="font-size: 3em; font-weight: bold;">正在执行</span>';
+                        statusElement.innerHTML = '<span class="text-primary" style="font-size: 1.1em; font-weight: bold;">正在执行</span>';
                     }
                     
                     // Highlight current marker
@@ -96,7 +96,7 @@ async function runTask(taskId) {
                 // Final updates when task completes
                 const statusElement = document.getElementById('taskStatus');
                 if (statusElement) {
-                    statusElement.innerHTML = '<span class="text-success" style="font-size: 3em; font-weight: bold;">已完成</span>';
+                    statusElement.innerHTML = '<span class="text-success" style="font-size: 1.1em; font-weight: bold;">已完成</span>';
                 }
                 
                 // Update task list
@@ -110,7 +110,7 @@ async function runTask(taskId) {
    
         const statusElement = document.getElementById('taskStatus');
         if (statusElement) {
-            statusElement.innerHTML = '<span class="text-warning" style="font-size: 3em; font-weight: bold;">执行失败</span>';
+            statusElement.innerHTML = '<span class="text-warning" style="font-size: 1.1em; font-weight: bold;">执行失败</span>';
             console.error('Task failed:', error);
         }
     }
