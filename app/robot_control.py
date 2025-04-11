@@ -64,11 +64,40 @@ class RobotControl:
         
         Args:
             cmd_str (str): API command string (e.g. '/api/move')
-            params (str|dict): Optional parameters as string or dict
             
         Returns:
             dict: Response from robot
         """
+        if not self.connected and not self.connect():
+            return {'status': 'error', 'message': 'Connection failed'}
+
+        if self.mock:
+            # Mock response for development
+            time.sleep(0.1)  # Simulate network delay
+            return {
+                'status': 'ok',
+                'command': cmd_str,
+                'message': f'Mock response for {cmd_str}'
+            }
+
+        try:
+            # Send command to robot
+            self._get_logger().info(f"Sending command: {cmd_str}")
+            self.socket.send(cmd_str.encode('utf-8'))
+
+            # Receive response
+            rx = self.socket.recv(self.buffer_size)
+            if not rx:
+                raise ConnectionError("No response from robot")
+
+            response = json.loads(rx.decode('utf-8'))
+            return response
+        except Exception as e:
+            self._get_logger().error(f"Command {cmd_str} failed: {str(e)}")
+            self.disconnect()
+            return {'status': 'error', 'message': str(e)}
+    
+
     
     def move_to_marker(self, marker_name):
         """
