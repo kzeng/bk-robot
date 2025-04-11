@@ -415,6 +415,7 @@ def run_task():
     action = task.action
     start_time = datetime.now(timezone.utc)
     file_paths = []
+    
     status = 1  # Assume success
     error_message = None
 

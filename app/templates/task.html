@@ -29,6 +29,43 @@
             </button>
         </div>
 
+        <!-- Enhanced Task Status Panel -->
+        <div class="card mt-4 shadow-sm" id="taskPanel" style="display: none;">
+            <div class="card-header bg-primary text-white py-3">
+                <h4 class="mb-0"><i class="fas fa-tasks me-2"></i>当前任务状态</h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td class="text-muted " style="width: 80px">任务ID</td>
+                                    <td><span id="taskId" class="badge bg-dark fs-6">-</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted ">操作类型</td>
+                                    <td><span id="action" class="badge bg-info fs-6">-</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted ">描述</td>
+                                    <td><span id="description" class="fs-5">-</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center justify-content-center">
+                        <div class="text-center">
+                            <div class="text-muted  mb-2">当前状态</div>
+                            <div id="taskStatus" style="font-size: 3em; font-weight: bold;">
+                                <span class="text-muted">准备就绪</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <h5>任务列表</h5>
@@ -128,70 +165,6 @@
     <!-- Include Bootstrap JS -->
     <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
     
-    <!-- Task Execution Panel -->
-    <div class="card mt-4 container" id="taskPanel" style="display: none;">
-        <div class="card-header bg-primary text-white">
-            <h5>任务执行进度</h5>
-        </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h6>任务详情</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-2">
-                                <strong>任务ID:</strong> <span id="taskId" class="badge bg-secondary"></span>
-                            </div>
-                            <div class="mb-2">
-                                <strong>操作类型:</strong> <span id="action" class="badge bg-info"></span>
-                            </div>
-                            <div class="mb-2">
-                                <strong>描述:</strong> <span id="description"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h6>进度</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="progress mb-2">
-                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                     role="progressbar" style="width: 0%"></div>
-                            </div>
-                            <div id="currentMarker" class="text-center fw-bold">等待任务开始...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h6>标记点时间线</h6>
-                </div>
-                <div class="card-body">
-                    <div id="timeline" class="d-flex flex-wrap gap-2">
-                        <!-- Timeline markers will be added here -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h6>拍摄图片</h6>
-                </div>
-                <div class="card-body">
-                    <div id="thumbnails" class="d-flex flex-wrap gap-2">
-                        <!-- Thumbnails will be added here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <!-- Include main JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

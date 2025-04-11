@@ -38,28 +38,21 @@ async function runTask(taskId) {
     
     // Show task panel
     const panel = document.getElementById('taskPanel');
-    panel.style.display = 'block';
+    if (panel) {
+        panel.style.display = 'block';
+        
+        // Update panel content
+        const taskIdElement = document.getElementById('taskId');
+        const actionElement = document.getElementById('action');
+        const descriptionElement = document.getElementById('description');
+        const statusElement = document.getElementById('taskStatus');
+        
+        if (taskIdElement) taskIdElement.textContent = taskId;
+        if (actionElement) actionElement.textContent = task.action === 0 ? '拍照' : '录像';
+        if (descriptionElement) descriptionElement.textContent = task.description;
+        if (statusElement) statusElement.innerHTML = '<span class="text-muted" style="font-size: 3em; font-weight: bold;">准备就绪</span>';
+    }
     
-    // Update panel content
-    document.getElementById('taskId').textContent = taskId;
-    document.getElementById('action').textContent = task.action === 0 ? '拍照' : '录像';
-    document.getElementById('description').textContent = task.description;
-    
-    // Setup timeline
-    const markers = task.marker.split(',');
-    const timeline = document.getElementById('timeline');
-    timeline.innerHTML = markers.map(m => 
-        `<span class="badge bg-secondary marker-badge" data-marker="${m}">${m}</span>`
-    ).join('');
-    
-    // Initialize empty thumbnails
-    const thumbnails = document.getElementById('thumbnails');
-    thumbnails.innerHTML = Array(4).fill().map(() => 
-        `<div class="img-thumbnail placeholder" style="width: 100px; height: 100px; 
-          background: #eee; display: inline-flex; align-items: center; justify-content: center;">
-            <span class="text-muted">No Image</span>
-        </div>`
-    ).join('');
 
     try {
         // Execute task
@@ -80,10 +73,11 @@ async function runTask(taskId) {
                     const progress = markers.length > 0 ? 
                         (currentMarker / markers.length) * 100 : 0;
                     
-                    // Update progress bar
-                    document.getElementById('progressBar').style.width = `${progress}%`;
-                    document.getElementById('currentMarker').textContent = 
-                        `正在处理: ${markerName}`;
+                    // Update status
+                    const statusElement = document.getElementById('taskStatus');
+                    if (statusElement) {
+                        statusElement.innerHTML = '<span class="text-primary" style="font-size: 3em; font-weight: bold;">正在执行</span>';
+                    }
                     
                     // Highlight current marker
                     document.querySelectorAll('.marker-badge').forEach(badge => {
@@ -93,36 +87,17 @@ async function runTask(taskId) {
                         }
                     });
                     
-                    // Update thumbnails as they come in
-                    if (data.photo_path) {
-                        const thumbnails = document.getElementById('thumbnails');
-                        // Replace first placeholder
-                        const placeholders = thumbnails.querySelectorAll('.placeholder');
-                        if (placeholders.length > 0) {
-                            placeholders[0].outerHTML = 
-                                `<img src="${data.photo_path}" class="img-thumbnail" 
-                                 style="width: 100px; height: 100px;">`;
-                        } else {
-                            // If no placeholders left, add to end (max 4)
-                            if (thumbnails.children.length < 4) {
-                                thumbnails.insertAdjacentHTML('beforeend',
-                                    `<img src="${data.photo_path}" class="img-thumbnail" 
-                                     style="width: 100px; height: 100px;">`);
-                            }
-                        }
-                    }
                 } catch (error) {
                     console.error('处理进度更新失败:', error);
-                    document.getElementById('currentMarker').textContent = 
-                        '更新进度时出错';
                 }
             };
             
             socket.onclose = () => {
                 // Final updates when task completes
-                document.getElementById('progressBar').style.width = '100%';
-                document.getElementById('progressBar').classList.remove('progress-bar-animated');
-                document.getElementById('currentMarker').textContent = '任务完成!';
+                const statusElement = document.getElementById('taskStatus');
+                if (statusElement) {
+                    statusElement.innerHTML = '<span class="text-success" style="font-size: 3em; font-weight: bold;">已完成</span>';
+                }
                 
                 // Update task list
                 loadTasks();
@@ -132,7 +107,11 @@ async function runTask(taskId) {
         }
     } catch (error) {
         console.error('Task failed:', error);
-        document.getElementById('progressBar').classList.add('bg-danger');
-        document.getElementById('currentMarker').textContent = `错误: ${error.message}`;
+   
+        const statusElement = document.getElementById('taskStatus');
+        if (statusElement) {
+            statusElement.innerHTML = '<span class="text-warning" style="font-size: 3em; font-weight: bold;">执行失败</span>';
+            console.error('Task failed:', error);
+        }
     }
 }
