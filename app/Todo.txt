@@ -1,0 +1,39 @@
+run_task_api 接口完善与修改：
+
+1. 通过task_id， 获得task 其他配置，如action, marker( split with ',' to list  marker_list)
+2. 以下是我的伪码，用来表达我的意图：
+		if action == 0： #photo
+			for m in marker_list: #遍历所有 marker_list
+			call_robot_control("/api/move?marker=m")  # 参考 http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#11%E5%8D%95%E7%9B%AE%E6%A0%87%E7%82%B9%E7%A7%BB%E5%8A%A8
+				call_obs_photo_api()
+				# 保存图片，图片文件名： m_摄像头编号_时间戳.图片扩展名
+		else: #recording
+			m1 = 取marker的第一个标记点
+			call_robot_control("?marker=m1")
+			call_obs_start_recording_api()
+			other_marker = 剔除m1 标记点后的所有标记点英文逗号连接的字符串
+			call_robot_control("?marker=other_marker")
+			call_obs_stop_recording_api()
+			# 保存视频，视频文件名： marker_list_str_摄像头编号_拍摄开始时间_拍摄停止时间.视频扩展名
+		
+		#记录任务日志：
+		task_log = TaskLog(
+        task_id=task_id,
+        marker=task.marker,
+        action=action,
+        start_time=start_time,
+        end_time=end_time,
+        status=status,
+        file_count=len(file_paths),
+        file_paths=str(file_paths)
+		)
+
+			
+	
+				
+			
+	
+
+
+
+
