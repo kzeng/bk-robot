@@ -129,41 +129,7 @@ class RobotControl:
             self._get_logger().error(f"Marker movement failed: {str(e)}")
             self.disconnect()
             return {'status': 'error', 'message': str(e)}
-        if not self.connected and not self.connect():
-            return {'status': 'error', 'message': 'Connection failed'}
-
-        if self.mock:
-            # Mock responses for development
-            time.sleep(0.1)  # Simulate network delay
-
-            print(f"Mock command: {cmd_str} ")
-            return {
-                'status': 'ok',
-                'command': cmd_str,
-                'message': f'Mock response for {cmd_str}'
-            }
-        try:
-            # Construct API request
-            api_request = cmd_str
-            print(f"Sending command: {api_request}")
-            
-            # Send request
-            print('Sending socket request to robot >>>>>>>>>>')
-            self.socket.send(api_request.encode('utf-8'))
-            
-            # Receive response
-            rx = self.socket.recv(self.buffer_size)
-            if not rx:
-                raise ConnectionError("No response from robot")
-                
-            response = json.loads(rx.decode('utf-8'))
-            return response
-            
-        except Exception as e:
-            self._get_logger().error(f"Command {cmd_str} failed: {str(e)}")
-            self.disconnect()
-            return {'status': 'error', 'message': str(e)}
-
+       
 
     def __del__(self):
         """Destructor to ensure clean disconnect"""
