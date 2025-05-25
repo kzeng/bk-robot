@@ -264,9 +264,10 @@ def stop_recording():
 def take_photo():
     """拍摄照片API"""
     data = request.get_json()
+    marker = data.get('marker')
     obs_control = current_app.obs_control
     obs_control.connect()
-    result = obs_control.take_screenshot_all_cameras(data)
+    result = obs_control.take_screenshot_all_cameras(marker)
     obs_control.close()
     return jsonify(result)
 
@@ -412,114 +413,6 @@ def get_task_logs(task_id):
         'status': log.status,
         'file_count': log.file_count
     } for log in logs])
-
-@bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
-def run_task_api(task_id):
-    task = Task.query.get(task_id)
-    if not task:
-        return jsonify({'status': 'error', 'message': 'Task not found'}), 404
-
-    # Get robot control and OBS instances
-    robot_control = current_app.robot_control
-    obs_control = current_app.obs_control
-    
-    # Parse marker points
-    marker_points = task.marker.split(',')
-    start_marker = marker_points[0]
-    file_paths = []
-    start_time = datetime.now(timezone.utc)
-    status = 1  # Assume success
-    
-    try:
-        # Move to each marker point
-        for marker in marker_points:
-            # Move robot to marker
-            move_result = robot_control.send_command(f'/api/move?marker={marker}')
-            if move_result.get('status') != 'ok':
-                raise Exception(f"Failed to move to marker {marker}: {move_result.get('message')}")
-            
-            # Wait 2 seconds for stabilization
-            time.sleep(2)
-            
-            # Take photo
-            position_info = {
-                'x': 0.0,  # TODO: Get actual position from robot
-                'y': 0.0,
-                'theta': 0.0
-            }
-            photo_result = obs_control.take_screenshot_all_cameras(position_info)
-            if photo_result['status'] != 'OK':
-                raise Exception(f"Failed to take photo at marker {marker}")
-            
-            # Save file paths
-            for result in photo_result['results']:
-                if result['status'] == 'OK':
-                    file_paths.append(result['filepath'])
-        
-        # Return to start position
-        move_result = robot_control.send_command(f'/api/move?marker={start_marker}')
-        if move_result.get('status') != 'ok':
-            raise Exception(f"Failed to return to start marker: {move_result.get('message')}")
-            
-    except Exception as e:
-        status = 0  # Mark as failed
-        error_message = str(e)
-        # Attempt to return to start position even if failed
-        try:
-            robot_control.send_command(f'/api/move?marker={start_marker}')
-        except:
-            pass
-    finally:
-        end_time = datetime.now(timezone.utc)
-        
-        # Log task execution
-        task_log = TaskLog(
-            task_id=task_id,
-            marker=task.marker,
-            action=task.action,
-            start_time=start_time,
-            end_time=end_time,
-            status=status,
-            file_count=len(file_paths),
-            file_paths=json.dumps(file_paths)
-        )
-        db.session.add(task_log)
-        db.session.commit()
-
-        return jsonify({
-            'success': True if status else False,
-            'error': error_message if not status else None,
-            'log_id': task_log.log_id,
-            'file_paths': file_paths
-        })
-
-@bp.route('/task-logs')
-def task_logs_page():
-    """任务日志页面"""
-    return render_template('task-logs.html')
-
-@bp.route('/api/task-logs', methods=['GET'])
-def get_all_task_logs():
-    """获取分页任务日志"""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('size', 20, type=int)
-    pagination = TaskLog.query.order_by(TaskLog.start_time.desc()).paginate(
-        page=page, per_page=per_page, error_out=False)
-    logs = pagination.items
-    
-    return jsonify({
-        'logs': [{
-            'log_id': log.log_id,
-            'task_id': log.task_id,
-            'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
-            'status': log.status,
-            'file_count': log.file_count
-        } for log in logs],
-        'total': pagination.total,
-        'pages': pagination.pages,
-        'current_page': pagination.page
-    })
 
 @bp.route('/api/task-logs/clear', methods=['POST'])
 def clear_task_logs():

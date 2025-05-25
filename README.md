@@ -120,3 +120,8 @@
 
 
 
+### DEV Notes
+- pip install xxxx -i https://repo.huaweicloud.com/repository/pypi/simple/
+- use current venv, see requirements.txt for detail python packages 
+
+

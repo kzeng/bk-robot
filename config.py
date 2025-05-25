@@ -14,7 +14,7 @@ class Config:
     ROBOT_PORT = int(os.environ.get('ROBOT_PORT') or 31001)
     
     # OBS WebSocket配置
-    OBS_WS_URL = os.environ.get('OBS_WS_URL') or 'ws://127.0.0.1:4455'
+    OBS_WS_URL = os.environ.get('OBS_WS_URL') or 'ws://192.168.0.109:4455'
     OBS_PASSWORD = os.environ.get('OBS_PASSWORD') or '123456'
 
     # Database configuration

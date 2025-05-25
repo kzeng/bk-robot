@@ -11,7 +11,7 @@ class OBSControl:
         self.ws = None
         self.simulation_mode = False  # 禁用模拟模式，使用实际的OBS摄像头
         self.camera_scenes = [
-            "Scene1"  # 使用实际的场景名称
+            "s1", "s2", "s3"  # 使用实际的场景名称
         ]
         if app is not None:
             self.init_app(app)
@@ -98,12 +98,11 @@ class OBSControl:
         except exceptions.ConnectionFailure as e:
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
-    def take_screenshot_all_cameras(self, position_info, camera_id=None):
+    def take_screenshot_all_cameras(self, position_info):
         """拍摄所有摄像头的截图
         
         Args:
-            position_info (dict): Dictionary containing x, y, theta position info
-            camera_id (str|int): Optional specific camera ID to capture
+            position_info (str): Marker name
             
         Returns:
             dict: Results including file paths and status
@@ -122,17 +121,69 @@ class OBSControl:
                 connect_result = self.connect()
                 if connect_result["status"] != "OK":
                     raise RuntimeError(connect_result["message"])
+                current_app.logger.info(f"OBS connection successful.")
 
-                # 确保WebSocket连接有效
-                if not self.is_connected():  # Use is_connected() to check connection
-                    reconnect_result = self.connect()
-                    if reconnect_result["status"] != "OK":
-                        raise RuntimeError(reconnect_result["message"])
+                # Check if the directory exists
+                if not os.path.exists(base_dir):
+                    os.makedirs(base_dir)
+                    current_app.logger.info(f"Created directory: {base_dir}")
+                else:
+                    current_app.logger.info(f"Directory exists: {base_dir}")
 
                 # 获取可用场景列表
                 scenes = self.ws.call(requests.GetSceneList())
                 scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
                 print(f"Available scenes: {scene_names}")  # 打印可用场景列表，用于调试
+
+                # Get list of sources and map them to scenes
+                try:
+                    # Try to get sources using GetInputList for OBS WebSocket v5
+                    try:
+                        inputs = self.ws.call(requests.GetInputList())
+                        source_names = []
+                        if hasattr(inputs, 'inputs'):
+                            source_names = [input['inputName'] for input in inputs.inputs]
+                        current_app.logger.info(f"Got sources using GetInputList: {source_names}")
+                    except Exception as input_error:
+                        current_app.logger.warning(f"Could not get inputs, trying GetSources: {str(input_error)}")
+                        # Fallback to GetSources for older versions
+                        sources = self.ws.call(requests.GetSources())
+                        source_names = []
+                        if hasattr(sources, 'sources'):
+                            source_names = [source['name'] for source in sources.sources]
+                        elif hasattr(sources, 'getSources') and callable(sources.getSources):
+                            source_names = [source['name'] for source in sources.getSources()]
+                    
+                    # If still no sources, use scene names as a last resort
+                    if not source_names:
+                        source_names = scene_names.copy()
+                        current_app.logger.warning("No sources found, using scene names as sources")
+
+                    if not source_names:
+                        raise RuntimeError("No sources found in OBS")
+                    current_app.logger.info(f"Available sources: {source_names}")
+
+                    # Create mapping of scene names to their sources
+                    scene_sources = {}
+                    for scene in self.camera_scenes:
+                        # Try to find a source that matches the scene name
+                        matching_sources = [s for s in source_names if scene.lower() in s.lower()]
+                        if matching_sources:
+                            scene_sources[scene] = matching_sources[0]
+                        else:
+                            # Fallback to first source if no match found
+                            scene_sources[scene] = source_names[0]
+                            current_app.logger.warning(f"No exact source match for scene {scene}, using {source_names[0]}")
+
+                except Exception as e:
+                    current_app.logger.error(f"Error getting sources: {str(e)}")
+                    return {
+                        "status": "ERROR",
+                        "message": f"Failed to get OBS sources: {str(e)}",
+                        "timestamp": timestamp,
+                        "position": position_info,
+                        "results": []
+                    }
 
             for i, scene in enumerate(self.camera_scenes, 1):
                 if self.simulation_mode:
@@ -163,7 +214,6 @@ class OBSControl:
                             "message": f"Scene '{scene}' not found in OBS"
                         })
                         continue
-
                     try:
                         # 切换到对应的场景
                         self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
@@ -172,15 +222,16 @@ class OBSControl:
                         time.sleep(0.5)
                         
                         # 拍摄截图 - 新文件名格式: 位置_摄像头编号_时间戳.jpg
-                        filename = f"x{position_info['x']:.2f}_y{position_info['y']:.2f}_theta{position_info['theta']:.2f}_camera{i}_{timestamp}.jpg"
+                        filename = f"{position_info['x']}-{scene}-Camera1-{timestamp}.jpg"
                         filepath = os.path.join(base_dir, filename)
                         
-                        # 使用场景名称
+                        # Use the source mapped to this scene
                         self.ws.call(requests.SaveSourceScreenshot(
-                            sourceName="Camera1",  # 使用实际的摄像头源名称
+                            sourceName=scene_sources[scene],
                             imageFormat="jpg",
                             imageFilePath=os.path.abspath(filepath)
                         ))
+                        current_app.logger.info(f"Screenshot saved to: {filepath}")
                         
                         results.append({
                             "camera_id": i,
