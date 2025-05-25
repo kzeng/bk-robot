@@ -293,9 +293,44 @@ def health_check():
     """
     健康检查接口
     """
+    # Add database check
+    from app.models import TaskLog
+    try:
+        log_count = TaskLog.query.count()
+        return jsonify({
+            "status": "OK",
+            "message": "Service is running",
+            "task_logs_count": log_count,
+            "db_status": "Connected"
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "ERROR",
+            "message": str(e),
+            "db_status": "Error"
+        }), 500
+
+@bp.route('/db-info', methods=['GET'])
+def db_info():
+    """Database information endpoint"""
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    
+    tables = inspector.get_table_names()
+    table_info = {}
+    
+    for table in tables:
+        columns = inspector.get_columns(table)
+        table_info[table] = [{
+            'name': col['name'],
+            'type': str(col['type']),
+            'nullable': col['nullable'],
+            'default': col['default']
+        } for col in columns]
+    
     return jsonify({
-        "status": "OK",
-        "message": "Service is running"
+        'tables': tables,
+        'schema': table_info
     })
 
 @bp.route('/api/tasks', methods=['GET'])
@@ -392,8 +427,24 @@ def run_task(task_id):
     task = Task.query.get_or_404(task_id)
     marker_list = task.marker.split(',') if task.marker else []
     start_time = datetime.now()
-    status = 'COMPLETED'
+    status = 1  # 1 = in progress
     file_paths = []
+    
+    # Create initial task log with detailed logging
+    current_app.logger.info(f"Creating initial TaskLog for task {task_id}")
+    task_log = TaskLog(
+        task_id=task_id,
+        marker=task.marker,
+        action=task.action,
+        start_time=start_time,
+        end_time=datetime.now(),
+        status=1,  # 1 = in progress
+        file_count=0,
+        file_paths='[]'
+    )
+    db.session.add(task_log)
+    db.session.commit()
+    current_app.logger.info(f"Initial TaskLog created with ID: {task_log.log_id}")
     
     try:
         if task.action == 0:  # Photo
@@ -402,71 +453,90 @@ def run_task(task_id):
                 print('marker:', marker)
                 print('action', task.action)
                 print('---------------------------------------------')
-                # Move robot to marker
-                move_result = current_app.robot_control.send_command(
-                    f"/api/move?marker={marker.strip()}"
-                )
-                if move_result.get('status') != 'OK':
-                    raise Exception(f"Move to {marker} failed: {move_result.get('message')}")
-                
-                # Take photos
-                photo_result = current_app.obs_control.take_screenshot_all_cameras(
-                    position_info=marker.strip()
-                )
-                if photo_result.get('status') != 'OK':
-                    raise Exception(f"Photo failed: {photo_result.get('message')}")
-                
-                file_paths.extend(photo_result.get('file_paths', []))
+                try:
+                    # Move robot to marker
+                    move_result = current_app.robot_control.send_command(
+                        f"/api/move?marker={marker.strip()}"
+                    )
+                    if move_result.get('status') != 'OK':
+                        status = 3  # 3 = partial completion
+                        current_app.logger.warning(f"Move to {marker} failed: {move_result.get('message')}")
+                    
+                    # Take photos
+                    # Take photos and track results
+                    photo_result = current_app.obs_control.take_screenshot_all_cameras(
+                        position_info=marker.strip()
+                    )
+                    if photo_result.get('status') == 'OK':
+                        new_files = photo_result.get('file_paths', [])
+                        if new_files:
+                            file_paths.extend(new_files)
+                            current_app.logger.info(f"Saved {len(new_files)} photos for marker {marker}")
+                        else:
+                            status = 3  # 3 = partial completion
+                            current_app.logger.warning(f"No photos saved for marker {marker}")
+                    else:
+                        status = 3  # 3 = partial completion
+                        current_app.logger.warning(f"Photo failed: {photo_result.get('message')}")
+                except Exception as e:
+                    status = 3  # 3 = partial completion
+                    current_app.logger.error(f"Error processing marker {marker}: {str(e)}")
                 
         elif task.action == 1:  # Recording
-            if not marker_list:
-                raise Exception("No markers provided for recording")
+            pass
+            # if not marker_list:
+            #     status = 4  # 4 = failed
+            #     raise Exception("No markers provided for recording")
                 
-            # Move to first marker and start recording
-            first_marker = marker_list[0].strip()
-            move_result = current_app.robot_control.send_command(
-                f"/api/move?marker={first_marker}"
-            )
-            if move_result.get('status') != 'OK':
-                raise Exception(f"Move to {first_marker} failed: {move_result.get('message')}")
-            
-            # Start recording
-            start_result = current_app.obs_control.start_recording()
-            if start_result.get('status') != 'OK':
-                raise Exception(f"Start recording failed: {start_result.get('message')}")
-            
-            # Move through remaining markers
-            if len(marker_list) > 1:
-                other_markers = ','.join(marker_list[1:])
-                move_result = current_app.robot_control.send_command(
-                    f"/api/move?marker={other_markers}"
-                )
-                if move_result.get('status') != 'OK':
-                    raise Exception(f"Move through markers failed: {move_result.get('message')}")
-            
-            # Stop recording
-            stop_result = current_app.obs_control.stop_recording()
-            if stop_result.get('status') != 'OK':
-                raise Exception(f"Stop recording failed: {stop_result.get('message')}")
-            
-            file_paths.extend(stop_result.get('file_paths', []))
+            # try:
+            #     # Move to first marker and start recording
+            #     first_marker = marker_list[0].strip()
+            #     move_result = current_app.robot_control.send_command(
+            #         f"/api/move?marker={first_marker}"
+            #     )
+            #     if move_result.get('status') != 'OK':
+            #         status = 3  # 3 = partial completion
+            #         current_app.logger.warning(f"Move to {first_marker} failed: {move_result.get('message')}")
+                
+            #     # Start recording
+            #     start_result = current_app.obs_control.start_recording()
+            #     if start_result.get('status') != 'OK':
+            #         status = 3  # 3 = partial completion
+            #         current_app.logger.warning(f"Start recording failed: {start_result.get('message')}")
+                
+            #     # Move through remaining markers
+            #     if len(marker_list) > 1:
+            #         other_markers = ','.join(marker_list[1:])
+            #         move_result = current_app.robot_control.send_command(
+            #             f"/api/move?marker={other_markers}"
+            #         )
+            #         if move_result.get('status') != 'OK':
+            #             status = 3  # 3 = partial completion
+            #             current_app.logger.warning(f"Move through markers failed: {move_result.get('message')}")
+                
+            #     # Stop recording
+            #     stop_result = current_app.obs_control.stop_recording()
+            #     if stop_result.get('status') != 'OK':
+            #         status = 3  # 3 = partial completion
+            #         current_app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                
+            #     file_paths.extend(stop_result.get('file_paths', []))
+            # except Exception as e:
+            #     status = 4  # 4 = failed
+            #     current_app.logger.error(f"Recording task failed: {str(e)}")
             
         else:
+            status = 4  # 4 = failed
             raise Exception(f"Unknown action type: {task.action}")
             
-        print('savetask log ...')
-        # Log task execution
-        task_log = TaskLog(
-            task_id=task_id,
-            marker=task.marker,
-            action=task.action,
-            start_time=start_time,
-            end_time=datetime.now(),
-            status=status,
-            file_count=len(file_paths),
-            file_paths=json.dumps(file_paths)
-        )
-        db.session.add(task_log)
+        # Update task log with final status
+        if status == 1:  # If still in progress
+            status = 2  # 2 = completed
+            
+        task_log.status = status
+        task_log.end_time = datetime.now()
+        task_log.file_count = len(file_paths)
+        task_log.file_paths = json.dumps(file_paths)
         db.session.commit()
         
         return jsonify({
@@ -476,27 +546,24 @@ def run_task(task_id):
         })
         
     except Exception as e:
-        status = 'FAILED'
+        status = 4  # 4 = failed
         current_app.logger.error(f"Error running task {task_id}: {str(e)}")
-        
-        # Log failed task
-        task_log = TaskLog(
-            task_id=task_id,
-            marker=task.marker,
-            action=task.action,
-            start_time=start_time,
-            end_time=datetime.now(),
-            status=status,
-            file_count=0,
-            file_paths='[]'
-        )
-        db.session.add(task_log)
-        db.session.commit()
-        
         return jsonify({
             'status': 'ERROR',
             'message': f'Failed to execute task: {str(e)}'
         }), 500
+        
+    finally:
+        # Ensure task log is always updated
+        try:
+            task_log.status = status
+            task_log.end_time = datetime.now()
+            task_log.file_count = len(file_paths)
+            task_log.file_paths = json.dumps(file_paths)
+            db.session.commit()
+            current_app.logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to update task log: {str(e)}")
 
 @bp.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @bp.route('/tasks/<int:task_id>', methods=['DELETE'])
@@ -519,6 +586,47 @@ def get_task_logs(task_id):
         'status': log.status,
         'file_count': log.file_count
     } for log in logs])
+
+@bp.route('/api/task-logs', methods=['GET'])
+def get_paginated_task_logs():
+    """获取分页任务日志"""
+    try:
+        page = int(request.args.get('page', 1))
+        size = int(request.args.get('size', 10))
+        
+        if page < 1 or size < 1:
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'Invalid page or size parameters'
+            }), 400
+
+        # Get paginated logs
+        logs = TaskLog.query.order_by(
+            TaskLog.start_time.desc()
+        ).paginate(page=page, per_page=size, error_out=False)
+
+        return jsonify({
+            'status': 'OK',
+            'data': [{
+                'log_id': log.log_id,
+                'task_id': log.task_id,
+                'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                'status': log.status,
+                'file_count': log.file_count
+            } for log in logs.items],
+            'pagination': {
+                'page': page,
+                'size': size,
+                'total': logs.total,
+                'pages': logs.pages
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to get task logs: {str(e)}'
+        }), 500
 
 @bp.route('/api/task-logs/clear', methods=['POST'])
 def clear_task_logs():

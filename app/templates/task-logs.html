@@ -85,7 +85,7 @@
                     tableBody.innerHTML = '';
                     document.getElementById('currentPage').textContent = currentPage;
                     
-                    data.logs.forEach(log => {
+                    data.data.forEach(log => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${log.log_id}</td>
@@ -93,8 +93,8 @@
                             <td>${log.start_time}</td>
                             <td>${log.end_time}</td>
                             <td>
-                                <span class="badge ${log.status === 1 ? 'bg-success' : 'bg-danger'}">
-                                    ${log.status === 1 ? '成功' : '失败'}
+                                <span class="badge ${log.status === 1 ? 'bg-warning' : log.status === 2 ? 'bg-success' : log.status === 3 ? 'bg-primary' : 'bg-danger'}">
+                                    ${log.status === 1 ? '进行中' : log.status === 2 ? '已完成' : log.status === 3 ? '部分完成' : '失败'}
                                 </span>
                             </td>
                             <td>${log.file_count}</td>

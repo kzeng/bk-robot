@@ -155,8 +155,20 @@
                     
                     // Set status badge
                     const statusBadge = document.getElementById('statusBadge');
-                    statusBadge.textContent = log.status === 1 ? '成功' : '失败';
-                    statusBadge.className = `badge ${log.status === 1 ? 'bg-success' : 'bg-danger'}`;
+                    const statusText = {
+                        1: '进行中',
+                        2: '已完成', 
+                        3: '部分完成',
+                        4: '失败'
+                    };
+                    const statusClass = {
+                        1: 'bg-warning',
+                        2: 'bg-success',
+                        3: 'bg-primary',
+                        4: 'bg-danger'
+                    };
+                    statusBadge.textContent = statusText[log.status] || '未知';
+                    statusBadge.className = `badge ${statusClass[log.status] || 'bg-secondary'}`;
                     
                     // Build marker timeline
                     const markers = log.marker.split(',');
