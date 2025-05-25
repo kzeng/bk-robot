@@ -59,33 +59,55 @@ class RobotControl:
         self.connected = False
 
     def send_command(self, cmd_str):
-        """
-        Send generic API command to robot and wait for response
+        """Send command to robot and handle response
+        
+        Handles the full command cycle:
+        1. Ensures connection is established
+        2. Sends command via TCP socket
+        3. Waits for and parses response
+        4. Handles errors and connection drops
         
         Args:
             cmd_str (str): API command string (e.g. '/api/move')
             
         Returns:
-            dict: Response from robot
+            dict: {
+                'status': 'ok'|'error',
+                'message': str,      # Status message
+                'command': str,       # Original command sent
+                'response': dict      # Optional response data
+            }
+            
+        Note:
+            Automatically reconnects if connection is lost
         """
         if not self.connected and not self.connect():
             return {'status': 'error', 'message': 'Connection failed'}
 
         if self.mock:
-            # Mock response for development
+            # Standardized mock response structure
             time.sleep(0.1)  # Simulate network delay
             return {
                 'status': 'ok',
                 'command': cmd_str,
-                'message': f'Mock response for {cmd_str}'
+                'message': 'Command executed in mock mode',
+                'response': {
+                    'mock': True,
+                    'command': cmd_str,
+                    'timestamp': time.time()
+                }
             }
 
         try:
-            # Send command to robot
+            # Send command via TCP socket
             self._get_logger().info(f"Sending command: {cmd_str}")
-            self.socket.send(cmd_str.encode('utf-8'))
+            # Note: send() may block if network buffers are full
+            bytes_sent = self.socket.send(cmd_str.encode('utf-8'))
+            if bytes_sent != len(cmd_str):
+                raise ConnectionError("Incomplete command sent")
 
-            # Receive response
+            # Receive response with timeout
+            # recv() will block until data arrives or timeout occurs
             rx = self.socket.recv(self.buffer_size)
             if not rx:
                 raise ConnectionError("No response from robot")
@@ -100,14 +122,23 @@ class RobotControl:
 
     
     def move_to_marker(self, marker_name):
-        """
-        Move robot to specified marker location
+        """Move robot to specified marker location
         
         Args:
             marker_name (str): Name of the marker to move to
             
         Returns:
-            dict: Response from robot
+            dict: {
+                'status': 'ok'|'error',
+                'message': str,      # Status message
+                'command': str,      # The command that was sent
+                'response': dict     # Full response from robot
+            }
+            
+        Note:
+            - Automatically handles connection if not established
+            - Returns mock response in mock mode
+            - Disconnects on error and returns error details
         """
         if not self.connected and not self.connect():
             return {'status': 'error', 'message': 'Connection failed'}
@@ -184,10 +215,9 @@ class RobotControl:
         try:
             # Call actual robot status API
             api_request = '/api/robot_status'
-            print(f"Sending command: {api_request}")
+            self._get_logger().debug(f"Sending status request: {api_request}")
             
             # Send request
-            print('Sending socket request to robot >>>>>>>>>>')
             self.socket.send(api_request.encode('utf-8'))
             
             # Receive response

@@ -38,39 +38,7 @@ class OBSControl:
             self.password = current_app.config['OBS_PASSWORD']
         return self.host, self.port, self.password
 
-    def add_info_to_image(self, img, position_info, camera_id):
-        """向图片添加位置和时间信息"""
-        draw = ImageDraw.Draw(img)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # 添加测试图案（如果是模拟模式）
-        if self.simulation_mode:
-            # 绘制网格
-            for i in range(0, 300, 30):
-                draw.line([(i, 0), (i, 200)], fill='gray', width=1)
-                draw.line([(0, i), (300, i)], fill='gray', width=1)
-            
-            # 绘制相机编号
-            draw.text((140, 90), f"Camera {camera_id}", fill='white', font=ImageFont.load_default())
-            
-            # 绘制十字准心
-            draw.line([(140, 90), (160, 110)], fill='red', width=2)
-            draw.line([(160, 90), (140, 110)], fill='red', width=2)
-        
-        # 添加位置信息
-        position_text = f"Position: X={position_info['x']:.2f}, Y={position_info['y']:.2f}, θ={position_info['theta']:.2f}"
-        draw.text((10, 10), position_text, fill='white', font=ImageFont.load_default())
-        
-        # 添加时间信息
-        time_text = f"Time: {timestamp}"
-        draw.text((10, 30), time_text, fill='white', font=ImageFont.load_default())
-        
-        # 添加摄像头编号
-        camera_text = f"Camera: {camera_id}"
-        draw.text((10, 50), camera_text, fill='white', font=ImageFont.load_default())
-        
-        return img
-
+  
     def is_connected(self):
         """检查WebSocket连接是否有效"""
         try:
@@ -113,13 +81,37 @@ class OBSControl:
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
     def take_screenshot_all_cameras(self, position_info):
-        """拍摄所有摄像头的截图
+        """Capture screenshots from all configured OBS cameras
+        
+        Handles the full workflow:
+        1. Creates dated directory for screenshots
+        2. Connects to OBS WebSocket if not already connected
+        3. Gets list of available scenes/sources
+        4. For each camera scene:
+           - Switches to the scene
+           - Captures screenshot
+           - Saves with standardized filename format
+           - Records result status
         
         Args:
-            position_info (str): 坐标点的别名(marker name)，用于在文件名中标识拍摄位置
+            position_info (str): Marker name/position identifier to include in filenames
             
         Returns:
-            dict: Results including file paths and status
+            dict: {
+                "status": "OK"|"ERROR",
+                "timestamp": str,  # Capture timestamp
+                "position": str,    # Position info
+                "results": [        # List of capture results per camera
+                    {
+                        "camera_id": int,
+                        "scene": str,
+                        "status": "OK"|"ERROR",
+                        "filename": str,  # Only if OK
+                        "filepath": str,   # Only if OK 
+                        "message": str     # Only if ERROR
+                    }
+                ]
+            }
         """
         results = []
         # 使用日期作为文件夹名
@@ -150,11 +142,15 @@ class OBSControl:
                 # 获取可用场景列表
                 scenes = self.ws.call(requests.GetSceneList())
                 scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
-                print(f"Available scenes: {scene_names}")  # 打印可用场景列表，用于调试
+                current_app.logger.debug(f"Available scenes: {scene_names}")
 
                 # Get list of sources and map them to scenes
+                # Handles multiple OBS WebSocket API versions with fallbacks:
+                # 1. First tries modern GetInputList API (OBS WebSocket v5+)
+                # 2. Falls back to GetSources for older versions
+                # 3. Uses scene names as last resort if no sources found
                 try:
-                    # Try to get sources using GetInputList for OBS WebSocket v5
+                    # First attempt: GetInputList (modern API)
                     try:
                         inputs = self.ws.call(requests.GetInputList())
                         source_names = []
@@ -183,16 +179,20 @@ class OBSControl:
                     # Create mapping of scene names to their sources
                     scene_sources = {}
                     for scene in self.camera_scenes:
-                        # Try to find a source that matches the scene name
+                        # Try to find a source that matches the scene name (case-insensitive)
                         matching_sources = [s for s in source_names if scene.lower() in s.lower()]
+                        
                         if matching_sources:
-                            # Replace 's' with 'c' in source name (e.g. 's2' -> 'c2')
+                            # Special handling: Some OBS setups use 's' prefix while we expect 'c'
+                            # (e.g. scene 'Camera1' matches source 's1' -> convert to 'c1')
                             corrected_source = matching_sources[0].replace('s', 'c')
                             scene_sources[scene] = corrected_source
                         else:
-                            # Fallback to first source if no match found
+                            # Fallback to first available source if no match found
                             scene_sources[scene] = source_names[0]
-                            current_app.logger.warning(f"No exact source match for scene {scene}, using {source_names[0]}")
+                            current_app.logger.warning(
+                                f"No exact source match for scene {scene}, using {source_names[0]}"
+                            )
 
                 except Exception as e:
                     current_app.logger.error(f"Error getting sources: {str(e)}")
@@ -264,14 +264,18 @@ class OBSControl:
 
 
     def start_recording(self, marker_names=None):
-        """开始录制
+        """Start recording on all configured cameras
         
         Args:
             marker_names (list, optional): List of marker names that will be visited during recording.
-                Defaults to empty list if not provided.
+                Used for naming the output file. Defaults to empty list if not provided.
             
         Returns:
-            dict: Recording start status with timestamp
+            dict: {
+                "status": "OK"|"ERROR",
+                "message": str,    # Status message
+                "timestamp": float  # Unix timestamp of operation
+            }
         """
         self.recording_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.recording_markers = "_".join(marker_names) if marker_names else ""
@@ -311,7 +315,23 @@ class OBSControl:
             }
 
     def stop_recording(self):
-        """停止录制"""
+        """Stop recording and handle the recorded file
+        
+        Performs the following operations:
+        1. Checks if recording is actually active (handles multiple OBS API versions)
+        2. Stops the recording via OBS WebSocket
+        3. Attempts to locate the recorded file (handles different OBS versions/paths)
+        4. Moves the file to the configured output directory with standardized naming
+        5. Returns status including the final file path if successful
+        
+        Returns:
+            dict: {
+                "status": "OK"|"ERROR",
+                "message": str,      # Status message
+                "timestamp": float,  # Unix timestamp
+                "file_path": str     # Path to recording file if successful
+            }
+        """
         if self.simulation_mode:
             return {
                 "status": "OK",
@@ -345,22 +365,22 @@ class OBSControl:
                 current_scene = self.ws.call(requests.GetCurrentProgramScene())
                 current_app.logger.info(f"Current program scene: {current_scene.sceneName}")
                 
-                # Try multiple ways to check recording status
+                # Check recording status - handles multiple OBS API versions:
+                # 1. GetRecordStatus (modern API)
                 status = self.ws.call(requests.GetRecordStatus())
-                current_app.logger.info(f"Recording status response: {vars(status)}")
                 
-                # Handle different OBS response formats
-                if hasattr(status, 'isRecording'):
+                # Handle different response formats from different OBS versions
+                if hasattr(status, 'isRecording'):  # OBS WebSocket v5+
                     is_recording = status.isRecording
                     recording_filename = getattr(status, 'recordingFilename', None)
-                elif hasattr(status, 'outputActive'):
+                elif hasattr(status, 'outputActive'):  # Older OBS versions
                     is_recording = status.outputActive
                     recording_filename = getattr(status, 'outputPath', None)
-                elif hasattr(status, 'recording'):
+                elif hasattr(status, 'recording'):  # Alternative format
                     is_recording = status.recording
                     recording_filename = getattr(status, 'filename', None)
-                else:
-                    current_app.logger.warning(f"Unknown status format: {vars(status)}")
+                else:  # Unknown format - log warning and proceed to fallback
+                    current_app.logger.debug(f"Unrecognized status format: {vars(status)}")
                     # Fallback to checking output status directly
                     try:
                         output_status = self.ws.call(requests.GetOutputStatus('adv_file_output'))
