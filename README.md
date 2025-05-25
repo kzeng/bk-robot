@@ -88,3 +88,10 @@ curl -X POST http://localhost:5000/api/obs/screenshot \
 ```
 
 - shot without position_info
+
+
+
+### Run OBS with headless
+```bash
+obs --minimize-to-tray
+```
