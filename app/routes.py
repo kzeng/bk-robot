@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import json
 from app.models import Task, TaskLog
 from app import db
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import asyncio
 import os
 from functools import wraps
@@ -145,6 +145,11 @@ def index():
 def tasks_page():
     """盘点任务管理页面"""
     return render_template('task.html')
+
+@bp.route('/task-logs')
+def task_logs_page():
+    """任务日志列表页面"""
+    return render_template('task-logs.html')
 
 
 
@@ -307,19 +312,50 @@ def list_tasks():
         'description': task.description
     } for task in tasks])
 
+
+
 @bp.route('/api/tasks', methods=['POST'])
 @bp.route('/tasks', methods=['POST'])
 def create_task():
     """创建新盘点任务"""
-    data = request.get_json()
-    task = Task(
-        marker=data.get('marker', ''),
-        action=data.get('action', 0),
-        description=data.get('description', '')
-    )
-    db.session.add(task)
-    db.session.commit()
-    return jsonify({'status': 'OK', 'task_id': task.task_id}), 201
+    try:
+        # Log request headers and raw data
+        current_app.logger.info(f"Request headers: {dict(request.headers)}")
+        current_app.logger.info(f"Content-Type: {request.content_type}")
+        current_app.logger.info(f"Raw request data: {request.data}")
+        
+        try:
+            data = request.get_json()
+        except Exception as e:
+            current_app.logger.error(f"Failed to parse JSON: {str(e)}")
+            return jsonify({'status': 'ERROR', 'message': 'Invalid JSON format'}), 400
+            
+        current_app.logger.info(f"Creating new task with data: {data}")
+        
+        task = Task(
+            marker=data.get('marker', ''),
+            action=data.get('action', 0),
+            description=data.get('description', ''),
+            create_at=datetime.now(timezone(timedelta(hours=8)))  # Use Shanghai timezone
+        )
+
+        db.session.add(task)
+        db.session.commit()
+        
+        current_app.logger.info(f"Successfully created task ID: {task.task_id}")
+        return jsonify({
+            'status': 'OK', 
+            'task_id': task.task_id,
+            'message': 'Task created successfully'
+        }), 201
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating task: {str(e)}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to create task: {str(e)}'
+        }), 500
 
 @bp.route('/api/tasks/<int:task_id>', methods=['GET'])
 @bp.route('/tasks/<int:task_id>', methods=['GET'])

@@ -120,7 +120,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="document.getElementById('taskForm').dispatchEvent(new Event('submit'))">创建</button>
+                    <button type="button" class="btn btn-primary" onclick="createTask()">创建</button>
                 </div>
             </div>
         </div>
@@ -172,12 +172,6 @@
         // Load tasks when page loads
         document.addEventListener('DOMContentLoaded', loadTasks);
 
-        // Form submission for new task
-        document.getElementById('taskForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            createTask();
-        });
-
         // Save edited task
         document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
 
@@ -215,29 +209,55 @@
 
 
         function createTask() {
+            const form = document.getElementById('taskForm');
+            const actionSelect = form.querySelector('#action');
+            const descriptionTextarea = form.querySelector('#description');
+            
             const taskData = {
-                marker: document.getElementById('marker').value,
-                action: parseInt(document.getElementById('action').value),
-                description: document.getElementById('description').value
+                marker: form.querySelector('#marker').value,
+                action: actionSelect ? parseInt(actionSelect.value) : 0,
+                description: descriptionTextarea ? descriptionTextarea.value : ''
             };
+            
+            console.log('Form elements:', {
+                actionSelect: actionSelect,
+                descriptionTextarea: descriptionTextarea
+            });
+            console.log('Submitting task data:', taskData);
 
-            fetch('/api/tasks', {
+            fetch('/tasks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(taskData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'OK') {
+                    // Close modal and refresh task list
                     const modal = bootstrap.Modal.getInstance(document.getElementById('createTaskModal'));
                     modal.hide();
                     loadTasks();
+                    
+                    // Clear form
                     document.getElementById('taskForm').reset();
+                } else {
+                    alert('创建任务失败: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('创建任务时出错: ' + error.message);
             });
         }
+    
+
 
         function editTask(taskId) {
             fetch(`/api/tasks/${taskId}`)
