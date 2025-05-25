@@ -386,6 +386,118 @@ def update_task(task_id):
     db.session.commit()
     return jsonify({'status': 'OK'})
 
+@bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
+def run_task(task_id):
+    """执行盘点任务"""
+    task = Task.query.get_or_404(task_id)
+    marker_list = task.marker.split(',') if task.marker else []
+    start_time = datetime.now()
+    status = 'COMPLETED'
+    file_paths = []
+    
+    try:
+        if task.action == 0:  # Photo
+            for marker in marker_list:
+                print("------------------task run-------------------")
+                print('marker:', marker)
+                print('action', task.action)
+                print('---------------------------------------------')
+                # Move robot to marker
+                move_result = current_app.robot_control.send_command(
+                    f"/api/move?marker={marker.strip()}"
+                )
+                if move_result.get('status') != 'OK':
+                    raise Exception(f"Move to {marker} failed: {move_result.get('message')}")
+                
+                # Take photos
+                photo_result = current_app.obs_control.take_screenshot_all_cameras(
+                    position_info=marker.strip()
+                )
+                if photo_result.get('status') != 'OK':
+                    raise Exception(f"Photo failed: {photo_result.get('message')}")
+                
+                file_paths.extend(photo_result.get('file_paths', []))
+                
+        elif task.action == 1:  # Recording
+            if not marker_list:
+                raise Exception("No markers provided for recording")
+                
+            # Move to first marker and start recording
+            first_marker = marker_list[0].strip()
+            move_result = current_app.robot_control.send_command(
+                f"/api/move?marker={first_marker}"
+            )
+            if move_result.get('status') != 'OK':
+                raise Exception(f"Move to {first_marker} failed: {move_result.get('message')}")
+            
+            # Start recording
+            start_result = current_app.obs_control.start_recording()
+            if start_result.get('status') != 'OK':
+                raise Exception(f"Start recording failed: {start_result.get('message')}")
+            
+            # Move through remaining markers
+            if len(marker_list) > 1:
+                other_markers = ','.join(marker_list[1:])
+                move_result = current_app.robot_control.send_command(
+                    f"/api/move?marker={other_markers}"
+                )
+                if move_result.get('status') != 'OK':
+                    raise Exception(f"Move through markers failed: {move_result.get('message')}")
+            
+            # Stop recording
+            stop_result = current_app.obs_control.stop_recording()
+            if stop_result.get('status') != 'OK':
+                raise Exception(f"Stop recording failed: {stop_result.get('message')}")
+            
+            file_paths.extend(stop_result.get('file_paths', []))
+            
+        else:
+            raise Exception(f"Unknown action type: {task.action}")
+            
+        print('savetask log ...')
+        # Log task execution
+        task_log = TaskLog(
+            task_id=task_id,
+            marker=task.marker,
+            action=task.action,
+            start_time=start_time,
+            end_time=datetime.now(),
+            status=status,
+            file_count=len(file_paths),
+            file_paths=json.dumps(file_paths)
+        )
+        db.session.add(task_log)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'OK',
+            'message': 'Task executed successfully',
+            'file_paths': file_paths
+        })
+        
+    except Exception as e:
+        status = 'FAILED'
+        current_app.logger.error(f"Error running task {task_id}: {str(e)}")
+        
+        # Log failed task
+        task_log = TaskLog(
+            task_id=task_id,
+            marker=task.marker,
+            action=task.action,
+            start_time=start_time,
+            end_time=datetime.now(),
+            status=status,
+            file_count=0,
+            file_paths='[]'
+        )
+        db.session.add(task_log)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to execute task: {str(e)}'
+        }), 500
+
 @bp.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @bp.route('/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
