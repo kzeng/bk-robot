@@ -260,57 +260,28 @@ def stop_recording():
             "message": f"Error stopping recording: {str(e)}"
         }), 500
 
-@bp.route('/api/take_photo', methods=['POST'])
-def take_photo():
-    """拍摄照片API"""
-    data = request.get_json()
-    marker = data.get('marker')
-    obs_control = current_app.obs_control
-    obs_control.connect()
-    result = obs_control.take_screenshot_all_cameras(marker)
-    obs_control.close()
-    return jsonify(result)
+
 
 @bp.route('/api/obs/screenshot', methods=['POST'])
 def take_screenshot():
-    """拍摄截图API"""
+    """拍摄截图API
+    
+    Args:
+        position_info (str, optional): 坐标点的别名(marker name)，用于在文件名中标识拍摄位置。默认为空。
+    """
+    # 检查内容类型
+    if request.is_json:
+        data = request.get_json()
+        position_info = data.get('position_info', '') if data else ''
+    else:
+        position_info = ''
+    
     obs_control = current_app.obs_control
     obs_control.connect()
-    result = obs_control.take_screenshot_all_cameras({
-        "x": 0.0,
-        "y": 0.0,
-        "theta": 0.0
-    })
+    result = obs_control.take_screenshot_all_cameras(position_info=position_info)
     obs_control.close()
     return jsonify(result)
 
-@bp.route('/take_photos', methods=['POST'])
-@async_route
-async def take_photos():
-    """
-    拍摄所有摄像头的照片，并记录位置信息
-    """
-    try:
-        # 获取机器人位置信息（这里使用模拟数据，实际应从机器人控制器获取）
-        position_info = {
-            "x": 1.23,  # 机器人X坐标
-            "y": 4.56,  # 机器人Y坐标
-            "theta": 0.78  # 机器人朝向角度
-        }
-        
-        # 拍摄所有摄像头的照片
-        obs_control = current_app.obs_control
-        await obs_control.connect()
-        result = await obs_control.take_screenshot_all_cameras(position_info)
-        await obs_control.close()
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify({
-            "status": "ERROR",
-            "message": str(e)
-        }), 500
 
 @bp.route('/health', methods=['GET'])
 def health_check():
@@ -387,19 +358,6 @@ def delete_task(task_id):
     db.session.delete(task)
     db.session.commit()
     return jsonify({'status': 'OK'})
-
-@bp.route('/api/obs/scenes', methods=['GET'])
-@async_route
-async def get_obs_scenes():
-    """获取OBS中的场景列表"""
-    obs_control = current_app.obs_control
-    await obs_control.connect()
-    scenes = await obs_control.get_scene_list()
-    return jsonify({
-        "status": "OK",
-        "scenes": scenes
-    })
-
 
 
 @bp.route('/api/tasks/<int:task_id>/logs', methods=['GET'])

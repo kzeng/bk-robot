@@ -102,7 +102,7 @@ class OBSControl:
         """拍摄所有摄像头的截图
         
         Args:
-            position_info (str): Marker name
+            position_info (str): 坐标点的别名(marker name)，用于在文件名中标识拍摄位置
             
         Returns:
             dict: Results including file paths and status
@@ -221,8 +221,8 @@ class OBSControl:
                         # 等待场景切换完成
                         time.sleep(0.5)
                         
-                        # 拍摄截图 - 新文件名格式: 位置_摄像头编号_时间戳.jpg
-                        filename = f"{position_info['x']}-{scene}-Camera1-{timestamp}.jpg"
+                        # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
+                        filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.jpg"
                         filepath = os.path.join(base_dir, filename)
                         
                         # Use the source mapped to this scene
