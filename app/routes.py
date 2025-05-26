@@ -310,28 +310,7 @@ def health_check():
             "db_status": "Error"
         }), 500
 
-@bp.route('/db-info', methods=['GET'])
-def db_info():
-    """Database information endpoint"""
-    from sqlalchemy import inspect
-    inspector = inspect(db.engine)
-    
-    tables = inspector.get_table_names()
-    table_info = {}
-    
-    for table in tables:
-        columns = inspector.get_columns(table)
-        table_info[table] = [{
-            'name': col['name'],
-            'type': str(col['type']),
-            'nullable': col['nullable'],
-            'default': col['default']
-        } for col in columns]
-    
-    return jsonify({
-        'tables': tables,
-        'schema': table_info
-    })
+
 
 @bp.route('/api/tasks', methods=['GET'])
 @bp.route('/tasks', methods=['GET'])
@@ -483,47 +462,46 @@ def run_task(task_id):
                     current_app.logger.error(f"Error processing marker {marker}: {str(e)}")
                 
         elif task.action == 1:  # Recording
-            pass
-            # if not marker_list:
-            #     status = 4  # 4 = failed
-            #     raise Exception("No markers provided for recording")
+            if not marker_list:
+                status = 4  # 4 = failed
+                raise Exception("No markers provided for recording")
                 
-            # try:
-            #     # Move to first marker and start recording
-            #     first_marker = marker_list[0].strip()
-            #     move_result = current_app.robot_control.send_command(
-            #         f"/api/move?marker={first_marker}"
-            #     )
-            #     if move_result.get('status') != 'OK':
-            #         status = 3  # 3 = partial completion
-            #         current_app.logger.warning(f"Move to {first_marker} failed: {move_result.get('message')}")
+            try:
+                # Move to first marker and start recording
+                first_marker = marker_list[0].strip()
+                move_result = current_app.robot_control.send_command(
+                    f"/api/move?marker={first_marker}"
+                )
+                if move_result.get('status') != 'OK':
+                    status = 3  # 3 = partial completion
+                    current_app.logger.warning(f"Move to {first_marker} failed: {move_result.get('message')}")
                 
-            #     # Start recording
-            #     start_result = current_app.obs_control.start_recording()
-            #     if start_result.get('status') != 'OK':
-            #         status = 3  # 3 = partial completion
-            #         current_app.logger.warning(f"Start recording failed: {start_result.get('message')}")
+                # Start recording
+                start_result = current_app.obs_control.start_recording()
+                if start_result.get('status') != 'OK':
+                    status = 3  # 3 = partial completion
+                    current_app.logger.warning(f"Start recording failed: {start_result.get('message')}")
                 
-            #     # Move through remaining markers
-            #     if len(marker_list) > 1:
-            #         other_markers = ','.join(marker_list[1:])
-            #         move_result = current_app.robot_control.send_command(
-            #             f"/api/move?marker={other_markers}"
-            #         )
-            #         if move_result.get('status') != 'OK':
-            #             status = 3  # 3 = partial completion
-            #             current_app.logger.warning(f"Move through markers failed: {move_result.get('message')}")
+                # Move through remaining markers
+                if len(marker_list) > 1:
+                    other_markers = ','.join(marker_list[1:])
+                    move_result = current_app.robot_control.send_command(
+                        f"/api/move?marker={other_markers}"
+                    )
+                    if move_result.get('status') != 'OK':
+                        status = 3  # 3 = partial completion
+                        current_app.logger.warning(f"Move through markers failed: {move_result.get('message')}")
                 
-            #     # Stop recording
-            #     stop_result = current_app.obs_control.stop_recording()
-            #     if stop_result.get('status') != 'OK':
-            #         status = 3  # 3 = partial completion
-            #         current_app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                # Stop recording
+                stop_result = current_app.obs_control.stop_recording()
+                if stop_result.get('status') != 'OK':
+                    status = 3  # 3 = partial completion
+                    current_app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
                 
-            #     file_paths.extend(stop_result.get('file_paths', []))
-            # except Exception as e:
-            #     status = 4  # 4 = failed
-            #     current_app.logger.error(f"Recording task failed: {str(e)}")
+                file_paths.extend(stop_result.get('file_paths', []))
+            except Exception as e:
+                status = 4  # 4 = failed
+                current_app.logger.error(f"Recording task failed: {str(e)}")
             
         else:
             status = 4  # 4 = failed

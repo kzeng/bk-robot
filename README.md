@@ -63,21 +63,21 @@ curl -X POST http://localhost:5000/api/obs/screenshot \
     {
       "camera_id": 1,
       "filename": "Marker1-s1-s1-20250525_112856.jpg",
-      "filepath": "static/screenshots/20250525/Marker1-s1-s1-20250525_112856.jpg",
+      "filepath": "static/screenshots/20250525/Marker1-s1-c1-20250525_112856.jpg",
       "scene": "s1",
       "status": "OK"
     },
     {
       "camera_id": 2,
       "filename": "Marker1-s2-s2-20250525_112856.jpg",
-      "filepath": "static/screenshots/20250525/Marker1-s2-s2-20250525_112856.jpg",
+      "filepath": "static/screenshots/20250525/Marker1-s2-c2-20250525_112856.jpg",
       "scene": "s2",
       "status": "OK"
     },
     {
       "camera_id": 3,
       "filename": "Marker1-s3-s3-20250525_112856.jpg",
-      "filepath": "static/screenshots/20250525/Marker1-s3-s3-20250525_112856.jpg",
+      "filepath": "static/screenshots/20250525/Marker1-s3-c3-20250525_112856.jpg",
       "scene": "s3",
       "status": "OK"
     }
