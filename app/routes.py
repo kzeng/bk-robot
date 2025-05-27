@@ -153,7 +153,9 @@ def task_logs_page():
     return render_template('task-logs.html')
 
 
-
+# common API for robot control, all commands can be sent through this endpoint
+# api_request should be in the format of "cmd?params"
+# returns info insert into opt-info container
 @bp.route('/api/robot/cmd', methods=['POST'])
 def robot_cmd():
     """发送机器人控制命令API"""
@@ -288,28 +290,6 @@ def take_screenshot():
     obs_control.close()
     return jsonify(result)
 
-
-@bp.route('/health', methods=['GET'])
-def health_check():
-    """
-    健康检查接口
-    """
-    # Add database check
-    from app.models import TaskLog
-    try:
-        log_count = TaskLog.query.count()
-        return jsonify({
-            "status": "OK",
-            "message": "Service is running",
-            "task_logs_count": log_count,
-            "db_status": "Connected"
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "ERROR",
-            "message": str(e),
-            "db_status": "Error"
-        }), 500
 
 
 
