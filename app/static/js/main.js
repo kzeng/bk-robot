@@ -1,5 +1,5 @@
 function confirmAndRunTask(taskId) {
-    if (confirm('Are you sure you want to execute this task?')) {
+    if (confirm('确定要执行此任务吗？')) {
         runTask(taskId);
     }
 }
@@ -27,9 +27,8 @@ async function clearLogs() {
     }
 }
 
-async function runTask(taskId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to execute this task?')) {
+async function runTask(taskId) {    // Show confirmation dialog
+    if (!confirm('确定要执行此任务吗？')) {
         return;
     }
 
@@ -64,7 +63,7 @@ async function runTask(taskId) {
         const result = await response.json();
         
         if (result.status !== 'OK') {
-            throw new Error(result.message || 'Task execution failed');
+            throw new Error(result.message || '任务执行失败');
         }
         
         // Update status to show task is running
@@ -142,7 +141,7 @@ async function pollTaskStatus(taskId) {
                 }
             }
         } catch (error) {
-            console.error('Error polling task status:', error);
+            console.error('轮询任务状态出错:', error);
             const statusElement = document.getElementById('taskStatus');
             if (statusElement) {
                 statusElement.innerHTML = '<span class="text-danger" style="font-size: 1.1em; font-weight: bold;">状态查询失败</span>';
