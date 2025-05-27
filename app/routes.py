@@ -405,11 +405,14 @@ def run_task(task_id):
     """执行盘点任务"""
     task = Task.query.get_or_404(task_id)
     marker_list = task.marker.split(',') if task.marker else []
+    if not marker_list:
+        return jsonify({'status': 'ERROR', 'message': 'No markers provided'}), 400
+    
     start_time = datetime.now()
     status = 1  # 1 = in progress
     file_paths = []
     
-    # Create initial task log with detailed logging
+    # Create initial task log
     current_app.logger.info(f"Creating initial TaskLog for task {task_id}")
     task_log = TaskLog(
         task_id=task_id,
@@ -426,83 +429,105 @@ def run_task(task_id):
     current_app.logger.info(f"Initial TaskLog created with ID: {task_log.log_id}")
     
     try:
-        if task.action == 0:  # Photo
-            for marker in marker_list:
-                print("------------------task run-------------------")
-                print('marker:', marker)
-                print('action', task.action)
-                print('---------------------------------------------')
-                try:
-                    # Move robot to marker
-                    move_result = current_app.robot_control.send_command(
-                        f"/api/move?marker={marker.strip()}"
-                    )
-                    if move_result.get('status') != 'OK':
-                        status = 3  # 3 = partial completion
-                        current_app.logger.warning(f"Move to {marker} failed: {move_result.get('message')}")
+        if task.action == 0:  # Photo task
+            # Send move command with all markers
+            markers = ','.join(marker.strip() for marker in marker_list)
+            move_result = current_app.robot_control.send_command(f"/api/move?marker={markers}")
+            if move_result.get('status') != 'OK':
+                raise Exception(f"Failed to start movement: {move_result.get('message')}")
+
+            current_app.logger.info("Started movement through markers for photo task")
+            completed_markers = set()
+            
+            # Monitor robot status until all markers are processed
+            while len(completed_markers) < len(marker_list):
+                robot_status = current_app.robot_control.send_command("/api/robot_status")
+                if robot_status.get('status') != 'OK':
+                    raise Exception("Failed to get robot status")
+
+                results = robot_status.get('results', {})
+                current_target = results.get('move_target')
+                move_status = results.get('move_status')
+                
+                # Skip if no target or already processed
+                if not current_target or current_target in completed_markers:
+                    time.sleep(1)
+                    continue
+                
+                # If succeeded at current target, take photo
+                if move_status == 'succeeded':
+                    current_app.logger.info(f"Robot reached marker {current_target}, taking photos")
                     
-                    # Take photos
-                    # Take photos and track results
                     photo_result = current_app.obs_control.take_screenshot_all_cameras(
-                        position_info=marker.strip()
+                        position_info=current_target
                     )
                     if photo_result.get('status') == 'OK':
                         new_files = photo_result.get('file_paths', [])
                         if new_files:
                             file_paths.extend(new_files)
-                            current_app.logger.info(f"Saved {len(new_files)} photos for marker {marker}")
+                            current_app.logger.info(f"Saved {len(new_files)} photos for marker {current_target}")
                         else:
                             status = 3  # 3 = partial completion
-                            current_app.logger.warning(f"No photos saved for marker {marker}")
+                            current_app.logger.warning(f"No photos saved for marker {current_target}")
                     else:
                         status = 3  # 3 = partial completion
-                        current_app.logger.warning(f"Photo failed: {photo_result.get('message')}")
-                except Exception as e:
+                        current_app.logger.warning(f"Photo failed at {current_target}: {photo_result.get('message')}")
+                    
+                    completed_markers.add(current_target)
+                    
+                # Handle failures
+                elif move_status in ['failed', 'canceled']:
                     status = 3  # 3 = partial completion
-                    current_app.logger.error(f"Error processing marker {marker}: {str(e)}")
+                    current_app.logger.warning(f"Movement to {current_target} {move_status}")
+                    completed_markers.add(current_target)
                 
-        elif task.action == 1:  # Recording
-            if not marker_list:
-                status = 4  # 4 = failed
-                raise Exception("No markers provided for recording")
+                time.sleep(1)  # Prevent too frequent polling
                 
-            try:
-                # Move to first marker and start recording
-                first_marker = marker_list[0].strip()
-                move_result = current_app.robot_control.send_command(
-                    f"/api/move?marker={first_marker}"
-                )
-                if move_result.get('status') != 'OK':
-                    status = 3  # 3 = partial completion
-                    current_app.logger.warning(f"Move to {first_marker} failed: {move_result.get('message')}")
-                
-                # Start recording
-                start_result = current_app.obs_control.start_recording()
-                if start_result.get('status') != 'OK':
-                    status = 3  # 3 = partial completion
-                    current_app.logger.warning(f"Start recording failed: {start_result.get('message')}")
-                
-                # Move through remaining markers
-                if len(marker_list) > 1:
-                    other_markers = ','.join(marker_list[1:])
-                    move_result = current_app.robot_control.send_command(
-                        f"/api/move?marker={other_markers}"
-                    )
-                    if move_result.get('status') != 'OK':
-                        status = 3  # 3 = partial completion
-                        current_app.logger.warning(f"Move through markers failed: {move_result.get('message')}")
-                
-                # Stop recording
-                stop_result = current_app.obs_control.stop_recording()
-                if stop_result.get('status') != 'OK':
-                    status = 3  # 3 = partial completion
-                    current_app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
-                
-                file_paths.extend(stop_result.get('file_paths', []))
-            except Exception as e:
-                status = 4  # 4 = failed
-                current_app.logger.error(f"Recording task failed: {str(e)}")
+        elif task.action == 1:  # Recording task
+            # Send move command with all markers
+            markers = ','.join(marker.strip() for marker in marker_list)
+            move_result = current_app.robot_control.send_command(f"/api/move?marker={markers}")
+            if move_result.get('status') != 'OK':
+                raise Exception(f"Failed to start movement: {move_result.get('message')}")
+
+            current_app.logger.info("Started movement through markers for recording task")
+            recording_started = False
+            last_marker = marker_list[-1]
             
+            # Monitor robot status
+            while True:
+                robot_status = current_app.robot_control.send_command("/api/robot_status")
+                if robot_status.get('status') != 'OK':
+                    raise Exception("Failed to get robot status")
+
+                results = robot_status.get('results', {})
+                current_target = results.get('move_target')
+                move_status = results.get('move_status')
+                
+                # Start recording at first marker
+                if not recording_started and move_status == 'succeeded':
+                    current_app.logger.info("Robot reached first marker, starting recording")
+                    start_result = current_app.obs_control.start_recording()
+                    if start_result.get('status') != 'OK':
+                        status = 3  # 3 = partial completion
+                        current_app.logger.warning(f"Start recording failed: {start_result.get('message')}")
+                    recording_started = True
+                
+                # Stop recording at last marker or on failure
+                if (current_target == last_marker and move_status == 'succeeded') or \
+                   move_status in ['failed', 'canceled']:
+                    if recording_started:
+                        current_app.logger.info("Stopping recording")
+                        stop_result = current_app.obs_control.stop_recording()
+                        if stop_result.get('status') != 'OK':
+                            status = 3  # 3 = partial completion
+                            current_app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                        else:
+                            file_paths.extend(stop_result.get('file_paths', []))
+                    break
+                
+                time.sleep(1)  # Prevent too frequent polling
+                
         else:
             status = 4  # 4 = failed
             raise Exception(f"Unknown action type: {task.action}")
@@ -526,8 +551,17 @@ def run_task(task_id):
     except Exception as e:
         status = 4  # 4 = failed
         current_app.logger.error(f"Error running task {task_id}: {str(e)}")
+        # Try to stop recording if exception occurs during recording task
+        if task.action == 1 and recording_started:
+            try:
+                stop_result = current_app.obs_control.stop_recording()
+                if stop_result.get('status') == 'OK':
+                    file_paths.extend(stop_result.get('file_paths', []))
+            except Exception as stop_error:
+                current_app.logger.error(f"Error stopping recording after failure: {stop_error}")
+                
         return jsonify({
-            'status': 'ERROR',
+            'status': 'ERROR', 
             'message': f'Failed to execute task: {str(e)}'
         }), 500
         
