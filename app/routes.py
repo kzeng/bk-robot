@@ -10,6 +10,9 @@ from functools import wraps
 import time
 from threading import Thread
 
+import serial
+from .lift import Lift
+
 
 def async_route(f):
     @wraps(f)
@@ -381,6 +384,34 @@ def update_task(task_id):
     db.session.commit()
     return jsonify({'status': 'OK'})
 
+@bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
+def run_task(task_id):
+    """启动盘点任务执行
+    
+    对于拍照任务(0)：
+    - 原始行为：通过单个API调用移动机器人到所有标记点，监控状态并在每个标记点拍照
+    - 新行为：将标记点列表拆分为连续的两点组合（例如[m1,m2,m3,m4] -> [m1,m2], [m2,m3], [m3,m4]）
+                  顺序执行每个移动操作，在每次移动结束后拍照
+        - 优势：简化了机器人状态监控逻辑，因为只需要关注单次移动完成信号
+        
+    Args:
+        task_id (int): 要执行的任务ID
+            
+    Returns:
+        JSON响应包含:
+        - status: 'OK' 或 'ERROR'
+        - message: 操作结果描述
+        - task_log_id: 任务日志ID用于跟踪执行过程
+    """
+    task = Task.query.get_or_404(task_id)
+    thread = Thread(target=async_run_task, args=(current_app._get_current_object(), task.task_id))
+    thread.start()
+    return jsonify({
+        'status': 'OK',
+        'message': 'Task execution started',
+        'task_log_id': task.task_id
+    })
+
 def async_run_task(app, task_id):
     """在后台线程中执行任务"""
     with app.app_context():
@@ -400,55 +431,63 @@ def async_run_task(app, task_id):
         
         try:
             if task.action == 0:  # Photo task
-                # Send move command with all markers
-                markers = ','.join(marker.strip() for marker in marker_list)
-                move_result = app.robot_control.send_command(f"/api/move?marker={markers}")
-                if move_result.get('status') != 'OK':
-                    raise Exception(f"Failed to start movement: {move_result.get('message')}")
-
-                app.logger.info("Started movement through markers for photo task")
-                completed_markers = set()
+                marker_list = [marker.strip() for marker in marker_list if marker.strip()]
                 
-                while len(completed_markers) < len(marker_list):
-                    robot_status = app.robot_control.send_command("/api/robot_status")
-                    if robot_status.get('status') != 'OK':
-                        raise Exception("Failed to get robot status")
+                if not marker_list:
+                    raise Exception("No markers specified for photo task")
+                
+                # Create subtasks for each pair of markers
+                subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
+                completed_markers = set()
+                file_paths = []
+                
+                # Process each subtask sequentially
+                for start_marker, end_marker in subtasks:
+                    app.logger.info(f"Starting movement from {start_marker} to {end_marker}")
+                    
+                    # Send move command for current pair
+                    move_result = app.robot_control.send_command(f"/api/move?marker={start_marker},{end_marker}")
+                    if move_result.get('status') != 'OK':
+                        raise Exception(f"Failed to start movement: {move_result.get('message')}")
 
-                    results = robot_status.get('results', {})
-                    current_target = results.get('move_target')
-                    move_status = results.get('move_status')
-                    
-                    if not current_target or current_target in completed_markers:
-                        time.sleep(0.5)
-                        continue
-                    
-                    if move_status == 'succeeded':
-                        app.logger.info(f"Robot reached marker {current_target}, taking photos")
+                    # Monitor current movement until completion
+                    while True:
+                        robot_status = app.robot_control.send_command("/api/robot_status")
+                        if robot_status.get('status') != 'OK':
+                            raise Exception("Failed to get robot status")
+
+                        results = robot_status.get('results', {})
+                        move_status = results.get('move_status')
                         
-                        photo_result = app.obs_control.take_screenshot_all_cameras(
-                            position_info=current_target
-                        )
-                        if photo_result.get('status') == 'OK':
-                            new_files = photo_result.get('file_paths', [])
-                            if new_files:
-                                file_paths.extend(new_files)
-                                app.logger.info(f"Saved {len(new_files)} photos for marker {current_target}")
+                        if move_status == 'succeeded':
+                            app.logger.info(f"Robot reached marker {end_marker}, taking photos")
+                            
+                            # Take photos at end_marker
+                            photo_result = app.obs_control.take_screenshot_all_cameras(
+                                position_info=end_marker
+                            )
+                            if photo_result.get('status') == 'OK':
+                                new_files = photo_result.get('file_paths', [])
+                                if new_files:
+                                    file_paths.extend(new_files)
+                                    app.logger.info(f"Saved {len(new_files)} photos at {end_marker}")
+                                else:
+                                    status = 3  # Partial completion
+                                    app.logger.warning(f"No photos saved at {end_marker}")
                             else:
-                                status = 3  # 3 = partial completion
-                                app.logger.warning(f"No photos saved for marker {current_target}")
-                        else:
-                            status = 3  # 3 = partial completion
-                            app.logger.warning(f"Photo failed at {current_target}: {photo_result.get('message')}")
+                                status = 3  # Partial completion
+                                app.logger.warning(f"Photo failed at {end_marker}: {photo_result.get('message')}")
                         
-                        completed_markers.add(current_target)
+                            completed_markers.add(end_marker)
+                            break
+                            
+                        elif move_status in ['failed', 'canceled']:
+                            status = 3  # Partial completion
+                            app.logger.warning(f"Movement to {end_marker} {move_status}")
+                            break
                         
-                    elif move_status in ['failed', 'canceled']:
-                        status = 3  # 3 = partial completion
-                        app.logger.warning(f"Movement to {current_target} {move_status}")
-                        completed_markers.add(current_target)
-                    
-                    time.sleep(1)  # Prevent too frequent polling
-                    
+                        time.sleep(1)  # Prevent too frequent polling
+                
             elif task.action == 1:  # Recording task
                 markers = ','.join(marker.strip() for marker in marker_list)
                 move_result = app.robot_control.send_command(f"/api/move?marker={markers}")
@@ -522,35 +561,35 @@ def async_run_task(app, task_id):
             except Exception as e:
                 app.logger.error(f"Failed to update task log: {str(e)}")
 
-@bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
-def run_task(task_id):
-    """启动盘点任务执行"""
-    task = Task.query.get_or_404(task_id)
+# @bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
+# def run_task(task_id):
+#     """启动盘点任务执行"""
+#     task = Task.query.get_or_404(task_id)
     
-    # 创建初始任务日志
-    task_log = TaskLog(
-        task_id=task_id,
-        marker=task.marker,
-        action=task.action,
-        start_time=datetime.now(),
-        status=1,  # 1 = in progress
-        file_count=0,
-        file_paths='[]'
-    )
-    db.session.add(task_log)
-    db.session.commit()
+#     # 创建初始任务日志
+#     task_log = TaskLog(
+#         task_id=task_id,
+#         marker=task.marker,
+#         action=task.action,
+#         start_time=datetime.now(),
+#         status=1,  # 1 = in progress
+#         file_count=0,
+#         file_paths='[]'
+#     )
+#     db.session.add(task_log)
+#     db.session.commit()
     
-    # 启动后台线程执行任务
-    app = current_app._get_current_object()  # 获取真实的app对象
-    thread = Thread(target=async_run_task, args=(app, task_id))
-    thread.daemon = True  # 设置为守护线程
-    thread.start()
+#     # 启动后台线程执行任务
+#     app = current_app._get_current_object()  # 获取真实的app对象
+#     thread = Thread(target=async_run_task, args=(app, task_id))
+#     thread.daemon = True  # 设置为守护线程
+#     thread.start()
     
-    return jsonify({
-        'status': 'OK',
-        'message': 'Task started successfully',
-        'task_log_id': task_log.log_id
-    })
+#     return jsonify({
+#         'status': 'OK',
+#         'message': 'Task started successfully',
+#         'task_log_id': task_log.log_id
+#     })
 
 @bp.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @bp.route('/tasks/<int:task_id>', methods=['DELETE'])
@@ -652,3 +691,74 @@ def get_task_log_detail(log_id):
         'file_count': log.file_count,
         'file_paths': json.loads(log.file_paths)
     })
+
+
+### LIFT  ROUTES ###########################################################################################
+
+SERIAL_PORT = '/dev/ttyUSB0'  # Replace with actual serial port
+BAUDRATE = 9600
+lift = None  # Initialize as None
+
+try:
+    # Initialize the Lift instance with logging
+    print(f"Attempting to connect to lift on {SERIAL_PORT} at {BAUDRATE} baud")
+    lift = Lift(port=SERIAL_PORT, baudrate=BAUDRATE)
+    print("Lift connection established successfully")
+except serial.SerialException as e:
+    print(f"Serial connection error: {e}")
+    print("Running in simulation mode (no hardware connected)")
+except Exception as e:
+    print(f"Unexpected error initializing Lift: {e}")
+    print("Running in simulation mode")
+
+
+@bp.route('/api/lift/status', methods=['GET'])
+def lift_status():
+    """Check lift connection status"""
+    if lift is None:
+        return jsonify({
+            'status': 'error',
+            'message': 'Lift not initialized',
+            'connected': False
+        }), 503
+    
+    try:
+        # Simple check if serial connection is open
+        connected = lift.serial_connection.is_open
+        return jsonify({
+            'status': 'success',
+            'message': 'Lift is connected' if connected else 'Lift is disconnected',
+            'connected': connected
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'connected': False
+        }), 500
+
+@bp.route('/api/lift/<command>', methods=['POST'])
+def lift_command(command):
+    try:
+        if command == 'move_to_position_one':
+            lift.move_to_position_one()
+        elif command == 'move_to_position_two':
+            lift.move_to_position_two()
+        elif command == 'move_to_position_three':
+            lift.move_to_position_three()
+        elif command == 'move_up':
+            lift.move_up()
+        elif command == 'move_down':
+            lift.move_down()
+        elif command == 'reset':
+            lift.reset()
+        elif command == 'stop_moving_up':
+            lift.stop_moving_up()
+        elif command == 'stop_moving_down':
+            lift.stop_moving_down()
+        else:
+            return jsonify({'error': 'Invalid command'}), 400
+
+        return jsonify({'status': 'success', 'command': command})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
