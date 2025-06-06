@@ -5,6 +5,9 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
+    # admin password hashlib.sha1 admin123
+    ADMIN_PASSWORD = 'f865b53623b121fd34ee5426c792e5c33af8c227'
+
     # Flask配置
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-please-change-in-production'
     
