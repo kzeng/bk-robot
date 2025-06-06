@@ -110,6 +110,7 @@
                             <select class="form-select" id="action">
                                 <option value="0">拍照</option>
                                 <option value="1">录像</option>
+                                <option value="99">仅是移动</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -146,6 +147,7 @@
                             <select class="form-select" id="editAction">
                                 <option value="0">拍照</option>
                                 <option value="1">录像</option>
+                                <option value="99">仅是移动</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -204,7 +206,29 @@
         }
 
         function getActionText(action) {
-            return action === 0 ? '拍照' : '录像';
+            if (action === 0 || action === "0") return '拍照';
+            if (action === 1 || action === "1") return '录像';
+            if (action === 99 || action === "99") return '仅是移动';
+            return '未知';
+        }
+
+        function getStatusText(status) {
+            switch (status) {
+                case 1:
+                case '1':
+                    return '进行中';
+                case 2:
+                case '2':
+                    return '已完成';
+                case 3:
+                case '3':
+                    return '部分完成';
+                case 4:
+                case '4':
+                    return '执行失败';
+                default:
+                    return '准备就绪';
+            }
         }
 
 
@@ -310,6 +334,30 @@
                     }
                 });
             }
+        }
+
+        // 在任务状态面板赋值时，action显示支持“仅是移动”
+        function showTaskPanel(task) {
+            document.getElementById('taskPanel').style.display = '';
+            document.getElementById('taskId').textContent = task.task_id;
+            document.getElementById('action').textContent = getActionText(task.action);
+            document.getElementById('description').textContent = task.description;
+            document.getElementById('taskStatus').innerHTML = `<span>${getStatusText(task.status)}</span>`;
+        }
+
+        // 在runTask等需要弹出当前任务状态面板的地方调用 showTaskPanel(task)
+        function runTask(taskId) {
+            fetch(`/api/tasks/${taskId}`)
+                .then(response => response.json())
+                .then(task => {
+                    showTaskPanel(task);
+                    // 这里可以加上实际的任务启动逻辑
+                    fetch(`/api/tasks/${taskId}/run`, { method: 'POST' })
+                        .then(response => response.json())
+                        .then(data => {
+                            // 可根据data.status等更新taskStatus
+                        });
+                });
         }
     </script>
 </body>

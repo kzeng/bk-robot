@@ -9,7 +9,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-please-change-in-production'
     
     # 机器人底座配置
-    MOCK_MODE = os.environ.get('MOCK_MODE') or True
+    MOCK_MODE = os.environ.get('MOCK_MODE') or False
     ROBOT_IP = os.environ.get('ROBOT_IP') or '192.168.10.10'
     ROBOT_PORT = int(os.environ.get('ROBOT_PORT') or 31001)
     
