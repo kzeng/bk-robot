@@ -1,4 +1,4 @@
-from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for
+from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import json
 from app.models import Task, TaskLog
@@ -14,6 +14,7 @@ import serial
 from .lift import Lift
 
 
+
 def async_route(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -25,117 +26,117 @@ bp = Blueprint('main', __name__)
 robot_all_apis_options = [
         {
             "title": "1.机器人移动功能",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#1%E6%9C%BA%E5%99%A8%E4%BA%BA%E7%A7%BB%E5%8A%A8%E5%8A%9F%E8%83%BD",
+            "url": "#",
             "cmd": "/api/move"
         },
         {
             "title": "2.移动取消功能",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#2%E7%A7%BB%E5%8A%A8%E5%8F%96%E6%B6%88%E5%8A%9F%E8%83%BD",
+            "url": "#",
             "cmd": "/api/move/cancel"
         },
         {
             "title": "3.获取机器人当前全局状态",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#3%E8%8E%B7%E5%8F%96%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%BD%93%E5%89%8D%E5%85%A8%E5%B1%80%E7%8A%B6%E6%80%81",
+            "url": "#",
             "cmd": "/api/robot_status"
         },
         {
             "title": "4.获取机器人信息接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#4%E8%8E%B7%E5%8F%96%E6%9C%BA%E5%99%A8%E4%BA%BA%E4%BF%A1%E6%81%AF%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/robot_info"
         },
         {
             "title": "5.点位功能接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#5%E7%82%B9%E4%BD%8D%E5%8A%9F%E8%83%BD%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/markers/insert"
         },
         {
             "title": "6.机器人直接控制指令",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#6%E6%9C%BA%E5%99%A8%E4%BA%BA%E7%9B%B4%E6%8E%A5%E6%8E%A7%E5%88%B6%E6%8C%87%E4%BB%A4",
+            "url": "#",
             "cmd": "/api/joy_control"
         },
         {
             "title": "7.机器人急停控制指令",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#7%E6%9C%BA%E5%99%A8%E4%BA%BA%E6%80%A5%E5%81%9C%E6%8E%A7%E5%88%B6%E6%8C%87%E4%BB%A4",
+            "url": "#",
             "cmd": "/api/estop"
         },
         {
             "title": "8.校正机器人当前位置",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#8%E6%A0%A1%E6%AD%A3%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%BD%93%E5%89%8D%E4%BD%8D%E7%BD%AE",
+            "url": "#",
             "cmd": "/api/position_adjust"
         },
         {
             "title": "9.请求机器人实时数据",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#9%E8%AF%B7%E6%B1%82%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE",
+            "url": "#",
             "cmd": "/api/request_data"
         },
         {
             "title": "10.机器人主动通知",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#10%E6%9C%BA%E5%99%A8%E4%BA%BA%E4%B8%BB%E5%8A%A8%E9%80%9A%E7%9F%A5",
+            "url": "#",
             "cmd": "/api/xxxxxxxxxxx"
         },
         {
             "title": "11.设置参数",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#11%E8%AE%BE%E7%BD%AE%E5%8F%82%E6%95%B0",
+            "url": "#",
             "cmd": "/api/set_params"
         },
         {
             "title": "12.获取参数",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#12%E8%8E%B7%E5%8F%96%E5%8F%82%E6%95%B0",
+            "url": "#",
             "cmd": "/api/get_params"
         },
         {
             "title": "13.无线网络接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#13%E6%97%A0%E7%BA%BF%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/wifi/list"
         },
         {
             "title": "14.地图接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#14%E5%9C%B0%E5%9B%BE%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/map/list"
         },
         {
             "title": "15.关机重启接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#15%E5%85%B3%E6%9C%BA%E9%87%8D%E5%90%AF%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/shutdown"
         },
         {
             "title": "16.软件更新接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#16%E8%BD%AF%E4%BB%B6%E6%9B%B4%E6%96%B0%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/software/get_version"
         },
         {
             "title": "17.设置灯带接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#17%E8%AE%BE%E7%BD%AE%E7%81%AF%E5%B8%A6%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/LED/set_luminance"
         },
         {
             "title": "18.自诊断接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#18%E8%87%AA%E8%AF%8A%E6%96%AD%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/diagnosis/get_result"
         },
         {
             "title": "19.获取电源状态接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#19%E8%8E%B7%E5%8F%96%E7%94%B5%E6%BA%90%E7%8A%B6%E6%80%81%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/get_power_status"
         },
         {
             "title": "20.获取机器人全局路径接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#20%E8%8E%B7%E5%8F%96%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%85%A8%E5%B1%80%E8%B7%AF%E5%BE%84%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/get_planned_path"
         },
         {
             "title": "21.获取电梯状态接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#21%E8%8E%B7%E5%8F%96%E7%94%B5%E6%A2%AF%E7%8A%B6%E6%80%81%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/lift_status"
         },
         {
             "title": "22.获取两点间路径接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#22%E8%8E%B7%E5%8F%96%E4%B8%A4%E7%82%B9%E9%97%B4%E8%B7%AF%E5%BE%84%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/make_plan"
         },
         {
             "title": "23.获取机器人当前位置接口",
-            "url": "http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#23%E8%8E%B7%E5%8F%96%E6%9C%BA%E5%99%A8%E4%BA%BA%E5%BD%93%E5%89%8D%E4%BD%8D%E7%BD%AE%E6%8E%A5%E5%8F%A3",
+            "url": "#",
             "cmd": "/api/get_current_location"
         }
     ]
@@ -144,6 +145,12 @@ robot_all_apis_options = [
 def index():
     """调试界面主页"""
     return render_template('index.html', robot_all_apis_options=robot_all_apis_options)
+
+
+@bp.route('/docs/<path:filename>')
+def serve_docs(filename):
+    return send_from_directory('static/docs', filename)
+
 
 @bp.route('/tasks')
 def tasks_page():
