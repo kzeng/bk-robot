@@ -781,7 +781,7 @@ def lift_command(command):
         return jsonify({'error': str(e)}), 500
 
 
-# Photo management API routes
+# Photo management API routes ##########################################################################
 @bp.route('/api/photos/directories', methods=['GET'])
 def get_photo_directories():
     """获取所有图片目录"""

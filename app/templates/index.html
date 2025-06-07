@@ -8,16 +8,6 @@
     
     <style>
 
-        .row {
-            --bs-gutter-x: 0rem; 
-        }
-        .navbar {
-            margin-bottom: 20px;
-            margin-left: 0;
-
-            padding-top: 0.1rem;
-            padding-bottom: 0.1rem;
-        }
         .control-panel {
             margin: 20px;
             padding: 20px;
@@ -44,9 +34,10 @@
     </style>
 </head>
 <body>
+<body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-
+ 
             <a class="navbar-brand" href="#">
 
                 <img src="{{ url_for('static', filename='res/bookgoal.ico') }}" alt="Logo" width="36" height="36" class="d-inline-block align-text-top rounded-circle shadow" style="background: #fff; border-radius: 16px;">
@@ -59,7 +50,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-auto">
                     <a class="nav-link active" href="/">控制面板</a>
-                    <a class="nav-link" href="/tasks">盘点任务</a>
+                    <a class="nav-link " href="/tasks">盘点任务</a>
                     <a class="nav-link" href="/task-logs">任务日志</a>
                     <a class="nav-link" href="/photos">数据管理</a>
                 </div>
