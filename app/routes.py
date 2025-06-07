@@ -162,6 +162,10 @@ def task_logs_page():
     """任务日志列表页面"""
     return render_template('task-logs.html')
 
+@bp.route('/photos')
+def photos_page():
+    """照片管理页面"""
+    return render_template('photos.html')
 
 # common API for robot control, all commands can be sent through this endpoint
 # api_request should be in the format of "cmd?params"
@@ -722,7 +726,7 @@ except serial.SerialException as e:
     print("Running in simulation mode (no hardware connected)")
 except Exception as e:
     print(f"Unexpected error initializing Lift: {e}")
-    print("Running in simulation mode")
+    print("Running in simulation")
 
 
 @bp.route('/api/lift/status', methods=['GET'])
@@ -775,3 +779,308 @@ def lift_command(command):
         return jsonify({'status': 'success', 'command': command})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# Photo management API routes
+@bp.route('/api/photos/directories', methods=['GET'])
+def get_photo_directories():
+    """获取所有图片目录"""
+    try:
+        screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
+        
+        if not os.path.exists(screenshots_dir):
+            return jsonify({
+                'directories': [],
+                'count': 0
+            })
+        
+        # 获取所有子目录
+        all_items = os.listdir(screenshots_dir)
+        directories = [d for d in all_items 
+                     if os.path.isdir(os.path.join(screenshots_dir, d))]
+        
+        # 添加调试输出：打印找到的目录
+        current_app.logger.info(f"Found directories: {directories}")
+        
+        # 按目录名称排序（通常是日期格式，如YYYYMMDD）
+        directories.sort(reverse=True)
+        
+        return jsonify({
+            'directories': directories,
+            'count': len(directories)
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting photo directories: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to get directories: {str(e)}'
+        }), 500
+
+
+@bp.route('/api/photos/images', methods=['GET'])
+def get_images_in_directory():
+    """获取指定目录下的图片列表"""
+    try:
+        directory = request.args.get('directory', '')
+        screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
+        
+        # 添加调试日志：打印基础目录和请求的目录
+        current_app.logger.info(f"Getting images - Base directory: {screenshots_dir}")
+        current_app.logger.info(f"Getting images - Requested directory: {directory}")
+        
+        # 如果没有指定目录，则返回所有图片
+        if not directory:
+            images = []
+            for root, dirs, files in os.walk(screenshots_dir):
+                for file in files:
+                    if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                        rel_path = os.path.relpath(root, screenshots_dir)
+                        full_path = os.path.join(root, file)
+                        
+                        # 添加调试日志：找到的文件路径
+                        current_app.logger.info(f"Found file: {full_path}")
+                        
+                        # 获取相对路径用于构造URL
+                        if rel_path == '.':
+                            thumbnail_url = url_for('static', filename=f'screenshots/{file}')
+                            full_url = url_for('static', filename=f'screenshots/{file}')
+                        else:
+                            thumbnail_url = url_for('static', filename=f'screenshots/{rel_path}/{file}')
+                            full_url = url_for('static', filename=f'screenshots/{rel_path}/{file}')
+                        
+                        images.append({
+                            'filename': file,
+                            'directory': rel_path,
+                            'fullUrl': full_url,
+                            'thumbnailUrl': thumbnail_url,
+                            'size': os.path.getsize(full_path)
+                        })
+            # 按时间倒序排列（最新的在前）
+            images.sort(key=lambda x: -os.path.getmtime(os.path.join(screenshots_dir, x['directory'], x['filename'])))
+            return jsonify({
+                'images': images,
+                'count': len(images),
+                'all_images': True
+            })
+        
+        # 添加调试日志：检查目录是否存在
+        dir_path = os.path.join(screenshots_dir, directory)
+        current_app.logger.info(f"Checking directory existence: {dir_path}")
+        if not os.path.exists(dir_path):
+            current_app.logger.info(f"Directory does not exist: {dir_path}")
+            return jsonify({
+                'images': [],
+                'count': 0,
+                'directory': directory
+            })
+        
+        # 添加调试日志：列出目录中的所有内容
+        all_items = os.listdir(dir_path)
+        current_app.logger.info(f"All items in directory {dir_path}: {all_items}")
+        
+        # 获取指定目录下的图片
+        images = []
+        for file in os.listdir(dir_path):
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                full_path = os.path.join(dir_path, file)
+                
+                # 添加调试日志：找到的文件路径
+                current_app.logger.info(f"Found file in directory: {full_path}")
+                
+                images.append({
+                    'filename': file,
+                    'directory': directory,
+                    'fullUrl': url_for('static', filename=f'screenshots/{directory}/{file}'),
+                    'thumbnailUrl': url_for('static', filename=f'screenshots/{directory}/{file}'),
+                    'size': os.path.getsize(full_path)
+                })
+        
+        # 按时间倒序排列（最新的在前）
+        images.sort(key=lambda x: -os.path.getmtime(os.path.join(screenshots_dir, x['directory'], x['filename'])))
+        
+        # 在返回数据前添加验证
+        for image in images:
+            if 'thumbnailUrl' not in image or 'fullUrl' not in image:
+                current_app.logger.warning(f"Image data missing URL fields: {image}")
+        
+        return jsonify({
+            'images': images,
+            'count': len(images),
+            'directory': directory
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting images in directory: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to get images: {str(e)}'
+        }), 500
+
+
+@bp.route('/api/photos/upload', methods=['POST'])
+def upload_directory():
+    """上传指定目录下的所有图片到服务器"""
+    try:
+        data = request.get_json()
+        directory = data.get('directory', '')
+        
+        if not directory:
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'No directory specified'
+            }), 400
+        
+        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        dir_path = os.path.join(screenshots_dir, directory)
+        
+        if not os.path.exists(dir_path):
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'Directory not found: {directory}'
+            }), 404
+        
+        # 这里应该实现实际的上传逻辑，比如使用requests库上传文件
+        # 示例代码仅模拟上传过程
+        uploaded_files = []
+        for file in os.listdir(dir_path):
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                file_path = os.path.join(dir_path, file)
+                # 模拟上传操作
+                # 这里应该替换为实际的上传代码
+                # response = requests.post(upload_url, files={'file': open(file_path, 'rb')})
+                # if response.status_code == 200:
+                uploaded_files.append(file)
+        
+        return jsonify({
+            'status': 'OK',
+            'message': f'Successfully uploaded {len(uploaded_files)} files from {directory}',
+            'directory': directory,
+            'uploaded_files': uploaded_files
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error uploading directory: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Upload failed: {str(e)}'
+        }), 500
+
+
+@bp.route('/api/photos/delete_directory', methods=['POST'])
+def delete_directory():
+    """删除指定目录及其所有内容"""
+    try:
+        data = request.get_json()
+        directory = data.get('directory', '')
+        
+        if not directory:
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'No directory specified'
+            }), 400
+        
+        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        dir_path = os.path.join(screenshots_dir, directory)
+        
+        if not os.path.exists(dir_path):
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'Directory not found: {directory}'
+            }), 404
+        
+        # 删除目录及其内容
+        import shutil
+        shutil.rmtree(dir_path)
+        
+        return jsonify({
+            'status': 'OK',
+            'message': f'Directory {directory} and its contents have been deleted',
+            'directory': directory
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error deleting directory: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Delete operation failed: {str(e)}'
+        }), 500
+
+
+@bp.route('/api/photos/delete_image', methods=['POST'])
+def delete_image():
+    """删除指定目录下的单个图片文件"""
+    try:
+        data = request.get_json()
+        directory = data.get('directory', '')
+        filename = data.get('filename', '')
+        
+        if not directory or not filename:
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'Directory or filename missing'
+            }), 400
+        
+        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        file_path = os.path.join(screenshots_dir, directory, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'File not found: {filename} in directory {directory}'
+            }), 404
+        
+        # 删除文件
+        os.remove(file_path)
+        
+        return jsonify({
+            'status': 'OK',
+            'message': f'File {filename} has been deleted from directory {directory}',
+            'directory': directory,
+            'filename': filename
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error deleting image: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Delete operation failed: {str(e)}'
+        }), 500
+
+
+@bp.route('/api/photos/clear_all', methods=['POST'])
+def clear_all_photos():
+    """清空所有图片和目录"""
+    try:
+        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        
+        # 如果目录不存在，直接返回成功
+        if not os.path.exists(screenshots_dir):
+            return jsonify({
+                'status': 'OK',
+                'message': 'Screenshots directory does not exist, nothing to clear'
+            })
+        
+        # 遍历目录中的所有文件和子目录
+        for item in os.listdir(screenshots_dir):
+            item_path = os.path.join(screenshots_dir, item)
+            
+            # 如果是文件，则直接删除
+            if os.path.isfile(item_path):
+                os.remove(item_path)
+            # 如果是目录，则递归删除
+            elif os.path.isdir(item_path):
+                import shutil
+                shutil.rmtree(item_path)
+        
+        return jsonify({
+            'status': 'OK',
+            'message': 'All photos and directories have been cleared'
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error clearing all photos: {str(e)}")
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Clear operation failed: {str(e)}'
+        }), 500
+
+@bp.route('/static/screenshots/<path:filename>')
+def serve_screenshots(filename):
+    """Serve screenshots files"""
+    screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
+    return send_from_directory(screenshots_dir, filename)

@@ -14,6 +14,9 @@ obs_control = OBSControl()
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    # 设置ROOT_PATH为项目根目录
+    app.config['ROOT_PATH'] = os.path.dirname(app.root_path)
+    
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY') or 'dev',
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URL') or \
