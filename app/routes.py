@@ -884,28 +884,40 @@ def get_images_in_directory():
             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                 full_path = os.path.join(dir_path, file)
                 
+                # 确保文件确实存在
+                if not os.path.exists(full_path):
+                    current_app.logger.warning(f"File does not exist: {full_path}")
+                    continue
+                    
                 # 添加调试日志：找到的文件路径
                 current_app.logger.info(f"Found file in directory: {full_path}")
                 
+                # 构造正确的URL
+                relative_path = os.path.join('screenshots', directory, file)
                 images.append({
                     'filename': file,
                     'directory': directory,
-                    'fullUrl': url_for('static', filename=f'screenshots/{directory}/{file}'),
-                    'thumbnailUrl': url_for('static', filename=f'screenshots/{directory}/{file}'),
-                    'size': os.path.getsize(full_path)
+                    'fullUrl': url_for('static', filename=relative_path),
+                    'thumbnailUrl': url_for('static', filename=relative_path),
+                    'size': os.path.getsize(full_path),
+                    'timestamp': os.path.getmtime(full_path)  # 添加时间戳用于排序
                 })
         
         # 按时间倒序排列（最新的在前）
-        images.sort(key=lambda x: -os.path.getmtime(os.path.join(screenshots_dir, x['directory'], x['filename'])))
+        images.sort(key=lambda x: -x['timestamp'])
+        
+        # 在返回数据前过滤，只保留与当前目录匹配的图片
+        current_app.logger.info(f"Filtering images for directory: {directory}")
+        filtered_images = [img for img in images if img['directory'] == directory]
         
         # 在返回数据前添加验证
-        for image in images:
+        for image in filtered_images:
             if 'thumbnailUrl' not in image or 'fullUrl' not in image:
                 current_app.logger.warning(f"Image data missing URL fields: {image}")
         
         return jsonify({
-            'images': images,
-            'count': len(images),
+            'images': filtered_images,
+            'count': len(filtered_images),
             'directory': directory
         })
     except Exception as e:
