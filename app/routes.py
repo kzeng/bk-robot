@@ -989,7 +989,8 @@ def delete_directory():
                 'message': 'No directory specified'
             }), 400
         
-        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         dir_path = os.path.join(screenshots_dir, directory)
         
         if not os.path.exists(dir_path):
@@ -1018,11 +1019,15 @@ def delete_directory():
 @bp.route('/api/photos/delete_image', methods=['POST'])
 def delete_image():
     """删除指定目录下的单个图片文件"""
+    print("Received request to delete image.......")
     try:
         data = request.get_json()
         directory = data.get('directory', '')
         filename = data.get('filename', '')
         
+        print(f"Directory: {directory}, Filename: {filename}")
+
+
         if not directory or not filename:
             return jsonify({
                 'status': 'ERROR',
@@ -1032,6 +1037,15 @@ def delete_image():
         screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
         file_path = os.path.join(screenshots_dir, directory, filename)
         
+        # 修复路径问题：使用项目根目录下的static目录
+        # 修正方法：移除app目录层级
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
+        file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        
+        print(f"Full file path: {file_path}")
+        print(f"File exists: {os.path.exists(file_path)}")
+
+        
         if not os.path.exists(file_path):
             return jsonify({
                 'status': 'ERROR',
@@ -1039,6 +1053,7 @@ def delete_image():
             }), 404
         
         # 删除文件
+        print(f"Deleting file: {file_path}")
         os.remove(file_path)
         
         return jsonify({
@@ -1059,7 +1074,7 @@ def delete_image():
 def clear_all_photos():
     """清空所有图片和目录"""
     try:
-        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         
         # 如果目录不存在，直接返回成功
         if not os.path.exists(screenshots_dir):

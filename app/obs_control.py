@@ -129,7 +129,7 @@ class OBSControl:
         os.makedirs(base_dir, exist_ok=True)
 
         if not position_info:
-            position_info = 'Unkown'
+            position_info = 'Unknown'
 
         try:
             # 如果不是模拟模式，先连接到OBS
