@@ -223,21 +223,28 @@ def poll_robot_status():
 def start_recording():
     """开始录制API"""
     obs_control = current_app.obs_control
-
-    # Call connect synchronously
-    connect_result = obs_control.connect()
-    if connect_result["status"] != "OK":
-        return jsonify(connect_result), 500
-
-    # Call start_recording synchronously
-    result = obs_control.start_recording()
-    if result["status"] != "OK":
-        return jsonify(result), 500
-
-    # Optionally log or verify the recording has started
-    current_app.logger.info("Recording started successfully.")
-
-    return jsonify(result)
+    
+    try:
+        # Only connect if not already connected
+        if not obs_control.connected:
+            connect_result = obs_control.connect()
+            if connect_result["status"] != "OK":
+                return jsonify(connect_result), 500
+        
+        # Start recording and return result
+        result = obs_control.start_recording()
+        if result["status"] != "OK":
+            return jsonify(result), 500
+            
+        current_app.logger.info("Recording started successfully.")
+        return jsonify(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error starting recording: {str(e)}")
+        return jsonify({
+            "status": "ERROR",
+            "message": f"Failed to start recording: {str(e)}"
+        }), 500
 
 @bp.route('/api/obs/stop_recording', methods=['POST'])
 def stop_recording():
@@ -245,10 +252,11 @@ def stop_recording():
     obs_control = current_app.obs_control
 
     try:
-        # Ensure OBS connection
-        connect_result = obs_control.connect()
-        if connect_result["status"] != "OK":
-            return jsonify(connect_result), 500
+        # Only connect if not already connected
+        if not obs_control.connected:
+            connect_result = obs_control.connect()
+            if connect_result["status"] != "OK":
+                return jsonify(connect_result), 500
         
         # Stop recording and get result
         result = obs_control.stop_recording()
@@ -256,9 +264,6 @@ def stop_recording():
         
         if result["status"] != "OK":
             return jsonify(result), 500
-
-        # Close the WebSocket connection
-        obs_control.close()
 
         # Return success response
         return jsonify({
@@ -269,10 +274,6 @@ def stop_recording():
 
     except Exception as e:
         current_app.logger.error(f"Error stopping recording: {str(e)}")
-        try:
-            obs_control.close()
-        except:
-            pass
         return jsonify({
             "status": "ERROR",
             "message": f"Error stopping recording: {str(e)}"
@@ -295,10 +296,24 @@ def take_screenshot():
         position_info = ''
     
     obs_control = current_app.obs_control
-    obs_control.connect()
-    result = obs_control.take_screenshot_all_cameras(position_info=position_info)
-    obs_control.close()
-    return jsonify(result)
+    
+    try:
+        # Only connect if not already connected
+        if not obs_control.connected:
+            result = obs_control.connect()
+            if result["status"] != "OK":
+                return jsonify(result), 500
+                
+        # Take screenshots
+        result = obs_control.take_screenshot_all_cameras(position_info=position_info)
+        return jsonify(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error taking screenshot: {str(e)}")
+        return jsonify({
+            "status": "ERROR",
+            "message": f"Failed to take screenshot: {str(e)}"
+        }), 500
 
 
 

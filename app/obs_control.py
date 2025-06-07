@@ -11,6 +11,7 @@ class OBSControl:
         self.ws = None
         self.simulation_mode = False  # 禁用模拟模式，使用实际的OBS摄像头
         self.camera_scenes = []  # Will be populated when connecting to OBS
+        self.connected = False  # 新增连接状态属性
         if app is not None:
             self.init_app(app)
         else:
@@ -59,11 +60,16 @@ class OBSControl:
             host, port, password = self.get_connection_params()
             if self.ws is None or not self.is_connected():  # Use is_connected() to check connection
                 self.ws = obsws(host=host, port=port, password=password)
-                self.ws.connect()
-                
-                # Get available scenes from OBS
-                scenes = self.ws.call(requests.GetSceneList())
-                self.camera_scenes = [scene['sceneName'] for scene in scenes.getScenes()]
+                try:
+                    self.ws.connect()
+                    self.connected = True  # 设置连接状态为True
+                    
+                    # Get available scenes from OBS
+                    scenes = self.ws.call(requests.GetSceneList())
+                    self.camera_scenes = [scene['sceneName'] for scene in scenes.getScenes()]
+                except Exception as e:
+                    self.connected = False
+                    raise e
                 
                 if not self.camera_scenes:
                     current_app.logger.warning("No scenes found in OBS")
@@ -78,6 +84,7 @@ class OBSControl:
                 "scenes": self.camera_scenes
             }
         except exceptions.ConnectionFailure as e:
+            self.connected = False
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
     def take_screenshot_all_cameras(self, position_info):
@@ -179,19 +186,25 @@ class OBSControl:
                     # Create mapping of scene names to their sources
                     scene_sources = {}
                     for scene in self.camera_scenes:
-                        # Try to find a source that matches the scene name (case-insensitive)
+                        # First try exact match (case-insensitive)
+                        exact_matches = [s for s in source_names if s.lower() == scene.lower()]
+                        
+                        if exact_matches:
+                            # Use exact match if available
+                            scene_sources[scene] = exact_matches[0]
+                            continue
+                            
+                        # If no exact match, try substring match
                         matching_sources = [s for s in source_names if scene.lower() in s.lower()]
                         
                         if matching_sources:
-                            # Special handling: Some OBS setups use 's' prefix while we expect 'c'
-                            # (e.g. scene 'Camera1' matches source 's1' -> convert to 'c1')
-                            corrected_source = matching_sources[0].replace('s', 'c')
-                            scene_sources[scene] = corrected_source
+                            # Use first matching source
+                            scene_sources[scene] = matching_sources[0]
                         else:
                             # Fallback to first available source if no match found
                             scene_sources[scene] = source_names[0]
                             current_app.logger.warning(
-                                f"No exact source match for scene {scene}, using {source_names[0]}"
+                                f"No matching source for scene {scene}, using {source_names[0]}"
                             )
 
                 except Exception as e:
@@ -219,13 +232,21 @@ class OBSControl:
                     filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.jpg"
                     filepath = os.path.join(base_dir, filename)
                     
+                    # 确保基础目录存在
+                    os.makedirs(base_dir, exist_ok=True)
+                    current_app.logger.info(f"确保目录存在: {base_dir}")
+                    
+                    # 使用绝对路径并确保其有效性
+                    abs_filepath = os.path.abspath(filepath)
+                    current_app.logger.info(f"尝试保存截图至: {abs_filepath}")
+                    
                     # Use the source mapped to this scene
                     self.ws.call(requests.SaveSourceScreenshot(
                         sourceName=scene_sources[scene],
                         imageFormat="jpg",
-                        imageFilePath=os.path.abspath(filepath)
+                        imageFilePath=abs_filepath
                     ))
-                    current_app.logger.info(f"Screenshot saved to: {filepath}")
+                    current_app.logger.info(f"截图成功保存至: {abs_filepath}")
                     
                     results.append({
                         "camera_id": i,
@@ -511,3 +532,4 @@ class OBSControl:
         """关闭WebSocket连接"""
         if not self.simulation_mode and self.ws:
             self.ws.disconnect()
+        self.connected = False  # 设置连接状态为False
