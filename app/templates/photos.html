@@ -177,7 +177,7 @@
 
                     // 存储所有图片数据以便分页使用
                     const allImages = data.images;
-                    const IMAGES_PER_PAGE = 15; // 每页显示15张图片
+                    const IMAGES_PER_PAGE =16;
                     const totalPages = Math.ceil(allImages.length / IMAGES_PER_PAGE);
                     let currentPage = 1;
                     
@@ -199,7 +199,7 @@
                             
                             const col = document.createElement('div');
                             // 一行显示5张图片（12/5=2.4，取2）
-                            col.className = 'col-md-2 col-sm-3 col-4';
+                            col.className = 'col-md-2-4 col-sm-3 col-4';
                             
                             // 确保使用正确的属性名
                             col.innerHTML = `
