@@ -151,64 +151,83 @@ class OBSControl:
                 scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
                 current_app.logger.debug(f"Available scenes: {scene_names}")
 
-                # Get list of sources and map them to scenes
-                # Handles multiple OBS WebSocket API versions with fallbacks:
-                # 1. First tries modern GetInputList API (OBS WebSocket v5+)
-                # 2. Falls back to GetSources for older versions
-                # 3. Uses scene names as last resort if no sources found
-                try:
-                    # First attempt: GetInputList (modern API)
-                    try:
-                        inputs = self.ws.call(requests.GetInputList())
-                        source_names = []
-                        if hasattr(inputs, 'inputs'):
-                            source_names = [input['inputName'] for input in inputs.inputs]
-                        current_app.logger.info(f"Got sources using GetInputList: {source_names}")
-                    except Exception as input_error:
-                        current_app.logger.warning(f"Could not get inputs, trying GetSources: {str(input_error)}")
-                        # Fallback to GetSources for older versions
-                        sources = self.ws.call(requests.GetSources())
-                        source_names = []
-                        if hasattr(sources, 'sources'):
-                            source_names = [source['name'] for source in sources.sources]
-                        elif hasattr(sources, 'getSources') and callable(sources.getSources):
-                            source_names = [source['name'] for source in sources.getSources()]
+                # powered by LAO-ZENG
+                scene_sources = {}
+
+                for scene_name in scene_names:
+                    scene_items = self.ws.call(requests.GetSceneItemList(sceneName=scene_name)).getSceneItems()
+                    if scene_items:
+                        # Extract name of the first source (lowest index = bottom layer in OBS)
+                        first_source_name = scene_items[0]['sourceName'].strip().replace(' ', '')
+                        scene_sources[scene_name] = first_source_name
+                        print(f"First source in scene '{first_source_name}': {first_source_name}")
+                    else:
+                        print("No sources found in the current scene! so use scene name as source")
+                        scene_sources[scene_name] = scene_name
+        
+
+
+                # # Get list of sources and map them to scenes
+                # # Handles multiple OBS WebSocket API versions with fallbacks:
+                # # 1. First tries modern GetInputList API (OBS WebSocket v5+)
+                # # 2. Falls back to GetSources for older versions
+                # # 3. Uses scene names as last resort if no sources found
+                # try:
+                #     # First attempt: GetInputList (modern API)
+                #     try:
+                #         inputs = self.ws.call(requests.GetInputList())
+                #         source_names = []
+                #         if hasattr(inputs, 'inputs'):
+                #             source_names = [input['inputName'] for input in inputs.inputs]
+                #         current_app.logger.info(f"Got sources using GetInputList: {source_names}")
+                #     except Exception as input_error:
+                #         current_app.logger.warning(f"Could not get inputs, trying GetSources: {str(input_error)}")
+                #         # Fallback to GetSources for older versions
+                #         sources = self.ws.call(requests.GetSources())
+                #         source_names = []
+                #         if hasattr(sources, 'sources'):
+                #             source_names = [source['name'] for source in sources.sources]
+                #         elif hasattr(sources, 'getSources') and callable(sources.getSources):
+                #             source_names = [source['name'] for source in sources.getSources()]
                     
-                    # If still no sources, use scene names as a last resort
-                    if not source_names:
-                        source_names = scene_names.copy()
-                        current_app.logger.warning("No sources found, using scene names as sources")
+                #     # If still no sources, use scene names as a last resort
+                #     if not source_names:
+                #         source_names = scene_names.copy()
+                #         current_app.logger.warning("No sources found, using scene names as sources")
 
-                    if not source_names:
-                        raise RuntimeError("No sources found in OBS")
-                    current_app.logger.info(f"Available sources: {source_names}")
+                #     if not source_names:
+                #         raise RuntimeError("No sources found in OBS")
+                #     current_app.logger.info(f"Available sources: {source_names}")
 
-                    # Create mapping of scene names to their sources
-                    scene_sources = {}
-                    for scene in self.camera_scenes:
-                        # First try exact match (case-insensitive)
-                        exact_matches = [s for s in source_names if s.lower() == scene.lower()]
+                #     # Create mapping of scene names to their sources
+                #     scene_sources = {}
+                #     for scene in self.camera_scenes:
+                #         # First try exact match (case-insensitive)
+                #         exact_matches = [s for s in source_names if s.lower() == scene.lower()]
                         
-                        if exact_matches:
-                            # Use exact match if available
-                            scene_sources[scene] = exact_matches[0]
-                            continue
+                #         if exact_matches:
+                #             # Use exact match if available
+                #             scene_sources[scene] = exact_matches[0]
+                #             continue
                             
-                        # If no exact match, try substring match
-                        matching_sources = [s for s in source_names if scene.lower() in s.lower()]
+                #         # If no exact match, try substring match
+                #         matching_sources = [s for s in source_names if scene.lower() in s.lower()]
                         
-                        if matching_sources:
-                            # Use first matching source
-                            scene_sources[scene] = matching_sources[0]
-                        else:
-                            # Fallback to first available source if no match found
-                            scene_sources[scene] = source_names[0]
-                            current_app.logger.warning(
-                                f"No matching source for scene {scene}, using {source_names[0]}"
-                            )
+                #         if matching_sources:
+                #             # Use first matching source
+                #             scene_sources[scene] = matching_sources[0]
+                #         else:
+                #             # Fallback to first available source if no match found
+                #             scene_sources[scene] = source_names[0]
+                #             current_app.logger.warning(
+                #                 f"No matching source for scene {scene}, using {source_names[0]}"
+                #             )
 
-                except Exception as e:
-                    current_app.logger.error(f"Error getting sources: {str(e)}")
+                # except Exception as e:
+                #     current_app.logger.error(f"Error getting sources: {str(e)}")
+
+
+
 
 
             for i, scene in enumerate(self.camera_scenes, 1):
