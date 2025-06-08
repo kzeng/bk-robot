@@ -26,17 +26,14 @@
     - 为GUI提供适当的接口
     - GUI 
 
-
 ## 技术栈
 - Python 
 - Flask API
 - 
-- [机器人底座控制接口](http://waterdocs.pages.yunjichina.com.cn/user_manual/exports/water_api.html#water%E6%B0%B4%E6%BB%B4%E8%BD%AF%E4%BB%B6api%E6%89%8B%E5%86%8C)
+- [机器人底座控制接口](./docs/WATER_API.pdf)
 - OBS 提供websocket 接口来控制多个摄像头拍照
 
-
 ### 系统框图
-
 
 ### Screenshot
 
@@ -48,7 +45,7 @@
 
 
 ### DEV Notes
-- pip install xxxx -i https://repo.huaweicloud.com/repository/pypi/simple/
+- pip install <PACKAGE> -i https://repo.huaweicloud.com/repository/pypi/simple/
 - use current venv, see requirements.txt for detail python packages 
 
 
@@ -88,7 +85,6 @@ curl -X POST http://localhost:5000/api/obs/screenshot \
 ```
 
 - shot without position_info
-
 
 
 ### Run OBS with headless

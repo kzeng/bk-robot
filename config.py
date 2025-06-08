@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
+# you  can change these variables in .env file
+
+
 class Config:
     # admin password hashlib.sha1 admin123
     ADMIN_PASSWORD = 'f865b53623b121fd34ee5426c792e5c33af8c227'
