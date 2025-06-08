@@ -44,7 +44,7 @@
 ![盘点任务](./docs/p2.png)
 ![任务日志](./docs/p3.png)
 ![日志详情](./docs/p4.png)
-
+![数据管理](./docs/p5.png)
 
 
 ### DEV Notes
