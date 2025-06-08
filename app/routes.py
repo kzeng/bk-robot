@@ -434,12 +434,30 @@ def run_task(task_id):
         - task_log_id: 任务日志ID用于跟踪执行过程
     """
     task = Task.query.get_or_404(task_id)
+    
+    # 创建任务执行日志
+    current_time = datetime.now()
+    task_log = TaskLog(
+        task_id=task_id,
+        marker=task.marker,
+        action=task.action,
+        start_time=current_time,
+        end_time=current_time,  # 初始化 end_time 为开始时间，后续会在任务完成时更新
+        status=1,  # 1 = in progress
+        file_count=0,
+        file_paths='[]'
+    )
+    db.session.add(task_log)
+    db.session.commit()
+    
+    # 启动后台执行线程
     thread = Thread(target=async_run_task, args=(current_app._get_current_object(), task.task_id))
     thread.start()
+    
     return jsonify({
         'status': 'OK',
         'message': 'Task execution started',
-        'task_log_id': task.task_id
+        'task_log_id': task_log.log_id  # 返回正确的task_log_id
     })
 
 def async_run_task(app, task_id):
@@ -452,6 +470,14 @@ def async_run_task(app, task_id):
         marker_list = task.marker.split(',') if task.marker else []
         marker_list = [marker.strip() for marker in marker_list if marker.strip()]
         if not marker_list:
+            # 获取最新的任务日志并更新状态
+            task_log = TaskLog.query.filter_by(task_id=task_id)\
+                                  .order_by(TaskLog.start_time.desc())\
+                                  .first()
+            if task_log:
+                task_log.status = 4  # 任务失败
+                task_log.end_time = datetime.now()
+                db.session.commit()
             return
             
         status = 1  # 1 = in progress
@@ -467,6 +493,8 @@ def async_run_task(app, task_id):
                 for start_marker, end_marker in subtasks:
                     app.logger.info(f"Starting movement from {start_marker} to {end_marker}")
                     move_result = app.robot_control.send_command(f"/api/move?marker={start_marker},{end_marker}")
+
+                    # HERE: Check if the move_result is vali. IMPORTANT!!!!!!!!!!!!! KZENG
                     if move_result.get('status') != 'OK':
                         raise Exception(f"Failed to start movement: {move_result.get('message')}")
                     while True:
