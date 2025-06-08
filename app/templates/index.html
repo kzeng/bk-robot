@@ -81,6 +81,15 @@
                     <button class="btn btn-primary" onclick="doRobotCmd()">
                         执行 <i class="fas fa-paper-plane ms-2"></i>
                     </button>
+                    <hr>
+
+                    <button class="btn btn-danger" onclick="enterEstop()">
+                        进入急停 <i class="fas fa-exclamation-triangle ms-2"></i>
+                    </button>
+
+                    <button class="btn btn-success" onclick="exitEstop()">
+                        退出急停 <i class="fas fa-play ms-2"></i>
+                    </button>
                 </div>
             </div>
 
@@ -162,6 +171,54 @@
     </div>
 
     <script>
+        // 机器人急停控制函数 -------------------------------------------------------------
+        async function enterEstop() {
+            if (!confirm('确定要使机器人进入急停状态吗？')) {
+                return;
+            }
+            
+            const response = await fetch('/api/robot/cmd', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    cmd: '/api/estop',
+                    params: 'flag=true'
+                })
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '进入急停'
+            });
+        }
+        
+        async function exitEstop() {
+            if (!confirm('确定要退出急停状态吗？')) {
+                return;
+            }
+            
+            const response = await fetch('/api/robot/cmd', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    cmd: '/api/estop',
+                    params: 'flag=false'
+                })
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '退出急停'
+            });
+        }
+        // ---------------------------------------------------------------------------
+
         // 发送升降柱控制命令 ------------------------------------------------------------
         function sendCommand(command) {
             const buttons = document.querySelectorAll('button.lift');
