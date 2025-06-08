@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数据管理</title>
-    <link href="{{ url_for('static', filename='res/bootstrap.min.css') }}" rel="stylesheet">
+{% extends "base.html" %}
+
+{% block title %}数据管理{% endblock %}
+
+{% block styles %}
     <style>
         .thumbnail {
             cursor: pointer;
@@ -32,45 +30,26 @@
             position: absolute;
             top: 5px;
             right: 5px;
-            z-index: 2; /* 确保按钮在图片之上 */
-            background-color: rgba(255, 0, 0, 0.9); /* 稍微增加不透明度 */
+            z-index: 2;
+            background-color: rgba(255, 0, 0, 0.9);
             color: white;
             border: none;
-            padding: 6px 10px; /* 略微增大一些 */
+            padding: 6px 10px;
             font-size: 13px;
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* 添加阴影效果 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
         
         .img-delete-btn:hover {
             background-color: rgba(255, 0, 0, 1);
-            transform: scale(1.05); /* 添加轻微放大效果 */
+            transform: scale(1.05);
         }
     </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <img src="{{ url_for('static', filename='res/bookgoal.ico') }}" alt="Logo" width="36" height="36" class="d-inline-block align-text-top rounded-circle shadow" style="background: #fff; border-radius: 16px;">
-                &nbsp;&nbsp;
-                BK-ROBOT
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="navbar-nav ms-auto">
-                    <a class="nav-link" href="/">控制面板</a>
-                    <a class="nav-link" href="/tasks">盘点任务</a>
-                    <a class="nav-link" href="/task-logs">任务日志</a>
-                    <a class="nav-link active" href="/photos">数据管理</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+{% endblock %}
+
+{% block content %}
 
     <div class="container mt-4">
         <div class="row">
@@ -119,9 +98,9 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <!-- Include Bootstrap JS -->
-    <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}
     <script>
         let currentDirectory = '';
         let selectedDirectory = '';
@@ -460,5 +439,4 @@
         // 初始化加载
         window.addEventListener('DOMContentLoaded', init);
     </script>
-</body>
-</html>
+{% endblock %}

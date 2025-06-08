@@ -1,13 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>图书馆机器人控制面板</title>
-    <link href="{{ url_for('static', filename='res/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='res/fontawesome/css/all.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='res/bootstrap-icons.css') }}" rel="stylesheet">
-    
-    <style>
+{% extends "base.html" %}
 
+{% block styles %}
+    <style>
         .control-panel {
             margin: 20px;
             padding: 20px;
@@ -32,31 +26,9 @@
             font-size: 1.3rem;
         }
     </style>
-</head>
-<body>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
- 
-            <a class="navbar-brand" href="#">
+{% endblock %}
 
-                <img src="{{ url_for('static', filename='res/bookgoal.ico') }}" alt="Logo" width="36" height="36" class="d-inline-block align-text-top rounded-circle shadow" style="background: #fff; border-radius: 16px;">
-                &nbsp;&nbsp;
-                BK-ROBOT
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="navbar-nav ms-auto">
-                    <a class="nav-link active" href="/">控制面板</a>
-                    <a class="nav-link " href="/tasks">盘点任务</a>
-                    <a class="nav-link" href="/task-logs">任务日志</a>
-                    <a class="nav-link" href="/photos">数据管理</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+{% block content %}
     <div class="container">
 
         <div class="row">
@@ -169,7 +141,9 @@
 
         
     </div>
+{% endblock %}
 
+{% block scripts %}
     <script>
         // 机器人急停控制函数 -------------------------------------------------------------
         async function enterEstop() {
@@ -383,10 +357,4 @@ ${data.results ? 'Data: ' + JSON.stringify(data.results, null, 2) : ''}`;
         // 启动状态轮询
         pollStatus();
     </script>
-
-    <!-- Include Bootstrap JS -->
-    <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
-    
-
-</body>
-</html>
+{% endblock %}

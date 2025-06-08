@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}图书馆机器人控制面板{% endblock %}</title>
+    <link href="{{ url_for('static', filename='res/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='res/fontawesome/css/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='res/bootstrap-icons.css') }}" rel="stylesheet">
+
+    <link rel="icon" href="{{ url_for('static', filename='res/bookgoal.ico') }}" type="image/x-icon">
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <img src="{{ url_for('static', filename='res/bookgoal.ico') }}" alt="Logo" width="36" height="36" class="d-inline-block align-text-top rounded-circle shadow" style="background: #fff; border-radius: 16px;">
+                &nbsp;&nbsp;
+                BK-ROBOT
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="/">控制面板</a>
+                    <a class="nav-link" href="/tasks">盘点任务</a>
+                    <a class="nav-link" href="/task-logs">任务日志</a>
+                    <a class="nav-link" href="/photos">数据管理</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container text-center">
+            <span class="text-muted">© 2025 BK-ROBOT. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <!-- Base Scripts -->
+    <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
