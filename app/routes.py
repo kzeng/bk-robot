@@ -9,7 +9,9 @@ import os
 from functools import wraps
 import time
 from threading import Thread
-
+import ftplib
+from ftplib import FTP
+import logging
 import serial
 from .lift import Lift
 
@@ -958,7 +960,7 @@ def get_images_in_directory():
 
 @bp.route('/api/photos/upload', methods=['POST'])
 def upload_directory():
-    """上传指定目录下的所有图片到服务器"""
+    """上传指定目录下的所有图片到FTP服务器"""
     try:
         data = request.get_json()
         directory = data.get('directory', '')
@@ -969,7 +971,7 @@ def upload_directory():
                 'message': 'No directory specified'
             }), 400
         
-        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         dir_path = os.path.join(screenshots_dir, directory)
         
         if not os.path.exists(dir_path):
@@ -977,18 +979,43 @@ def upload_directory():
                 'status': 'ERROR',
                 'message': f'Directory not found: {directory}'
             }), 404
-        
-        # 这里应该实现实际的上传逻辑，比如使用requests库上传文件
-        # 示例代码仅模拟上传过程
+
+        config = current_app.config
         uploaded_files = []
-        for file in os.listdir(dir_path):
-            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                file_path = os.path.join(dir_path, file)
-                # 模拟上传操作
-                # 这里应该替换为实际的上传代码
-                # response = requests.post(upload_url, files={'file': open(file_path, 'rb')})
-                # if response.status_code == 200:
-                uploaded_files.append(file)
+        
+        if config['MOCK_FTP']:
+            # Mock mode - just simulate upload
+            current_app.logger.info(f"Mock FTP upload from directory: {directory}")
+            for file in os.listdir(dir_path):
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                    uploaded_files.append(file)
+        else:
+            # Real FTP upload
+            try:
+                with FTP() as ftp:
+                    # Connect to FTP server
+                    ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
+                    ftp.login(config['FTP_USER'], config['FTP_PASS'])
+                    current_app.logger.info(f"Connected to FTP server: {config['FTP_HOST']}")
+
+                    # Upload each file
+                    for file in os.listdir(dir_path):
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                            file_path = os.path.join(dir_path, file)
+                            try:
+                                with open(file_path, 'rb') as f:
+                                    ftp.storbinary(f'STOR {file}', f)
+                                uploaded_files.append(file)
+                                current_app.logger.info(f"Uploaded {file} to FTP server")
+                            except Exception as file_error:
+                                current_app.logger.error(f"Error uploading {file}: {str(file_error)}")
+                                continue
+            except ftplib.all_errors as ftp_error:
+                current_app.logger.error(f"FTP connection error: {str(ftp_error)}")
+                return jsonify({
+                    'status': 'ERROR',
+                    'message': f'FTP connection failed: {str(ftp_error)}'
+                }), 500
         
         return jsonify({
             'status': 'OK',
@@ -997,7 +1024,7 @@ def upload_directory():
             'uploaded_files': uploaded_files
         })
     except Exception as e:
-        current_app.logger.error(f"Error uploading directory: {str(e)}")
+        current_app.logger.error(f"Error uploading directory: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'ERROR',
             'message': f'Upload failed: {str(e)}'

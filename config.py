@@ -20,6 +20,13 @@ class Config:
     OBS_WS_URL = os.environ.get('OBS_WS_URL') or 'ws://192.168.0.109:4455'
     OBS_PASSWORD = os.environ.get('OBS_PASSWORD') or '123456'
 
+    # FTP Server configuration
+    FTP_HOST = os.environ.get('FTP_HOST') or 'ftp.example.com'
+    FTP_PORT = int(os.environ.get('FTP_PORT') or 21)
+    FTP_USER = os.environ.get('FTP_USER') or 'username'
+    FTP_PASS = os.environ.get('FTP_PASS') or 'password'
+    MOCK_FTP = os.environ.get('MOCK_FTP') or True
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'instance/tasks.db')
