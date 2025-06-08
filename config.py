@@ -17,7 +17,12 @@ class Config:
     ROBOT_PORT = int(os.environ.get('ROBOT_PORT') or 31001)
     
     # OBS WebSocket配置
+    # My Ubuntu
     OBS_WS_URL = os.environ.get('OBS_WS_URL') or 'ws://192.168.0.109:4455'
+
+    # # My macOS
+    # OBS_WS_URL = os.environ.get('OBS_WS_URL') or 'ws://192.168.0.102:4455'
+    
     OBS_PASSWORD = os.environ.get('OBS_PASSWORD') or '123456'
 
     # FTP Server configuration
