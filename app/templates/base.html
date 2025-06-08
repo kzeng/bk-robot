@@ -12,6 +12,7 @@
     {% block styles %}{% endblock %}
 </head>
 <body>
+    {% block navigation %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">
@@ -24,23 +25,29 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-auto">
-                    <a class="nav-link" href="/">控制面板</a>
-                    <a class="nav-link" href="/tasks">盘点任务</a>
-                    <a class="nav-link" href="/task-logs">任务日志</a>
-                    <a class="nav-link" href="/photos">数据管理</a>
+                    <a class="nav-link" href="{{ url_for('main.index') }}">控制面板</a>
+                    <a class="nav-link" href="{{ url_for('main.tasks_page') }}">盘点任务</a>
+                    <a class="nav-link" href="{{ url_for('main.task_logs_page') }}">任务日志</a>
+                    <a class="nav-link" href="{{ url_for('main.photos_page') }}">数据管理</a>
+                    {% if session.authenticated %}
+                    <a class="nav-link" href="{{ url_for('main.logout') }}">退出登录</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </nav>
+    {% endblock %}
     <main class="container py-4">
         {% block content %}{% endblock %}
     </main>
 
+    {% block footer %}
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container text-center">
             <span class="text-muted">© 2025 BK-ROBOT. All rights reserved.</span>
         </div>
     </footer>
+    {% endblock %}
 
     <!-- Base Scripts -->
     <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>

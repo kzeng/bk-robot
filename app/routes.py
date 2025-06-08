@@ -1,12 +1,12 @@
-from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
+import hashlib
+from functools import wraps
 import json
 from app.models import Task, TaskLog
 from app import db
 from datetime import datetime, timezone, timedelta
 import asyncio
 import os
-from functools import wraps
 import time
 from threading import Thread
 import ftplib
@@ -22,6 +22,16 @@ def async_route(f):
     def wrapped(*args, **kwargs):
         return asyncio.run(f(*args, **kwargs))
     return wrapped
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_app.config['NEED_AUTH']:
+            return f(*args, **kwargs)
+        if 'authenticated' not in session:
+            return redirect(url_for('main.login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 bp = Blueprint('main', __name__)
 
@@ -144,6 +154,7 @@ robot_all_apis_options = [
     ]
 
 @bp.route('/')
+@login_required
 def index():
     """调试界面主页"""
     return render_template('index.html', robot_all_apis_options=robot_all_apis_options)
@@ -155,16 +166,19 @@ def serve_docs(filename):
 
 
 @bp.route('/tasks')
+@login_required
 def tasks_page():
     """盘点任务管理页面"""
     return render_template('task.html')
 
 @bp.route('/task-logs')
+@login_required
 def task_logs_page():
     """任务日志列表页面"""
     return render_template('task-logs.html')
 
 @bp.route('/photos')
+@login_required
 def photos_page():
     """照片管理页面"""
     return render_template('photos.html')
@@ -1166,3 +1180,37 @@ def serve_screenshots(filename):
     """Serve screenshots files"""
     screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
     return send_from_directory(screenshots_dir, filename)
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_app.config['NEED_AUTH']:
+            return f(*args, **kwargs)
+        if 'authenticated' not in session:
+            return redirect(url_for('main.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if not current_app.config['NEED_AUTH']:
+        return redirect(url_for('main.index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username == 'admin':
+            hashed_password = hashlib.sha1(password.encode()).hexdigest()
+            if hashed_password == current_app.config['ADMIN_PASSWORD']:
+                session['authenticated'] = True
+                return redirect(url_for('main.index'))
+        
+        flash('用户名或密码错误', 'danger')
+    return render_template('login.html')
+
+@bp.route('/logout')
+def logout():
+    session.pop('authenticated', None)
+    flash('已退出登录', 'info')
+    return redirect(url_for('main.login'))

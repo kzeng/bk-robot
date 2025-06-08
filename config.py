@@ -8,6 +8,7 @@ load_dotenv(os.path.join(basedir, '.env'))
 
 
 class Config:
+    NEED_AUTH = os.environ.get('NEED_AUTH') or True
     # admin password hashlib.sha1 admin123
     ADMIN_PASSWORD = 'f865b53623b121fd34ee5426c792e5c33af8c227'
 
