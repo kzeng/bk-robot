@@ -75,3 +75,143 @@ obs --minimize-to-tray
 ```
 
 sudo apt-get update && sudo apt-get install -y v4l-utils
+
+
+对MagicView-UVC800摄像头进行了优化：
+
+图像参数优化：
+
+调整了亮度、对比度和饱和度到最佳值
+增强了锐度以提高清晰度
+设置了合适的伽马值以改善动态范围
+曝光控制：
+
+使用手动曝光模式以获得更稳定的图像
+设置了较短的曝光时间以减少模糊
+启用了背光补偿以改善光照不均的情况
+色彩控制：
+
+使用手动白平衡以保持色彩一致性
+设置了适合室内的色温(4600K)
+增强了色彩饱和度以获得更生动的图像
+对焦和其他设置：
+
+关闭自动对焦以避免抖动
+设置了固定的焦距值
+正确设置了电源频率以避免闪烁
+
+(venv) (base) zengkai@zengkai-ThinkPad-X260:~/Codes/bk-robot$ v4l2-ctl -d /dev/video2 --list-ctrls --all
+Driver Info:
+        Driver name      : uvcvideo
+        Card type        : MagicView-UVC800: MagicView-UVC
+        Bus info         : usb-0000:00:14.0-1.1
+        Driver version   : 6.8.12
+        Capabilities     : 0x84a00001
+                Video Capture
+                Metadata Capture
+                Streaming
+                Extended Pix Format
+                Device Capabilities
+        Device Caps      : 0x04200001
+                Video Capture
+                Streaming
+                Extended Pix Format
+Media Driver Info:
+        Driver name      : uvcvideo
+        Model            : MagicView-UVC800: MagicView-UVC
+        Serial           : SN0001
+        Bus info         : usb-0000:00:14.0-1.1
+        Media version    : 6.8.12
+        Hardware revision: 0x00000100 (256)
+        Driver version   : 6.8.12
+Interface Info:
+        ID               : 0x03000002
+        Type             : V4L Video
+Entity Info:
+        ID               : 0x00000001 (1)
+        Name             : MagicView-UVC800: MagicView-UVC
+        Function         : V4L2 I/O
+        Flags            : default
+        Pad 0x01000007   : 0: Sink
+          Link 0x02000010: from remote pad 0x100000a of entity 'Extension 3' (Video Pixel Formatter): Data, Enabled, Immutable
+Priority: 2
+Video input : 0 (Camera 1: ok)
+Format Video Capture:
+        Width/Height      : 1920/1080
+        Pixel Format      : 'MJPG' (Motion-JPEG)
+        Field             : None
+        Bytes per Line    : 0
+        Size Image        : 4147789
+        Colorspace        : sRGB
+        Transfer Function : Default (maps to sRGB)
+        YCbCr/HSV Encoding: Default (maps to ITU-R 601)
+        Quantization      : Default (maps to Full Range)
+        Flags             : 
+Crop Capability Video Capture:
+        Bounds      : Left 0, Top 0, Width 1920, Height 1080
+        Default     : Left 0, Top 0, Width 1920, Height 1080
+        Pixel Aspect: 1/1
+Selection Video Capture: crop_default, Left 0, Top 0, Width 1920, Height 1080, Flags: 
+Selection Video Capture: crop_bounds, Left 0, Top 0, Width 1920, Height 1080, Flags: 
+Streaming Parameters Video Capture:
+        Capabilities     : timeperframe
+        Frames per second: 5.000 (5/1)
+        Read buffers     : 0
+
+User Controls
+
+                     brightness 0x00980900 (int)    : min=-64 max=64 step=1 default=0 value=64
+                       contrast 0x00980901 (int)    : min=0 max=64 step=1 default=32 value=64
+                     saturation 0x00980902 (int)    : min=0 max=128 step=1 default=48 value=48
+                            hue 0x00980903 (int)    : min=-40 max=40 step=1 default=0 value=0
+        white_balance_automatic 0x0098090c (bool)   : default=1 value=1
+                          gamma 0x00980910 (int)    : min=72 max=500 step=1 default=100 value=100
+                           gain 0x00980913 (int)    : min=0 max=100 step=1 default=0 value=100
+           power_line_frequency 0x00980918 (menu)   : min=0 max=2 default=1 value=1 (50 Hz)
+                                0: Disabled
+                                1: 50 Hz
+                                2: 60 Hz
+      white_balance_temperature 0x0098091a (int)    : min=2800 max=6500 step=1 default=4600 value=4600 flags=inactive
+                      sharpness 0x0098091b (int)    : min=0 max=6 step=1 default=4 value=4
+         backlight_compensation 0x0098091c (int)    : min=0 max=1 step=1 default=1 value=1
+
+Camera Controls
+
+                  auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=3 (Aperture Priority Mode)
+                                1: Manual Mode
+                                3: Aperture Priority Mode
+         exposure_time_absolute 0x009a0902 (int)    : min=1 max=5000 step=1 default=157 value=157 flags=inactive
+     exposure_dynamic_framerate 0x009a0903 (bool)   : default=0 value=0
+                   pan_absolute 0x009a0908 (int)    : min=-36000 max=36000 step=3600 default=0 value=0
+                  tilt_absolute 0x009a0909 (int)    : min=-36000 max=36000 step=3600 default=0 value=0
+                 focus_absolute 0x009a090a (int)    : min=1 max=1023 step=1 default=170 value=250 flags=inactive
+     focus_automatic_continuous 0x009a090c (bool)   : default=1 value=1
+                  zoom_absolute 0x009a090d (int)    : min=0 max=9 step=1 default=0 value=0
+(venv) (base) zengkai@zengkai-ThinkPad-X260:~/Codes/bk-robot$ 
+
+
+
+(base) zengkai@zengkai-ThinkPad-X260:~$ exiftool ~/Codes/bk-robot/static/screenshots/20250609/Unknown-Camera6-20250609_215109.jpg
+ExifTool Version Number         : 12.40
+File Name                       : Unknown-Camera6-20250609_215109.jpg
+Directory                       : /home/zengkai/Codes/bk-robot/static/screenshots/20250609
+File Size                       : 496 KiB
+File Modification Date/Time     : 2025:06:09 21:51:09+08:00
+File Access Date/Time           : 2025:06:09 21:51:12+08:00
+File Inode Change Date/Time     : 2025:06:09 21:51:09+08:00
+File Permissions                : -rw-rw-r--
+File Type                       : JPEG
+File Type Extension             : jpg
+MIME Type                       : image/jpeg
+JFIF Version                    : 1.01
+Resolution Unit                 : None
+X Resolution                    : 1
+Y Resolution                    : 1
+Image Width                     : 1920
+Image Height                    : 1080
+Encoding Process                : Progressive DCT, Huffman coding
+Bits Per Sample                 : 8
+Color Components                : 3
+Y Cb Cr Sub Sampling            : YCbCr4:2:0 (2 2)
+Image Size                      : 1920x1080
+Megapixels                      : 2.1

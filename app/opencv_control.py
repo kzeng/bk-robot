@@ -116,18 +116,22 @@ class OpenCVControl:
                     device_num = int(device_path.replace('/dev/video', ''))
                     self._configure_v4l2_device(device_path)
                     
-                    # Try opening with OpenCV
-                    cap = cv2.VideoCapture(device_num)
+                    # Try opening with OpenCV using V4L2 backend
+                    cap = cv2.VideoCapture(device_num, cv2.CAP_V4L2)
                     if not cap.isOpened():
                         self._log('warning', f"Failed to open {device_path}")
                         continue
                         
-                    # Configure format and buffer
+                    # Configure format and buffer for high quality
                     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
+                    cap.set(cv2.CAP_PROP_FPS, self.config['fps'])
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Smaller buffer for fresher frames
                     
                     # Test frame capture
-                    ret, frame = cap.read()
+                    for _ in range(5):  # Capture a few frames to let the camera adjust
+                        ret, frame = cap.read()
                     if ret and frame is not None:
                         self.camera_indices.append(device_num)
                         self._log('info', f"Successfully initialized {device_path}")
@@ -162,41 +166,76 @@ class OpenCVControl:
         return None
 
     def _configure_v4l2_device(self, device_path):
-        """Configure V4L2 device settings"""
+        """Configure V4L2 device settings for optimal image quality"""
         try:
-            # First get detailed info about the device
+            # Get device info and check for MagicView cameras
             info_result = subprocess.run(
                 ['v4l2-ctl', '-d', device_path, '--info'],
                 capture_output=True,
                 text=True
             )
-            if 'MagicView' in info_result.stdout:
+            is_magicview = 'MagicView' in info_result.stdout
+            if is_magicview:
                 self._log('info', f"Detected MagicView camera at {device_path}")
             
-            # List available controls
+            # Get supported formats and choose the best one
+            formats_result = subprocess.run(
+                ['v4l2-ctl', '-d', device_path, '--list-formats-ext'],
+                capture_output=True,
+                text=True
+            )
+            # Prefer MJPG format for better quality
+            if 'MJPG' in formats_result.stdout:
+                subprocess.run(['v4l2-ctl', '-d', device_path, '--set-fmt-video=width=1920,height=1080,pixelformat=MJPG'])
+            elif 'YUYV' in formats_result.stdout:
+                subprocess.run(['v4l2-ctl', '-d', device_path, '--set-fmt-video=width=1920,height=1080,pixelformat=YUYV'])
+            
+            # Get available controls
             ctrl_result = subprocess.run(
                 ['v4l2-ctl', '-d', device_path, '--list-ctrls'],
                 capture_output=True,
                 text=True
             )
             controls = ctrl_result.stdout.lower()
-            self._log('info', f"Available controls for {device_path}:\n{controls}")
             
-            # Try to get and set only basic controls that most cameras support
+            # Configure image quality settings for MagicView cameras
             try:
-                if 'brightness' in controls:
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
+                if is_magicview:
+                    # 1. 基础图像参数优化
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=32'])      # 降低亮度避免过曝
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=48'])        # 适中对比度
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=64'])      # 适中饱和度
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=5'])        # 适度锐化
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=100'])          # 标准伽马值
+                    
+                    # 2. 曝光设置优化
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=auto_exposure=1'])    # 手动曝光模式
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=100'])  # 减少曝光时间
+                    
+                    # 3. 白平衡与色彩优化
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_automatic=0'])    # 手动白平衡
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=4600'])  # 室内色温
+                    
+                    # 4. 对焦和其他优化
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0']) # 关闭自动对焦
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=250'])          # 固定对焦距离
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=50'])                     # 降低增益
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=1'])    # 开启背光补偿
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])      # 设置电源频率为50Hz
+                    
+                    self._log('info', f"MagicView camera parameters optimized for {device_path}")
+                else:
+                    # Generic camera settings
+                    if 'brightness' in controls:
+                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
+                    if 'contrast' in controls:
+                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=128'])
+                    if 'saturation' in controls:
+                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=128'])
             except:
-                pass
+                self._log('warning', f"Some controls could not be set for {device_path}")
             
-            try:
-                if 'contrast' in controls:
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=128'])
-            except:
-                pass
-                
-            # Don't try more complex controls unless we know they work
-            self._log('info', f"Basic configuration completed for {device_path}")
+            self._log('info', f"Image quality settings configured for {device_path}")
             return True
             
         except Exception as e:
@@ -264,9 +303,13 @@ class OpenCVControl:
                     filepath = filepath.replace("\\", "/")
                     abs_filepath = os.path.abspath(filepath)
 
-                    # Save with configured JPEG quality
-                    cv2.imwrite(abs_filepath, frame, 
-                              [cv2.IMWRITE_JPEG_QUALITY, self.config['jpeg_quality']])
+                    # Save with maximum JPEG quality and additional settings
+                    params = [
+                        cv2.IMWRITE_JPEG_QUALITY, 100,  # 使用最高JPEG质量
+                        cv2.IMWRITE_JPEG_OPTIMIZE, 1,   # 启用JPEG优化
+                        cv2.IMWRITE_JPEG_PROGRESSIVE, 1 # 使用渐进式JPEG
+                    ]
+                    cv2.imwrite(abs_filepath, frame, params)
 
                     results.append({
                         "camera_id": camera_id,
