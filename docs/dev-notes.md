@@ -73,3 +73,5 @@ curl -X POST http://localhost:5000/api/obs/screenshot \
 ```bash
 obs --minimize-to-tray
 ```
+
+sudo apt-get update && sudo apt-get install -y v4l-utils
