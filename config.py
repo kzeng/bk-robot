@@ -61,6 +61,9 @@ class Config:
     else:
         MOCK_FTP = False
 
+    # Add Lift configuration
+    LIFT_PORT = os.environ.get('LIFT_PORT', '/dev/ttyUSB0')  # Serial port for lift control
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'instance/tasks.db'))
     SQLALCHEMY_TRACK_MODIFICATIONS = False

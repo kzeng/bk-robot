@@ -765,35 +765,28 @@ def get_task_log_detail(log_id):
 
 ### LIFT  ROUTES ###########################################################################################
 
-SERIAL_PORT = '/dev/ttyUSB0'  # Replace with actual serial port
-BAUDRATE = 9600
-lift = None  # Initialize as None
-
-try:
-    # Initialize the Lift instance with logging
-    print(f"Attempting to connect to lift on {SERIAL_PORT} at {BAUDRATE} baud")
-    lift = Lift(port=SERIAL_PORT, baudrate=BAUDRATE)
-    print("Lift connection established successfully")
-except serial.SerialException as e:
-    print(f"Serial connection error: {e}")
-    print("Running in simulation mode (no hardware connected)")
-except Exception as e:
-    print(f"Unexpected error initializing Lift: {e}")
-    print("Running in simulation")
-
+def get_lift():
+    """获取Lift实例，按需初始化，避免全局current_app错误"""
+    from .lift_control import Lift
+    port = current_app.config.get('LIFT_PORT', '/dev/ttyUSB0')
+    baudrate = 9600
+    try:
+        return Lift(port=port, baudrate=baudrate)
+    except Exception as e:
+        current_app.logger.error(f"Failed to initialize Lift: {e}")
+        return None
 
 @bp.route('/api/lift/status', methods=['GET'])
 def lift_status():
     """Check lift connection status"""
+    lift = get_lift()
     if lift is None:
         return jsonify({
             'status': 'error',
             'message': 'Lift not initialized',
             'connected': False
         }), 503
-    
     try:
-        # Simple check if serial connection is open
         connected = lift.serial_connection.is_open
         return jsonify({
             'status': 'success',
@@ -809,6 +802,9 @@ def lift_status():
 
 @bp.route('/api/lift/<command>', methods=['POST'])
 def lift_command(command):
+    lift = get_lift()
+    if lift is None:
+        return jsonify({'error': 'Lift not initialized'}), 503
     try:
         if command == 'move_to_position_one':
             lift.move_to_position_one()
@@ -828,7 +824,6 @@ def lift_command(command):
             lift.stop_moving_down()
         else:
             return jsonify({'error': 'Invalid command'}), 400
-
         return jsonify({'status': 'success', 'command': command})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1253,7 +1248,10 @@ def settings():
         'FTP_PORT': str(current_app.config['FTP_PORT']),
         'FTP_USER': str(current_app.config['FTP_USER']),
         'FTP_PASS': str(current_app.config['FTP_PASS']),
-        'MOCK_FTP': str(current_app.config['MOCK_FTP']).lower() == 'true'  # 转换为布尔值
+        'MOCK_FTP': str(current_app.config['MOCK_FTP']).lower() == 'true',  # 转换为布尔值
+
+        # 升降柱配置
+        'LIFT_PORT': str(current_app.config['LIFT_PORT']),
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1285,7 +1283,7 @@ def update_settings():
         # 验证数据
         required_fields = ['CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
                          'JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
-                         'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD']
+                         'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT']
         
         for field in required_fields:
             if not data.get(field):
