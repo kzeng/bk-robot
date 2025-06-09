@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">系统设置</h1>
+        
+    <div class="card">
+
+        <div class="card-body">
+            <form id="settingsForm">
+                <!-- 摄像头配置 -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2"><i class="fas fa-camera me-2"></i>摄像头配置</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">分辨率-宽度</label>
+                            <input type="number" class="form-control" name="CAMERA_WIDTH" value="{{ env.CAMERA_WIDTH }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">分辨率-高度</label>
+                            <input type="number" class="form-control" name="CAMERA_HEIGHT" value="{{ env.CAMERA_HEIGHT }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">帧率(FPS)</label>
+                            <input type="number" class="form-control" name="CAMERA_FPS" value="{{ env.CAMERA_FPS }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">JPEG质量(1-100)</label>
+                            <input type="number" class="form-control" name="JPEG_QUALITY" min="1" max="100" value="{{ env.JPEG_QUALITY }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">缓冲区大小</label>
+                            <input type="number" class="form-control" name="CAMERA_BUFFER_SIZE" value="{{ env.CAMERA_BUFFER_SIZE }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 机器人配置 -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2"><i class="fas fa-robot me-2"></i>机器人配置</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">机器人IP</label>
+                            <input type="text" class="form-control" name="ROBOT_IP" value="{{ env.ROBOT_IP }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">机器人端口</label>
+                            <input type="number" class="form-control" name="ROBOT_PORT" value="{{ env.ROBOT_PORT }}" required>
+                        </div>
+                        <div class="col-md-6">                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" name="MOCK_MODE" {% if env.MOCK_MODE == 'true' %}checked{% endif %}>
+                                <label class="form-check-label">模拟模式</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OBS配置 -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">WebSocket URL</label>
+                            <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">密码</label>
+                            <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
+                        </div>
+                        <div class="col-12">                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="USE_OPENCV" {% if env.USE_OPENCV == 'true' %}checked{% endif %}>
+                                <label class="form-check-label">使用OpenCV模式(否则使用OBS)</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FTP配置 -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2"><i class="fas fa-server me-2"></i>FTP配置</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">FTP服务器</label>
+                            <input type="text" class="form-control" name="FTP_HOST" value="{{ env.FTP_HOST }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">FTP端口</label>
+                            <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">FTP用户名</label>
+                            <input type="text" class="form-control" name="FTP_USER" value="{{ env.FTP_USER }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">FTP密码</label>
+                            <input type="password" class="form-control" name="FTP_PASS" value="{{ env.FTP_PASS }}" required>
+                        </div>
+                        <div class="col-12">                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="MOCK_FTP" {% if env.MOCK_FTP == 'true' %}checked{% endif %}>
+                                <label class="form-check-label">FTP模拟模式</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>保存设置
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="window.location.reload()">
+                        <i class="fas fa-undo me-2"></i>重置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const settings = {};
+      // 处理所有字段
+    const checkboxFields = ['MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP'];
+    for (let field of checkboxFields) {
+        // 如果复选框未被选中，formData中不会有该字段
+        settings[field] = formData.has(field) ? 'true' : 'false';
+    }
+    
+    // 处理其他字段
+    for (let [key, value] of formData.entries()) {
+        if (!checkboxFields.includes(key)) {
+            settings[key] = value;
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // 使用Bootstrap toast显示成功消息
+            const toast = new bootstrap.Toast(document.createElement('div'));
+            toast._element.innerHTML = `
+                <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                    <div class="toast" role="alert">
+                        <div class="toast-header bg-success text-white">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong class="me-auto">成功</strong>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            设置已保存，部分设置可能需要重启服务才能生效
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast._element);
+            toast.show();
+        } else {
+            throw new Error(result.message || '保存失败');
+        }
+    } catch (error) {
+        // 显示错误消息
+        const toast = new bootstrap.Toast(document.createElement('div'));
+        toast._element.innerHTML = `
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                <div class="toast" role="alert">
+                    <div class="toast-header bg-danger text-white">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong class="me-auto">错误</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        保存设置时出错: ${error.message}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast._element);
+        toast.show();
+    }
+});
+</script>
+{% endblock %}

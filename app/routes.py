@@ -14,6 +14,7 @@ from ftplib import FTP
 import logging
 import serial
 from .lift_control import Lift
+from dotenv import load_dotenv, set_key
 
 
 
@@ -1222,3 +1223,96 @@ def logout():
     session.pop('authenticated', None)
     flash('已退出登录', 'info')
     return redirect(url_for('main.login'))
+
+@bp.route('/settings')
+@login_required
+def settings():
+    """设置页面"""
+    env_path = os.path.join(current_app.config['BASEDIR'], '.env')
+    
+    # 获取环境变量，如果不存在则使用Config中的默认值
+    env_vars = {
+        # 摄像头配置
+        'CAMERA_WIDTH': str(current_app.config['CAMERA_CONFIG']['resolution']['width']),
+        'CAMERA_HEIGHT': str(current_app.config['CAMERA_CONFIG']['resolution']['height']),
+        'CAMERA_FPS': str(current_app.config['CAMERA_CONFIG']['fps']),
+        'JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
+        'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
+        
+        # 机器人配置
+        'ROBOT_IP': str(current_app.config['ROBOT_IP']),
+        'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
+        'MOCK_MODE': str(current_app.config['MOCK_MODE']).lower() == 'true',  # 转换为布尔值
+          # OBS配置
+        'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
+        'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
+        'USE_OPENCV': str(os.environ.get('USE_OPENCV', 'false')).lower() == 'true',  # 转换为布尔值
+        
+        # FTP配置
+        'FTP_HOST': str(current_app.config['FTP_HOST']),
+        'FTP_PORT': str(current_app.config['FTP_PORT']),
+        'FTP_USER': str(current_app.config['FTP_USER']),
+        'FTP_PASS': str(current_app.config['FTP_PASS']),
+        'MOCK_FTP': str(current_app.config['MOCK_FTP']).lower() == 'true'  # 转换为布尔值
+    }
+    
+    # 如果.env文件不存在，创建一个新的
+    if not os.path.exists(env_path):
+        try:
+            with open(env_path, 'w', encoding='utf-8') as f:
+                for key, value in env_vars.items():
+                    f.write(f"{key}={value}\n")
+            current_app.logger.info(f"Created new .env file at {env_path}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to create .env file: {str(e)}")
+    else:
+        # 如果文件存在，读取现有的值
+        load_dotenv(env_path)
+        for key in env_vars.keys():
+            if os.environ.get(key):
+                env_vars[key] = os.environ.get(key)
+    
+    return render_template('settings.html', env=env_vars)
+
+@bp.route('/api/settings', methods=['POST'])
+@login_required
+def update_settings():
+    """更新设置"""
+    try:
+        data = request.get_json()
+        env_path = os.path.join(current_app.config['BASEDIR'], '.env')
+        
+        # 验证数据
+        required_fields = ['CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
+                         'JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
+                         'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD']
+        
+        for field in required_fields:
+            if not data.get(field):
+                raise ValueError(f"Missing required field: {field}")
+        
+        # 验证数值范围
+        if not (1 <= int(data['JPEG_QUALITY']) <= 100):
+            raise ValueError("JPEG quality must be between 1 and 100")
+        
+        if not (1 <= int(data['CAMERA_BUFFER_SIZE']) <= 100):
+            raise ValueError("Buffer size must be between 1 and 100")
+        
+        # 确保.env文件目录存在
+        os.makedirs(os.path.dirname(env_path), exist_ok=True)
+          # 更新.env文件
+        for key, value in data.items():
+            # 确保布尔值被正确处理
+            if key in ['MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP']:
+                value = str(value).lower()  # 确保是小写的 'true' 或 'false'
+            set_key(env_path, key, str(value))
+        
+        # 重新加载环境变量以立即生效
+        load_dotenv(env_path, override=True)
+        
+        current_app.logger.info("Settings updated successfully")
+        return jsonify({'status': 'OK', 'message': '设置已保存'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating settings: {str(e)}")
+        return jsonify({'status': 'ERROR', 'message': str(e)}), 500

@@ -45,6 +45,9 @@ def create_app(test_config=None):
     socketio.init_app(app)
     robot_control.init_app(app)
     
+    # Add robot_control to app instance
+    app.robot_control = robot_control
+    
     # Initialize camera control based on USE_OPENCV flag
     use_opencv = app.config.get('USE_OPENCV', False)
     camera_control = opencv_control if use_opencv else obs_control

@@ -29,7 +29,9 @@
                     <a class="nav-link" href="{{ url_for('main.tasks_page') }}">盘点任务</a>
                     <a class="nav-link" href="{{ url_for('main.task_logs_page') }}">任务日志</a>
                     <a class="nav-link" href="{{ url_for('main.photos_page') }}">数据管理</a>
+                    <a class="nav-link" href="{{ url_for('main.settings') }}"><i class="fas fa-cog"></i> 系统设置</a>
                     {% if session.authenticated %}
+           
                     <a class="nav-link" href="{{ url_for('main.logout') }}">退出登录</a>
                     {% endif %}
                 </div>
