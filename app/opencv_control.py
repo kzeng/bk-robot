@@ -216,13 +216,21 @@ class OpenCVControl:
 
             for camera_id in self.cameras.keys():
                 try:
-                    # Get the latest frame from the buffer
-                    frame = self.get_latest_frame(camera_id)
+                    # 等待frame缓冲区有帧，最多等待2秒
+                    frame = None
+                    wait_time = 0
+                    while frame is None and wait_time < 2.0:
+                        frame = self.get_latest_frame(camera_id)
+                        if frame is None:
+                            time.sleep(0.05)
+                            wait_time += 0.05
                     if frame is None:
-                        raise RuntimeError("No frame available in buffer")
+                        raise RuntimeError("No frame available in buffer after waiting")
 
                     filename = f"{position_info}-Camera{camera_id}-{timestamp}.jpg"
                     filepath = os.path.join(base_dir, filename)
+                    # 修复: 保证返回的filepath为web url格式
+                    filepath = filepath.replace("\\", "/")
                     abs_filepath = os.path.abspath(filepath)
 
                     # Save with configured JPEG quality

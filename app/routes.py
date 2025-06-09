@@ -945,8 +945,8 @@ def get_images_in_directory():
                 # 添加调试日志：找到的文件路径
                 current_app.logger.info(f"Found file in directory: {full_path}")
                 
-                # 构造正确的URL
-                relative_path = os.path.join('screenshots', directory, file)
+                # 构造正确的URL，修复Windows下反斜杠问题
+                relative_path = os.path.join('screenshots', directory, file).replace('\\', '/')
                 images.append({
                     'filename': file,
                     'directory': directory,
