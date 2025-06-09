@@ -11,7 +11,7 @@
     <link rel="icon" href="{{ url_for('static', filename='res/bookgoal.ico') }}" type="image/x-icon">
     {% block styles %}{% endblock %}
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
     {% block navigation %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
@@ -39,7 +39,7 @@
         </div>
     </nav>
     {% endblock %}
-    <main class="container py-4">
+    <main class="container py-4 flex-grow-1">
         {% block content %}{% endblock %}
     </main>
 

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Toast container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer">
+</div>
+
 <div class="container mt-4">
     <h1 class="mb-4">系统设置</h1>
         
@@ -148,47 +152,45 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
         });
         
         const result = await response.json();
-        
-        if (response.ok) {
-            // 使用Bootstrap toast显示成功消息
-            const toast = new bootstrap.Toast(document.createElement('div'));
-            toast._element.innerHTML = `
-                <div class="toast-container position-fixed bottom-0 end-0 p-3">
-                    <div class="toast" role="alert">
-                        <div class="toast-header bg-success text-white">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <strong class="me-auto">成功</strong>
-                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                        </div>
-                        <div class="toast-body">
-                            设置已保存，部分设置可能需要重启服务才能生效
-                        </div>
+          if (response.ok) {
+            // 创建并显示成功消息 toast
+            const container = document.getElementById('toastContainer');
+            container.innerHTML = `
+                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-success text-white">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong class="me-auto">成功</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        设置已保存，部分设置可能需要重启服务才能生效
                     </div>
                 </div>
             `;
-            document.body.appendChild(toast._element);
+            
+            const toastElement = container.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement);
             toast.show();
         } else {
             throw new Error(result.message || '保存失败');
         }
-    } catch (error) {
-        // 显示错误消息
-        const toast = new bootstrap.Toast(document.createElement('div'));
-        toast._element.innerHTML = `
-            <div class="toast-container position-fixed bottom-0 end-0 p-3">
-                <div class="toast" role="alert">
-                    <div class="toast-header bg-danger text-white">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong class="me-auto">错误</strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        保存设置时出错: ${error.message}
-                    </div>
+    } catch (error) {        // 显示错误消息 toast
+        const container = document.getElementById('toastContainer');
+        container.innerHTML = `
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-danger text-white">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong class="me-auto">错误</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    保存设置时出错: ${error.message}
                 </div>
             </div>
         `;
-        document.body.appendChild(toast._element);
+        
+        const toastElement = container.querySelector('.toast');
+        const toast = new bootstrap.Toast(toastElement);
         toast.show();
     }
 });
