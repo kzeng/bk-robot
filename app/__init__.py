@@ -5,12 +5,16 @@ from flask_socketio import SocketIO
 import os
 from .robot_control import RobotControl
 from .obs_control import OBSControl
+from .opencv_control import OpenCVControl
 
 db = SQLAlchemy()
 migrate = Migrate()
 socketio = SocketIO()
 robot_control = RobotControl()
+
+# Initialize both controllers but only use one based on USE_OPENCV flag
 obs_control = OBSControl()
+opencv_control = OpenCVControl()
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -41,14 +45,23 @@ def create_app(test_config=None):
     socketio.init_app(app)
     robot_control.init_app(app)
     
-    # Initialize OBS control with app
-    obs_control.init_app(app)
-    app.robot_control = robot_control
-    app.obs_control = obs_control
+    # Initialize camera control based on USE_OPENCV flag
+    use_opencv = app.config.get('USE_OPENCV', False)
+    camera_control = opencv_control if use_opencv else obs_control
     
-    # Verify OBS config was loaded
-    if not app.config.get('OBS_WS_URL') or not app.config.get('OBS_PASSWORD'):
-        app.logger.warning("OBS configuration not properly loaded - check config.py")
+    if use_opencv:
+        opencv_control.init_app(app)
+        app.opencv_control = opencv_control
+        app.camera_control = opencv_control
+        app.logger.info("Using OpenCV for camera control")
+    else:
+        obs_control.init_app(app)
+        app.obs_control = obs_control  
+        app.camera_control = obs_control
+        app.logger.info("Using OBS for camera control")
+        # Verify OBS config was loaded
+        if not app.config.get('OBS_WS_URL') or not app.config.get('OBS_PASSWORD'):
+            app.logger.warning("OBS configuration not properly loaded - check config.py")
 
     from . import routes
     app.register_blueprint(routes.bp)

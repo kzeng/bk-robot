@@ -13,7 +13,7 @@ import ftplib
 from ftplib import FTP
 import logging
 import serial
-from .lift import Lift
+from .lift_control import Lift
 
 
 
@@ -242,17 +242,17 @@ def poll_robot_status():
 @bp.route('/api/obs/start_recording', methods=['POST'])
 def start_recording():
     """开始录制API"""
-    obs_control = current_app.obs_control
+    camera_control = current_app.camera_control
     
     try:
         # Only connect if not already connected
-        if not obs_control.connected:
-            connect_result = obs_control.connect()
+        if hasattr(camera_control, 'connected') and not camera_control.connected:
+            connect_result = camera_control.connect()
             if connect_result["status"] != "OK":
                 return jsonify(connect_result), 500
         
         # Start recording and return result
-        result = obs_control.start_recording()
+        result = camera_control.start_recording()
         if result["status"] != "OK":
             return jsonify(result), 500
             
@@ -269,27 +269,35 @@ def start_recording():
 @bp.route('/api/obs/stop_recording', methods=['POST'])
 def stop_recording():
     """停止录制API"""
-    obs_control = current_app.obs_control
+    camera_control = current_app.camera_control
 
     try:
         # Only connect if not already connected
-        if not obs_control.connected:
-            connect_result = obs_control.connect()
+        if hasattr(camera_control, 'connected') and not camera_control.connected:
+            connect_result = camera_control.connect()
             if connect_result["status"] != "OK":
                 return jsonify(connect_result), 500
         
         # Stop recording and get result
-        result = obs_control.stop_recording()
+        result = camera_control.stop_recording()
         current_app.logger.info(f"Stop recording result: {result}")
         
         if result["status"] != "OK":
             return jsonify(result), 500
 
         # Return success response
+        file_path = ""
+        if isinstance(result.get("file_paths"), list) and result["file_paths"]:
+            # For OpenCV control that returns multiple file paths
+            file_path = result["file_paths"][0]
+        else:
+            # For OBS control that returns a single file path
+            file_path = result.get("file_path", "")
+            
         return jsonify({
             "status": "OK",
             "message": "Recording stopped successfully",
-            "file_path": result.get("outputPath", "")  # Use OBS provided path if available
+            "file_path": file_path
         })
 
     except Exception as e:
@@ -315,17 +323,17 @@ def take_screenshot():
     else:
         position_info = ''
     
-    obs_control = current_app.obs_control
+    camera_control = current_app.camera_control
     
     try:
         # Only connect if not already connected
-        if not obs_control.connected:
-            result = obs_control.connect()
+        if hasattr(camera_control, 'connected') and not camera_control.connected:
+            result = camera_control.connect()
             if result["status"] != "OK":
                 return jsonify(result), 500
                 
         # Take screenshots
-        result = obs_control.take_screenshot_all_cameras(position_info=position_info)
+        result = camera_control.take_screenshot_all_cameras(position_info=position_info)
         return jsonify(result)
         
     except Exception as e:
