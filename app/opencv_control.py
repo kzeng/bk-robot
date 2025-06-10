@@ -61,25 +61,26 @@ class OpenCVControl:
         self.recording_threads = {}
         self.recording_start_time = None
         self.recording_markers = None
-        self.simulation_mode = False
-
-        # Camera monitoring
+        self.simulation_mode = False        # Camera monitoring
         self.camera_status = {}
         self.frame_queues = {}
         self.frame_threads = {}
         self.stop_events = {}
-
+        
         if app is not None:
             self.init_app(app)
-
+            
     def init_app(self, app):
         """Initialize app configuration and detect cameras"""
         self.app = app
         self.config = app.config.get('CAMERA_CONFIG', {
-            'resolution': {'width': 1920, 'height': 1080},
-            'fps': 30,
-            'jpeg_quality': 95,
-            'buffer_size': 10,
+            'resolution': {
+                'width': int(app.config.get('CAMERA_WIDTH', 1920)),
+                'height': int(app.config.get('CAMERA_HEIGHT', 1080))
+            },
+            'fps': int(app.config.get('CAMERA_FPS', 30)),
+            'jpeg_quality': int(app.config.get('JPEG_QUALITY', 95)),
+            'buffer_size': int(app.config.get('CAMERA_BUFFER_SIZE', 10)),
             'enable_monitoring': True
         })
         
@@ -198,34 +199,73 @@ class OpenCVControl:
             )
             controls = ctrl_result.stdout.lower()
             
-            # Configure image quality settings for MagicView cameras
+            # # Configure image quality settings for MagicView cameras
+            # try:
+            #     if is_magicview:
+            #         # 1. 基础图像参数优化
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=32'])      # 降低亮度避免过曝
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=48'])        # 适中对比度
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=64'])      # 适中饱和度
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=5'])        # 适度锐化
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=100'])          # 标准伽马值
+                    
+            #         # 2. 曝光设置优化
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=auto_exposure=1'])    # 手动曝光模式
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=100'])  # 减少曝光时间
+                    
+            #         # 3. 白平衡与色彩优化
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_automatic=0'])    # 手动白平衡
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=4600'])  # 室内色温
+                    
+            #         # 4. 对焦和其他优化
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0']) # 关闭自动对焦
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=250'])          # 固定对焦距离
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=50'])                     # 降低增益
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=1'])    # 开启背光补偿
+            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])      # 设置电源频率为50Hz
+                    
+            #         self._log('info', f"MagicView camera parameters optimized for {device_path}")
+            #     else:
+            #         # Generic camera settings
+            #         if 'brightness' in controls:
+            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
+            #         if 'contrast' in controls:
+            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=128'])
+            #         if 'saturation' in controls:
+            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=128'])
+            # except:
+            #     self._log('warning', f"Some controls could not be set for {device_path}")
+
+
+            # kzeng-optimized
+            # Configure image quality settings for MagicView cameras in library environment
             try:
                 if is_magicview:
-                    # 1. 基础图像参数优化
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=32'])      # 降低亮度避免过曝
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=48'])        # 适中对比度
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=64'])      # 适中饱和度
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=5'])        # 适度锐化
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=100'])          # 标准伽马值
+                    # 1. 基础图像参数
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=16'])      # 降低亮度避免过曝
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=40'])        # 适中对比增强文字
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=80'])      # 增强书封色彩
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=6'])        # 最大锐化提升文字
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=120'])          # 优化中灰对比
                     
-                    # 2. 曝光设置优化
+                    # 2. 曝光设置
                     subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=auto_exposure=1'])    # 手动曝光模式
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=100'])  # 减少曝光时间
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=80'])  # 缩短曝光时间
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=20'])            # 降低增益减少噪点
                     
-                    # 3. 白平衡与色彩优化
+                    # 3. 白平衡
                     subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_automatic=0'])    # 手动白平衡
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=4600'])  # 室内色温
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=5000'])  # 图书馆光线
                     
-                    # 4. 对焦和其他优化
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0']) # 关闭自动对焦
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=250'])          # 固定对焦距离
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=50'])                     # 降低增益
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=1'])    # 开启背光补偿
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])      # 设置电源频率为50Hz
+                    # 4. 对焦及其他设置
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0'])  # 手动对焦
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=200'])           # 优化书架距离
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=0'])     # 关闭背光补偿
+                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])       # 50 Hz
                     
-                    self._log('info', f"MagicView camera parameters optimized for {device_path}")
+                    self._log('info', f"MagicView camera parameters optimized for {device_path} in library lighting")
                 else:
-                    # Generic camera settings
+                    # 通用相机设置
                     if 'brightness' in controls:
                         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
                     if 'contrast' in controls:
@@ -307,7 +347,12 @@ class OpenCVControl:
                     params = [
                         cv2.IMWRITE_JPEG_QUALITY, 100,  # 使用最高JPEG质量
                         cv2.IMWRITE_JPEG_OPTIMIZE, 1,   # 启用JPEG优化
-                        cv2.IMWRITE_JPEG_PROGRESSIVE, 1 # 使用渐进式JPEG
+                        cv2.IMWRITE_JPEG_PROGRESSIVE, 1, # 使用渐进式JPEG
+
+                        # 额外的JPEG参数, kzeng-optimized 
+                        cv2.IMWRITE_JPEG_LUMA_QUALITY, 100, # 亮度质量
+                        cv2.IMWRITE_JPEG_CHROMA_QUALITY, 100, # 色度质量
+                        cv2.IMWRITE_JPEG_SAMPLING_FACTOR, 1111 # 4:4:4采样,不降采样
                     ]
                     cv2.imwrite(abs_filepath, frame, params)
 
