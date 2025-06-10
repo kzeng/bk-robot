@@ -1,3 +1,7 @@
+import os
+
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
+
 from app import create_app, socketio
 
 app = create_app()
