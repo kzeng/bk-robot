@@ -15,6 +15,7 @@
                         <!-- 摄像头配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-camera me-2"></i>摄像头配置</h5>
+                            <!-- Basic Parameters -->
                             <div class="mb-3">
                                 <label class="form-label">分辨率-宽度</label>
                                 <input type="number" class="form-control" name="CAMERA_WIDTH" value="{{ env.CAMERA_WIDTH }}" required>
@@ -35,25 +36,115 @@
                                 <label class="form-label">缓冲区大小</label>
                                 <input type="number" class="form-control" name="CAMERA_BUFFER_SIZE" value="{{ env.CAMERA_BUFFER_SIZE }}" required>
                             </div>
-                        </div>
-                        <!-- OBS配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
-                            <div class="mb-3">
-                                <label class="form-label">WebSocket URL</label>
-                                <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
+                            
+                            <!-- Advanced Camera Parameters -->
+                            <h6 class="mt-4 mb-3">高级相机参数</h6>
+                            
+                            <!-- Image Parameters -->
+                            <div class="card mb-3">
+                                <div class="card-header">图像参数</div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">亮度</label>
+                                            <input type="number" class="form-control" name="CAMERA_BRIGHTNESS" value="{{ env.CAMERA_BRIGHTNESS }}" min="0" max="255">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">对比度</label>
+                                            <input type="number" class="form-control" name="CAMERA_CONTRAST" value="{{ env.CAMERA_CONTRAST }}" min="0" max="255">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label">饱和度</label>
+                                            <input type="number" class="form-control" name="CAMERA_SATURATION" value="{{ env.CAMERA_SATURATION }}" min="0" max="255">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">锐度</label>
+                                            <input type="number" class="form-control" name="CAMERA_SHARPNESS" value="{{ env.CAMERA_SHARPNESS }}" min="0" max="100">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label">伽马值</label>
+                                            <input type="number" class="form-control" name="CAMERA_GAMMA" value="{{ env.CAMERA_GAMMA }}" min="0" max="500">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">密码</label>
-                                <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
+
+                            <!-- Exposure Parameters -->
+                            <div class="card mb-3">
+                                <div class="card-header">曝光参数</div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="CAMERA_AUTO_EXPOSURE" value="1" 
+                                               {% if env.CAMERA_AUTO_EXPOSURE == '1' %}checked{% endif %}>
+                                        <label class="form-check-label">自动曝光</label>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">曝光时间</label>
+                                            <input type="number" class="form-control" name="CAMERA_EXPOSURE_TIME" value="{{ env.CAMERA_EXPOSURE_TIME }}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">增益</label>
+                                            <input type="number" class="form-control" name="CAMERA_GAIN" value="{{ env.CAMERA_GAIN }}">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="USE_OPENCV" {% if env.USE_OPENCV == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label">使用OpenCV模式(否则使用OBS)</label>
+
+                            <!-- White Balance Parameters -->
+                            <div class="card mb-3">
+                                <div class="card-header">白平衡参数</div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="CAMERA_WB_AUTO" value="1"
+                                               {% if env.CAMERA_WB_AUTO == '1' %}checked{% endif %}>
+                                        <label class="form-check-label">自动白平衡</label>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">色温</label>
+                                            <input type="number" class="form-control" name="CAMERA_WB_TEMP" value="{{ env.CAMERA_WB_TEMP }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Other Parameters -->
+                            <div class="card mb-3">
+                                <div class="card-header">其他参数</div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="CAMERA_FOCUS_AUTO" value="1"
+                                               {% if env.CAMERA_FOCUS_AUTO == '1' %}checked{% endif %}>
+                                        <label class="form-check-label">自动对焦</label>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">焦距</label>
+                                            <input type="number" class="form-control" name="CAMERA_FOCUS" value="{{ env.CAMERA_FOCUS }}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">背光补偿</label>
+                                            <input type="number" class="form-control" name="CAMERA_BACKLIGHT" value="{{ env.CAMERA_BACKLIGHT }}" min="0" max="1">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label">电源频率</label>
+                                            <select class="form-select" name="CAMERA_POWERLINE_FREQ">
+                                                <option value="1" {% if env.CAMERA_POWERLINE_FREQ == '1' %}selected{% endif %}>50Hz</option>
+                                                <option value="2" {% if env.CAMERA_POWERLINE_FREQ == '2' %}selected{% endif %}>60Hz</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+           
                     </div>
                     <!-- 右侧板块 -->
                     <div class="col-md-6">
@@ -70,7 +161,7 @@
                             </div>
                             <div class="mb-3">
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" name="MOCK_MODE" {% if env.MOCK_MODE == 'true' %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" name="MOCK_MODE" {% if env.MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
                                     <label class="form-check-label">模拟模式</label>
                                 </div>
                             </div>
@@ -96,7 +187,7 @@
                             </div>
                             <div class="mb-3">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="MOCK_FTP" {% if env.MOCK_FTP == 'true' %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" name="MOCK_FTP" {% if env.MOCK_FTP in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
                                     <label class="form-check-label">FTP模拟模式</label>
                                 </div>
                             </div>
@@ -109,6 +200,30 @@
                                 <input type="text" class="form-control" name="LIFT_PORT" value="{{ env.LIFT_PORT }}" required>
                             </div>
                         </div>
+
+
+                        <!-- OBS配置 -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
+                            <div class="mb-3">
+                                <label class="form-label">WebSocket URL</label>
+                                <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="USE_OPENCV" {% if env.USE_OPENCV in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
+                                    <label class="form-check-label">使用OpenCV模式(否则使用OBS)</label><br>
+                                    <small class="form-text text-muted ms-2">
+                                        注意： 只有OpenCV模式启用时，高级相机参数设置才有效。
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
                 <div class="d-flex justify-content-between mt-4">
@@ -129,23 +244,26 @@
 <script>
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
     const formData = new FormData(this);
     const settings = {};
-      // 处理所有字段
-    const checkboxFields = ['MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP'];
+    // 处理所有复选框字段，包括高级相机参数
+    const checkboxFields = [
+        'MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP',
+        'CAMERA_AUTO_EXPOSURE', 'CAMERA_WB_AUTO', 'CAMERA_FOCUS_AUTO'
+    ];
     for (let field of checkboxFields) {
-        // 如果复选框未被选中，formData中不会有该字段
-        settings[field] = formData.has(field) ? 'true' : 'false';
+        settings[field] = formData.has(field) ? '1' : '0';
     }
-    
-    // 处理其他字段
     for (let [key, value] of formData.entries()) {
         if (!checkboxFields.includes(key)) {
             settings[key] = value;
         }
     }
-    
+    // 保存按钮处理
+    const saveBtn = document.querySelector('button[type="submit"]');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
     try {
         const response = await fetch('/api/settings', {
             method: 'POST',
@@ -154,9 +272,8 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
             },
             body: JSON.stringify(settings)
         });
-        
         const result = await response.json();
-          if (response.ok) {
+        if (response.ok) {
             // 创建并显示成功消息 toast
             const container = document.getElementById('toastContainer');
             container.innerHTML = `
@@ -171,14 +288,14 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
                     </div>
                 </div>
             `;
-            
             const toastElement = container.querySelector('.toast');
             const toast = new bootstrap.Toast(toastElement);
             toast.show();
         } else {
             throw new Error(result.message || '保存失败');
         }
-    } catch (error) {        // 显示错误消息 toast
+    } catch (error) {
+        // 显示错误消息 toast
         const container = document.getElementById('toastContainer');
         container.innerHTML = `
             <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
@@ -192,10 +309,12 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
                 </div>
             </div>
         `;
-        
         const toastElement = container.querySelector('.toast');
         const toast = new bootstrap.Toast(toastElement);
         toast.show();
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
     }
 });
 </script>

@@ -11,6 +11,7 @@ from datetime import datetime
 from threading import Thread, Lock, Event
 from PIL import Image, ImageDraw, ImageFont
 from flask import current_app
+from .camera_control import CameraControl
 
 class CameraStatus:
     def __init__(self):
@@ -56,12 +57,13 @@ class OpenCVControl:
     def __init__(self, app=None):
         self.app = app
         self.cameras = {}  
+        self.camera_controls = {} # 新增: 相机控制对象字典
         self.camera_indices = []  
         self.recording = False
         self.recording_threads = {}
         self.recording_start_time = None
         self.recording_markers = None
-        self.simulation_mode = False        # Camera monitoring
+        self.simulation_mode = False
         self.camera_status = {}
         self.frame_queues = {}
         self.frame_threads = {}
@@ -69,7 +71,7 @@ class OpenCVControl:
         
         if app is not None:
             self.init_app(app)
-            
+
     def init_app(self, app):
         """Initialize app configuration and detect cameras"""
         self.app = app
@@ -81,7 +83,8 @@ class OpenCVControl:
             'fps': int(app.config.get('CAMERA_FPS', 30)),
             'jpeg_quality': int(app.config.get('JPEG_QUALITY', 95)),
             'buffer_size': int(app.config.get('CAMERA_BUFFER_SIZE', 10)),
-            'enable_monitoring': True
+            'enable_monitoring': True,
+            'control_params': {}
         })
         
         # Get list of available video devices
@@ -89,214 +92,61 @@ class OpenCVControl:
         camera_paths = []
         
         # Find all video devices
-        try:
-            devices = os.listdir('/dev')
-            video_devices = [d for d in devices if d.startswith('video')]
-            for device in sorted(video_devices):
-                try:
-                    device_path = f"/dev/{device}"
-                    # Check if device is a capture device
-                    result = subprocess.run(
-                        ['v4l2-ctl', '-d', device_path, '--info'],
-                        capture_output=True,
-                        text=True
-                    )
-                    if 'Video Capture' in result.stdout:
-                        camera_paths.append(device_path)
-                except Exception:
-                    continue
-        except Exception as e:
-            self._log('error', f"Error enumerating video devices: {e}")
-            
-        self._log('info', f"Found video capture devices: {camera_paths}")
-        
-        # Initialize each camera
-        with app.app_context():
-            for device_path in camera_paths:
-                try:
-                    device_num = int(device_path.replace('/dev/video', ''))
-                    self._configure_v4l2_device(device_path)
-                    
-                    # Try opening with OpenCV using V4L2 backend
-                    cap = cv2.VideoCapture(device_num, cv2.CAP_V4L2)
-                    if not cap.isOpened():
-                        self._log('warning', f"Failed to open {device_path}")
-                        continue
-                        
-                    # Configure format and buffer for high quality
-                    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
-                    cap.set(cv2.CAP_PROP_FPS, self.config['fps'])
-                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Smaller buffer for fresher frames
-                    
-                    # Test frame capture
-                    for _ in range(5):  # Capture a few frames to let the camera adjust
-                        ret, frame = cap.read()
-                    if ret and frame is not None:
-                        self.camera_indices.append(device_num)
-                        self._log('info', f"Successfully initialized {device_path}")
-                    else:
-                        self._log('warning', f"Could not capture frame from {device_path}")
-                    cap.release()
-                    
-                except Exception as e:
-                    self._log('error', f"Error initializing {device_path}: {e}")
-                    
-            if not self.camera_indices:
-                self._log('warning', "No cameras were detected!")
-            else:
-                self._log('info', f"Detected cameras: {self.camera_indices}")
-
-    def _get_v4l2_devices(self):
-        """Get information about available V4L2 devices"""
-        try:
-            result = subprocess.run(
-                ['v4l2-ctl', '--list-devices'],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            self._log('error', f"v4l2-ctl command failed: {e}")
-        except FileNotFoundError:
-            self._log('warning', "v4l2-ctl not found. Install v4l-utils package")
-        except Exception as e:
-            self._log('error', f"Error getting V4L2 devices: {e}")
-        return None
-
-    def _configure_v4l2_device(self, device_path):
-        """Configure V4L2 device settings for optimal image quality"""
-        try:
-            # Get device info and check for MagicView cameras
-            info_result = subprocess.run(
-                ['v4l2-ctl', '-d', device_path, '--info'],
-                capture_output=True,
-                text=True
-            )
-            is_magicview = 'MagicView' in info_result.stdout
-            if is_magicview:
-                self._log('info', f"Detected MagicView camera at {device_path}")
-            
-            # Get supported formats and choose the best one
-            formats_result = subprocess.run(
-                ['v4l2-ctl', '-d', device_path, '--list-formats-ext'],
-                capture_output=True,
-                text=True
-            )
-            # Prefer MJPG format for better quality
-            if 'MJPG' in formats_result.stdout:
-                subprocess.run(['v4l2-ctl', '-d', device_path, '--set-fmt-video=width=1920,height=1080,pixelformat=MJPG'])
-            elif 'YUYV' in formats_result.stdout:
-                subprocess.run(['v4l2-ctl', '-d', device_path, '--set-fmt-video=width=1920,height=1080,pixelformat=YUYV'])
-            
-            # Get available controls
-            ctrl_result = subprocess.run(
-                ['v4l2-ctl', '-d', device_path, '--list-ctrls'],
-                capture_output=True,
-                text=True
-            )
-            controls = ctrl_result.stdout.lower()
-            
-            # # Configure image quality settings for MagicView cameras
-            # try:
-            #     if is_magicview:
-            #         # 1. 基础图像参数优化
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=32'])      # 降低亮度避免过曝
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=48'])        # 适中对比度
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=64'])      # 适中饱和度
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=5'])        # 适度锐化
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=100'])          # 标准伽马值
-                    
-            #         # 2. 曝光设置优化
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=auto_exposure=1'])    # 手动曝光模式
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=100'])  # 减少曝光时间
-                    
-            #         # 3. 白平衡与色彩优化
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_automatic=0'])    # 手动白平衡
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=4600'])  # 室内色温
-                    
-            #         # 4. 对焦和其他优化
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0']) # 关闭自动对焦
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=250'])          # 固定对焦距离
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=50'])                     # 降低增益
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=1'])    # 开启背光补偿
-            #         subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])      # 设置电源频率为50Hz
-                    
-            #         self._log('info', f"MagicView camera parameters optimized for {device_path}")
-            #     else:
-            #         # Generic camera settings
-            #         if 'brightness' in controls:
-            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
-            #         if 'contrast' in controls:
-            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=128'])
-            #         if 'saturation' in controls:
-            #             subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=128'])
-            # except:
-            #     self._log('warning', f"Some controls could not be set for {device_path}")
-
-
-            # kzeng-optimized
-            # Configure image quality settings for MagicView cameras in library environment
+        if os.name == 'posix':  # Linux
             try:
-                if is_magicview:
-                    # 1. 基础图像参数
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=16'])      # 降低亮度避免过曝
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=40'])        # 适中对比增强文字
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=80'])      # 增强书封色彩
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=sharpness=6'])        # 最大锐化提升文字
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gamma=120'])          # 优化中灰对比
-                    
-                    # 2. 曝光设置
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=auto_exposure=1'])    # 手动曝光模式
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=exposure_time_absolute=80'])  # 缩短曝光时间
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=gain=20'])            # 降低增益减少噪点
-                    
-                    # 3. 白平衡
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_automatic=0'])    # 手动白平衡
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=white_balance_temperature=5000'])  # 图书馆光线
-                    
-                    # 4. 对焦及其他设置
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_automatic_continuous=0'])  # 手动对焦
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=focus_absolute=200'])           # 优化书架距离
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=backlight_compensation=0'])     # 关闭背光补偿
-                    subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=power_line_frequency=1'])       # 50 Hz
-                    
-                    self._log('info', f"MagicView camera parameters optimized for {device_path} in library lighting")
-                else:
-                    # 通用相机设置
-                    if 'brightness' in controls:
-                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=brightness=128'])
-                    if 'contrast' in controls:
-                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=contrast=128'])
-                    if 'saturation' in controls:
-                        subprocess.run(['v4l2-ctl', '-d', device_path, '--set-ctrl=saturation=128'])
-            except:
-                self._log('warning', f"Some controls could not be set for {device_path}")
-            
-            self._log('info', f"Image quality settings configured for {device_path}")
-            return True
-            
-        except Exception as e:
-            self._log('error', f"Failed to configure V4L2 device {device_path}: {e}")
-            return False
+                devices = os.listdir('/dev')
+                video_devices = [d for d in devices if d.startswith('video')]
+                for device in sorted(video_devices):
+                    try:
+                        device_path = f"/dev/{device}"
+                        camera_paths.append(device_path)
+                        self.camera_indices.append(device_path)
+                    except Exception as e:
+                        self._log("warning", f"Could not open {device_path}: {e}")
+            except Exception as e:
+                self._log("warning", f"Could not list video devices: {e}")
+        else:  # Windows
+            for i in range(10):  # Try first 10 camera indices
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    self.camera_indices.append(i)
+                    camera_paths.append(str(i))
+                    cap.release()
 
-    def _log(self, level, message):
-        """Log messages using the app logger"""
-        if hasattr(self, 'app') and self.app:
-            logger = self.app.logger
-        else:
-            # Fallback to print if app logger is not available
-            print(f"[{level}] {message}")
-            return
+        # Initialize cameras and their controls
+        for cam_path in camera_paths:
+            try:
+                cam_control = CameraControl(cam_path)
+                cam_control.open()
+                # Set initial parameters
+                if 'control_params' in self.config:
+                    cam_control.set_params(self.config['control_params'])
+                self.camera_controls[cam_path] = cam_control
+            except Exception as e:
+                self._log("warning", f"Could not initialize camera {cam_path}: {e}")
+                continue
+
+        # Start camera monitoring if enabled
+        if self.config.get('enable_monitoring', False):
+            self.start_monitoring()
             
-        if level == 'info':
-            logger.info(message)
-        elif level == 'warning':
-            logger.warning(message)
-        elif level == 'error':
-            logger.error(message)
+
+    def _log(self, level, msg):
+        """Simple logger for OpenCVControl"""
+        print(f"[{level.upper()}] {msg}")
+
+
+    def update_camera_params(self, camera_id, params):
+        """Update camera parameters
+        Args:
+            camera_id: Camera ID or path
+            params: Dictionary of parameter name-value pairs
+        """
+        if camera_id in self.camera_controls:
+            cam_control = self.camera_controls[camera_id]
+            cam_control.set_params(params)
+        else:
+            raise ValueError(f"Camera {camera_id} not found")
 
     def take_screenshot_all_cameras(self, position_info):
         """Capture screenshots from all connected cameras with high quality"""
@@ -404,8 +254,9 @@ class OpenCVControl:
                     device_path = f"/dev/video{idx}"
                     self._log('info', f"Connecting to camera {idx}")
                     
-                    # Configure V4L2 settings first
-                    self._configure_v4l2_device(device_path)
+                    # 仅在Linux下配置V4L2
+                    if os.name == 'posix':
+                        self._configure_v4l2_device(device_path)
                     
                     # Try opening with OpenCV
                     cap = cv2.VideoCapture(idx)

@@ -23,14 +23,30 @@ class Config:
         'fps': int(os.environ.get('CAMERA_FPS', '30')),
         'jpeg_quality': int(os.environ.get('JPEG_QUALITY', '100')),
         'buffer_size': int(os.environ.get('CAMERA_BUFFER_SIZE', '10')),  # Number of frames to buffer
-        'enable_monitoring': os.environ.get('CAMERA_MONITORING', False)
+        'enable_monitoring': os.environ.get('CAMERA_MONITORING', False),
+        'control_params': {
+            'brightness': int(os.environ.get('CAMERA_BRIGHTNESS', '16')),
+            'contrast': int(os.environ.get('CAMERA_CONTRAST', '40')), 
+            'saturation': int(os.environ.get('CAMERA_SATURATION', '80')),
+            'sharpness': int(os.environ.get('CAMERA_SHARPNESS', '6')),
+            'gamma': int(os.environ.get('CAMERA_GAMMA', '120')),
+            'auto_exposure': int(os.environ.get('CAMERA_AUTO_EXPOSURE', '1')),
+            'exposure_time': int(os.environ.get('CAMERA_EXPOSURE_TIME', '80')),
+            'gain': int(os.environ.get('CAMERA_GAIN', '20')),
+            'white_balance_auto': int(os.environ.get('CAMERA_WB_AUTO', '0')),
+            'white_balance_temp': int(os.environ.get('CAMERA_WB_TEMP', '5000')),
+            'focus_auto': int(os.environ.get('CAMERA_FOCUS_AUTO', '0')), 
+            'focus_absolute': int(os.environ.get('CAMERA_FOCUS', '200')),
+            'backlight_comp': int(os.environ.get('CAMERA_BACKLIGHT', '0')),
+            'power_line_freq': int(os.environ.get('CAMERA_POWERLINE_FREQ', '1'))
+        }
     }
 
     # Flask配置
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
       # 机器人底座配置
     MOCK_MODE = os.environ.get('MOCK_MODE', False)
-    if MOCK_MODE == 'true' or MOCK_MODE == 'True' or MOCK_MODE == True:
+    if MOCK_MODE == 'true' or MOCK_MODE == 'True' or MOCK_MODE == True or MOCK_MODE == '1':
         MOCK_MODE = True
     else:
         MOCK_MODE = False
@@ -45,7 +61,7 @@ class Config:
 
     # USE opencv-python (default obs)
     USE_OPENCV = os.environ.get('USE_OPENCV', False) 
-    if USE_OPENCV == 'true' or USE_OPENCV == 'True' or USE_OPENCV == True:
+    if USE_OPENCV == 'true' or USE_OPENCV == 'True' or USE_OPENCV == True or USE_OPENCV == '1':
         USE_OPENCV = True
     else:
         USE_OPENCV = False
@@ -56,7 +72,7 @@ class Config:
     FTP_USER = os.environ.get('FTP_USER', 'username')
     FTP_PASS = os.environ.get('FTP_PASS', 'password')
     MOCK_FTP = os.environ.get('MOCK_FTP', False) 
-    if MOCK_FTP == 'true' or MOCK_FTP == 'True' or MOCK_FTP == True:
+    if MOCK_FTP == 'true' or MOCK_FTP == 'True' or MOCK_FTP == True or MOCK_FTP == '1':
         MOCK_FTP = True
     else:
         MOCK_FTP = False

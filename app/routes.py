@@ -1227,31 +1227,42 @@ def settings():
     
     # 获取环境变量，如果不存在则使用Config中的默认值
     env_vars = {
-        # 摄像头配置
+        # 基础摄像头配置
         'CAMERA_WIDTH': str(current_app.config['CAMERA_CONFIG']['resolution']['width']),
         'CAMERA_HEIGHT': str(current_app.config['CAMERA_CONFIG']['resolution']['height']),
         'CAMERA_FPS': str(current_app.config['CAMERA_CONFIG']['fps']),
         'JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
         
-        # 机器人配置
+        # 高级相机参数
+        'CAMERA_BRIGHTNESS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('brightness', '16')),
+        'CAMERA_CONTRAST': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('contrast', '40')),
+        'CAMERA_SATURATION': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('saturation', '80')),
+        'CAMERA_SHARPNESS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('sharpness', '6')),
+        'CAMERA_GAMMA': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('gamma', '120')),
+        'CAMERA_AUTO_EXPOSURE': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('auto_exposure', '1')),
+        'CAMERA_EXPOSURE_TIME': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('exposure_time', '80')),
+        'CAMERA_GAIN': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('gain', '20')),
+        'CAMERA_WB_AUTO': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('white_balance_auto', '0')),
+        'CAMERA_WB_TEMP': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('white_balance_temp', '5000')),
+        'CAMERA_FOCUS_AUTO': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('focus_auto', '0')),
+        'CAMERA_FOCUS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('focus_absolute', '200')),
+        'CAMERA_BACKLIGHT': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('backlight_comp', '0')),
+        'CAMERA_POWERLINE_FREQ': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('power_line_freq', '1')),
+        
+        # 其他配置
         'ROBOT_IP': str(current_app.config['ROBOT_IP']),
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
-        'MOCK_MODE': str(current_app.config['MOCK_MODE']).lower() == 'true',  # 转换为布尔值
-          # OBS配置
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
-        'USE_OPENCV': str(os.environ.get('USE_OPENCV', 'false')).lower() == 'true',  # 转换为布尔值
-        
-        # FTP配置
-        'FTP_HOST': str(current_app.config['FTP_HOST']),
-        'FTP_PORT': str(current_app.config['FTP_PORT']),
-        'FTP_USER': str(current_app.config['FTP_USER']),
-        'FTP_PASS': str(current_app.config['FTP_PASS']),
-        'MOCK_FTP': str(current_app.config['MOCK_FTP']).lower() == 'true',  # 转换为布尔值
-
-        # 升降柱配置
-        'LIFT_PORT': str(current_app.config['LIFT_PORT']),
+        'USE_OPENCV': str(current_app.config['USE_OPENCV']).lower(),
+        'MOCK_MODE': str(current_app.config['MOCK_MODE']).lower(),
+        'MOCK_FTP': str(current_app.config.get('MOCK_FTP', 'false')).lower(),
+        'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
+        'FTP_PORT': str(current_app.config.get('FTP_PORT', '')),
+        'FTP_USER': str(current_app.config.get('FTP_USER', '')),
+        'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
+        'LIFT_PORT': str(current_app.config.get('LIFT_PORT', '')),
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1281,24 +1292,49 @@ def update_settings():
         env_path = os.path.join(current_app.config['BASEDIR'], '.env')
         
         # 验证数据
-        required_fields = ['CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
-                         'JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
-                         'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT']
+        required_fields = [
+            # 基础配置
+            'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
+            'JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
+            'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT',
+            # 相机控制参数
+            'CAMERA_BRIGHTNESS', 'CAMERA_CONTRAST', 'CAMERA_SATURATION',
+            'CAMERA_SHARPNESS', 'CAMERA_GAMMA', 'CAMERA_AUTO_EXPOSURE',
+            'CAMERA_EXPOSURE_TIME', 'CAMERA_GAIN', 'CAMERA_WB_AUTO',
+            'CAMERA_WB_TEMP', 'CAMERA_FOCUS_AUTO', 'CAMERA_FOCUS',
+            'CAMERA_BACKLIGHT', 'CAMERA_POWERLINE_FREQ'
+        ]
         
         for field in required_fields:
-            if not data.get(field):
+            if field not in data:
                 raise ValueError(f"Missing required field: {field}")
         
         # 验证数值范围
-        if not (1 <= int(data['JPEG_QUALITY']) <= 100):
-            raise ValueError("JPEG quality must be between 1 and 100")
+        validations = {
+            'JPEG_QUALITY': (1, 100),
+            'CAMERA_BUFFER_SIZE': (1, 100),
+            'CAMERA_BRIGHTNESS': (0, 255),
+            'CAMERA_CONTRAST': (0, 255),
+            'CAMERA_SATURATION': (0, 255),
+            'CAMERA_SHARPNESS': (0, 100),
+            'CAMERA_GAMMA': (0, 500),
+            'CAMERA_AUTO_EXPOSURE': (0, 1),
+            'CAMERA_WB_AUTO': (0, 1),
+            'CAMERA_FOCUS_AUTO': (0, 1),
+            'CAMERA_BACKLIGHT': (0, 1),
+            'CAMERA_POWERLINE_FREQ': (1, 2)
+        }
         
-        if not (1 <= int(data['CAMERA_BUFFER_SIZE']) <= 100):
-            raise ValueError("Buffer size must be between 1 and 100")
+        for field, (min_val, max_val) in validations.items():
+            if field in data:
+                value = int(data[field])
+                if not (min_val <= value <= max_val):
+                    raise ValueError(f"{field} must be between {min_val} and {max_val}")
         
         # 确保.env文件目录存在
         os.makedirs(os.path.dirname(env_path), exist_ok=True)
-          # 更新.env文件
+        
+        # 更新.env文件
         for key, value in data.items():
             # 确保布尔值被正确处理
             if key in ['MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP']:
@@ -1307,6 +1343,17 @@ def update_settings():
         
         # 重新加载环境变量以立即生效
         load_dotenv(env_path, override=True)
+        
+        # 尝试更新相机参数
+        if current_app.camera_control and hasattr(current_app.camera_control, 'update_camera_params'):
+            camera_params = {k.lower().replace('camera_', ''): v for k, v in data.items() 
+                           if k.startswith('CAMERA_') and k not in ['CAMERA_WIDTH', 'CAMERA_HEIGHT', 
+                                                                   'CAMERA_FPS', 'CAMERA_BUFFER_SIZE']}
+            # 获取第一个摄像头id
+            camera_ids = list(getattr(current_app.camera_control, 'camera_controls', {}).keys())
+            if camera_ids:
+                camera_id = camera_ids[0]
+                current_app.camera_control.update_camera_params(camera_id, camera_params)
         
         current_app.logger.info("Settings updated successfully")
         return jsonify({'status': 'OK', 'message': '设置已保存'})
