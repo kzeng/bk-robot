@@ -15,7 +15,7 @@ import logging
 import serial
 from .lift_control import Lift
 from dotenv import load_dotenv, set_key
-
+from loguru import logger
 
 
 def async_route(f):
@@ -191,7 +191,7 @@ def photos_page():
 def robot_cmd():
     """发送机器人控制命令API"""
     data = request.get_json()
-    print(f"Received operation command: {data}")
+    logger.info(f"Received operation command: {data}")
 
     try:
         api_request = f"{data['cmd']}?{data['params']}"
@@ -208,6 +208,7 @@ def robot_cmd():
             "results": result.get("results", None)
         })
     except Exception as e:
+        logger.error(f"Error in robot_cmd: {str(e)}")
         return jsonify({
             "container": "opt-info",
             "timestamp": time.time(),
@@ -257,11 +258,11 @@ def start_recording():
         if result["status"] != "OK":
             return jsonify(result), 500
             
-        current_app.logger.info("Recording started successfully.")
+        logger.info("Recording started successfully.")
         return jsonify(result)
         
     except Exception as e:
-        current_app.logger.error(f"Error starting recording: {str(e)}")
+        logger.error(f"Error starting recording: {str(e)}")
         return jsonify({
             "status": "ERROR",
             "message": f"Failed to start recording: {str(e)}"
@@ -281,7 +282,7 @@ def stop_recording():
         
         # Stop recording and get result
         result = camera_control.stop_recording()
-        current_app.logger.info(f"Stop recording result: {result}")
+        logger.info(f"Stop recording result: {result}")
         
         if result["status"] != "OK":
             return jsonify(result), 500
@@ -302,7 +303,7 @@ def stop_recording():
         })
 
     except Exception as e:
-        current_app.logger.error(f"Error stopping recording: {str(e)}")
+        logger.error(f"Error stopping recording: {str(e)}")
         return jsonify({
             "status": "ERROR",
             "message": f"Error stopping recording: {str(e)}"
@@ -338,7 +339,7 @@ def take_screenshot():
         return jsonify(result)
         
     except Exception as e:
-        current_app.logger.error(f"Error taking screenshot: {str(e)}")
+        logger.error(f"Error taking screenshot: {str(e)}")
         return jsonify({
             "status": "ERROR",
             "message": f"Failed to take screenshot: {str(e)}"
@@ -369,17 +370,17 @@ def create_task():
     """创建新盘点任务"""
     try:
         # Log request headers and raw data
-        current_app.logger.info(f"Request headers: {dict(request.headers)}")
-        current_app.logger.info(f"Content-Type: {request.content_type}")
-        current_app.logger.info(f"Raw request data: {request.data}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Content-Type: {request.content_type}")
+        logger.info(f"Raw request data: {request.data}")
         
         try:
             data = request.get_json()
         except Exception as e:
-            current_app.logger.error(f"Failed to parse JSON: {str(e)}")
+            logger.error(f"Failed to parse JSON: {str(e)}")
             return jsonify({'status': 'ERROR', 'message': 'Invalid JSON format'}), 400
             
-        current_app.logger.info(f"Creating new task with data: {data}")
+        logger.info(f"Creating new task with data: {data}")
         
         task = Task(
             marker=data.get('marker', ''),
@@ -391,7 +392,7 @@ def create_task():
         db.session.add(task)
         db.session.commit()
         
-        current_app.logger.info(f"Successfully created task ID: {task.task_id}")
+        logger.info(f"Successfully created task ID: {task.task_id}")
         return jsonify({
             'status': 'OK', 
             'task_id': task.task_id,
@@ -399,7 +400,7 @@ def create_task():
         }), 201
         
     except Exception as e:
-        current_app.logger.error(f"Error creating task: {str(e)}", exc_info=True)
+        logger.error(f"Error creating task: {str(e)}", exc_info=True)
         db.session.rollback()
         return jsonify({
             'status': 'ERROR',
@@ -529,24 +530,24 @@ def async_run_task(app, task_id):
                         results = robot_status.get('results', {})
                         move_status = results.get('move_status')
                         if move_status == 'succeeded':
-                            app.logger.info(f"Robot reached marker {end_marker}, taking photos")
+                            logger.info(f"Robot reached marker {end_marker}, taking photos")
                             photo_result = app.obs_control.take_screenshot_all_cameras(position_info=end_marker)
                             if photo_result.get('status') == 'OK':
                                 new_files = photo_result.get('file_paths', [])
                                 if new_files:
                                     file_paths.extend(new_files)
-                                    app.logger.info(f"Saved {len(new_files)} photos at {end_marker}")
+                                    logger.info(f"Saved {len(new_files)} photos at {end_marker}")
                                 else:
                                     status = 3
-                                    app.logger.warning(f"No photos saved at {end_marker}")
+                                    logger.warning(f"No photos saved at {end_marker}")
                             else:
                                 status = 3
-                                app.logger.warning(f"Photo failed at {end_marker}: {photo_result.get('message')}")
+                                logger.warning(f"Photo failed at {end_marker}: {photo_result.get('message')}")
                             completed_markers.add(end_marker)
                             break
                         elif move_status in ['failed', 'canceled']:
                             status = 3
-                            app.logger.warning(f"Movement to {end_marker} {move_status}")
+                            logger.warning(f"Movement to {end_marker} {move_status}")
                             break
                         time.sleep(1)
             elif task.action == 1:  # 录像
@@ -554,7 +555,7 @@ def async_run_task(app, task_id):
                 move_result = app.robot_control.send_command(f"/api/move?marker={markers}")
                 if move_result.get('status') != 'OK':
                     raise Exception(f"Failed to start movement: {move_result.get('message')}")
-                app.logger.info("Started movement through markers for recording task")
+                logger.info("Started movement through markers for recording task")
                 recording_started = False
                 last_marker = marker_list[-1]
                 while True:
@@ -565,20 +566,20 @@ def async_run_task(app, task_id):
                     current_target = results.get('move_target')
                     move_status = results.get('move_status')
                     if not recording_started and move_status == 'succeeded':
-                        app.logger.info("Robot reached first marker, starting recording")
+                        logger.info("Robot reached first marker, starting recording")
                         start_result = app.obs_control.start_recording()
                         if start_result.get('status') != 'OK':
                             status = 3
-                            app.logger.warning(f"Start recording failed: {start_result.get('message')}")
+                            logger.warning(f"Start recording failed: {start_result.get('message')}")
                         recording_started = True
                     if (current_target == last_marker and move_status == 'succeeded') or \
                        move_status in ['failed', 'canceled']:
                         if recording_started:
-                            app.logger.info("Stopping recording")
+                            logger.info("Stopping recording")
                             stop_result = app.obs_control.stop_recording()
                             if stop_result.get('status') != 'OK':
                                 status = 3
-                                app.logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                                logger.warning(f"Stop recording failed: {stop_result.get('message')}")
                             else:
                                 file_paths.extend(stop_result.get('file_paths', []))
                         break
@@ -586,7 +587,7 @@ def async_run_task(app, task_id):
             elif task.action == 99:  # 仅是移动
                 subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
                 for start_marker, end_marker in subtasks:
-                    app.logger.info(f"Moving from {start_marker} to {end_marker} (move only, no photo/video)")
+                    logger.info(f"Moving from {start_marker} to {end_marker} (move only, no photo/video)")
                     move_result = app.robot_control.send_command(f"/api/move?marker={start_marker},{end_marker}")
                     if move_result.get('status') != 'OK':
                         raise Exception(f"Failed to start movement: {move_result.get('message')}")
@@ -597,11 +598,11 @@ def async_run_task(app, task_id):
                         results = robot_status.get('results', {})
                         move_status = results.get('move_status')
                         if move_status == 'succeeded':
-                            app.logger.info(f"Robot reached marker {end_marker}")
+                            logger.info(f"Robot reached marker {end_marker}")
                             break
                         elif move_status in ['failed', 'canceled']:
                             status = 3
-                            app.logger.warning(f"Movement to {end_marker} {move_status}")
+                            logger.warning(f"Movement to {end_marker} {move_status}")
                             break
                         time.sleep(1)
             else:
@@ -611,14 +612,14 @@ def async_run_task(app, task_id):
                 status = 2
         except Exception as e:
             status = 4
-            app.logger.error(f"Error executing task {task_id}: {str(e)}")
+            logger.error(f"Error executing task {task_id}: {str(e)}")
             if task.action == 1 and 'recording_started' in locals() and recording_started:
                 try:
                     stop_result = app.obs_control.stop_recording()
                     if stop_result.get('status') == 'OK':
                         file_paths.extend(stop_result.get('file_paths', []))
                 except Exception as stop_error:
-                    app.logger.error(f"Error stopping recording after failure: {stop_error}")
+                    logger.error(f"Error stopping recording after failure: {stop_error}")
         finally:
             try:
                 if task_log:
@@ -627,9 +628,9 @@ def async_run_task(app, task_id):
                     task_log.file_count = len(file_paths)
                     task_log.file_paths = json.dumps(file_paths)
                     db.session.commit()
-                    app.logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
+                    logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
             except Exception as e:
-                app.logger.error(f"Failed to update task log: {str(e)}")
+                logger.error(f"Failed to update task log: {str(e)}")
 
 # @bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
 # def run_task(task_id):
@@ -773,7 +774,7 @@ def get_lift():
     try:
         return Lift(port=port, baudrate=baudrate)
     except Exception as e:
-        current_app.logger.error(f"Failed to initialize Lift: {e}")
+        logger.error(f"Failed to initialize Lift: {e}")
         return None
 
 @bp.route('/api/lift/status', methods=['GET'])
@@ -794,6 +795,7 @@ def lift_status():
             'connected': connected
         })
     except Exception as e:
+        logger.error(f"Error checking lift status: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e),
@@ -848,7 +850,7 @@ def get_photo_directories():
                      if os.path.isdir(os.path.join(screenshots_dir, d))]
         
         # 添加调试输出：打印找到的目录
-        current_app.logger.info(f"Found directories: {directories}")
+        logger.info(f"Found directories: {directories}")
         
         # 按目录名称排序（通常是日期格式，如YYYYMMDD）
         directories.sort(reverse=True)
@@ -858,7 +860,7 @@ def get_photo_directories():
             'count': len(directories)
         })
     except Exception as e:
-        current_app.logger.error(f"Error getting photo directories: {str(e)}")
+        logger.error(f"Error getting photo directories: {str(e)}")
         return jsonify({
             'status': 'ERROR',
             'message': f'Failed to get directories: {str(e)}'
@@ -873,8 +875,8 @@ def get_images_in_directory():
         screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
         
         # 添加调试日志：打印基础目录和请求的目录
-        current_app.logger.info(f"Getting images - Base directory: {screenshots_dir}")
-        current_app.logger.info(f"Getting images - Requested directory: {directory}")
+        logger.info(f"Getting images - Base directory: {screenshots_dir}")
+        logger.info(f"Getting images - Requested directory: {directory}")
         
         # 如果没有指定目录，则返回所有图片
         if not directory:
@@ -886,7 +888,7 @@ def get_images_in_directory():
                         full_path = os.path.join(root, file)
                         
                         # 添加调试日志：找到的文件路径
-                        current_app.logger.info(f"Found file: {full_path}")
+                        logger.info(f"Found file: {full_path}")
                         
                         # 获取相对路径用于构造URL
                         if rel_path == '.':
@@ -913,9 +915,9 @@ def get_images_in_directory():
         
         # 添加调试日志：检查目录是否存在
         dir_path = os.path.join(screenshots_dir, directory)
-        current_app.logger.info(f"Checking directory existence: {dir_path}")
+        logger.info(f"Checking directory existence: {dir_path}")
         if not os.path.exists(dir_path):
-            current_app.logger.info(f"Directory does not exist: {dir_path}")
+            logger.info(f"Directory does not exist: {dir_path}")
             return jsonify({
                 'images': [],
                 'count': 0,
@@ -924,7 +926,7 @@ def get_images_in_directory():
         
         # 添加调试日志：列出目录中的所有内容
         all_items = os.listdir(dir_path)
-        current_app.logger.info(f"All items in directory {dir_path}: {all_items}")
+        logger.info(f"All items in directory {dir_path}: {all_items}")
         
         # 获取指定目录下的图片
         images = []
@@ -934,11 +936,11 @@ def get_images_in_directory():
                 
                 # 确保文件确实存在
                 if not os.path.exists(full_path):
-                    current_app.logger.warning(f"File does not exist: {full_path}")
+                    logger.warning(f"File does not exist: {full_path}")
                     continue
                     
                 # 添加调试日志：找到的文件路径
-                current_app.logger.info(f"Found file in directory: {full_path}")
+                logger.info(f"Found file in directory: {full_path}")
                 
                 # 构造正确的URL，修复Windows下反斜杠问题
                 relative_path = os.path.join('screenshots', directory, file).replace('\\', '/')
@@ -955,13 +957,13 @@ def get_images_in_directory():
         images.sort(key=lambda x: -x['timestamp'])
         
         # 在返回数据前过滤，只保留与当前目录匹配的图片
-        current_app.logger.info(f"Filtering images for directory: {directory}")
+        logger.info(f"Filtering images for directory: {directory}")
         filtered_images = [img for img in images if img['directory'] == directory]
         
         # 在返回数据前添加验证
         for image in filtered_images:
             if 'thumbnailUrl' not in image or 'fullUrl' not in image:
-                current_app.logger.warning(f"Image data missing URL fields: {image}")
+                logger.warning(f"Image data missing URL fields: {image}")
         
         return jsonify({
             'images': filtered_images,
@@ -969,7 +971,7 @@ def get_images_in_directory():
             'directory': directory
         })
     except Exception as e:
-        current_app.logger.error(f"Error getting images in directory: {str(e)}")
+        logger.error(f"Error getting images in directory: {str(e)}")
         return jsonify({
             'status': 'ERROR',
             'message': f'Failed to get images: {str(e)}'
@@ -1003,7 +1005,7 @@ def upload_directory():
         
         if config['MOCK_FTP']:
             # Mock mode - just simulate upload
-            current_app.logger.info(f"Mock FTP upload from directory: {directory}")
+            logger.info(f"Mock FTP upload from directory: {directory}")
             for file in os.listdir(dir_path):
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                     uploaded_files.append(file)
@@ -1014,7 +1016,7 @@ def upload_directory():
                     # Connect to FTP server
                     ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
                     ftp.login(config['FTP_USER'], config['FTP_PASS'])
-                    current_app.logger.info(f"Connected to FTP server: {config['FTP_HOST']}")
+                    logger.info(f"Connected to FTP server: {config['FTP_HOST']}")
 
                     # Upload each file
                     for file in os.listdir(dir_path):
@@ -1024,12 +1026,12 @@ def upload_directory():
                                 with open(file_path, 'rb') as f:
                                     ftp.storbinary(f'STOR {file}', f)
                                 uploaded_files.append(file)
-                                current_app.logger.info(f"Uploaded {file} to FTP server")
+                                logger.info(f"Uploaded {file} to FTP server")
                             except Exception as file_error:
-                                current_app.logger.error(f"Error uploading {file}: {str(file_error)}")
+                                logger.error(f"Error uploading {file}: {str(file_error)}")
                                 continue
             except ftplib.all_errors as ftp_error:
-                current_app.logger.error(f"FTP connection error: {str(ftp_error)}")
+                logger.error(f"FTP connection error: {str(ftp_error)}")
                 return jsonify({
                     'status': 'ERROR',
                     'message': f'FTP connection failed: {str(ftp_error)}'
@@ -1042,7 +1044,7 @@ def upload_directory():
             'uploaded_files': uploaded_files
         })
     except Exception as e:
-        current_app.logger.error(f"Error uploading directory: {str(e)}", exc_info=True)
+        logger.error(f"Error uploading directory: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'ERROR',
             'message': f'Upload failed: {str(e)}'
@@ -1082,7 +1084,7 @@ def delete_directory():
             'directory': directory
         })
     except Exception as e:
-        current_app.logger.error(f"Error deleting directory: {str(e)}")
+        logger.error(f"Error deleting directory: {str(e)}")
         return jsonify({
             'status': 'ERROR',
             'message': f'Delete operation failed: {str(e)}'
@@ -1092,13 +1094,13 @@ def delete_directory():
 @bp.route('/api/photos/delete_image', methods=['POST'])
 def delete_image():
     """删除指定目录下的单个图片文件"""
-    print("Received request to delete image.......")
+    logger.info("Received request to delete image.......")
     try:
         data = request.get_json()
         directory = data.get('directory', '')
         filename = data.get('filename', '')
         
-        print(f"Directory: {directory}, Filename: {filename}")
+        logger.info(f"Directory: {directory}, Filename: {filename}")
 
 
         if not directory or not filename:
@@ -1115,8 +1117,8 @@ def delete_image():
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
         
-        print(f"Full file path: {file_path}")
-        print(f"File exists: {os.path.exists(file_path)}")
+        logger.info(f"Full file path: {file_path}")
+        logger.info(f"File exists: {os.path.exists(file_path)}")
 
         
         if not os.path.exists(file_path):
@@ -1126,7 +1128,7 @@ def delete_image():
             }), 404
         
         # 删除文件
-        print(f"Deleting file: {file_path}")
+        logger.info(f"Deleting file: {file_path}")
         os.remove(file_path)
         
         return jsonify({
@@ -1136,7 +1138,7 @@ def delete_image():
             'filename': filename
         })
     except Exception as e:
-        current_app.logger.error(f"Error deleting image: {str(e)}")
+        logger.error(f"Error deleting image: {str(e)}")
         return jsonify({
             'status': 'ERROR',
             'message': f'Delete operation failed: {str(e)}'
@@ -1173,7 +1175,7 @@ def clear_all_photos():
             'message': 'All photos and directories have been cleared'
         })
     except Exception as e:
-        current_app.logger.error(f"Error clearing all photos: {str(e)}")
+        logger.error(f"Error clearing all photos: {str(e)}")
         return jsonify({
             'status': 'ERROR',
             'message': f'Clear operation failed: {str(e)}'
@@ -1355,9 +1357,9 @@ def update_settings():
                 camera_id = camera_ids[0]
                 current_app.camera_control.update_camera_params(camera_id, camera_params)
         
-        current_app.logger.info("Settings updated successfully")
+        logger.info("Settings updated successfully")
         return jsonify({'status': 'OK', 'message': '设置已保存'})
         
     except Exception as e:
-        current_app.logger.error(f"Error updating settings: {str(e)}")
+        logger.error(f"Error updating settings: {str(e)}")
         return jsonify({'status': 'ERROR', 'message': str(e)}), 500

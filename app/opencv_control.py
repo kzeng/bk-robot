@@ -12,6 +12,7 @@ from threading import Thread, Lock, Event
 from PIL import Image, ImageDraw, ImageFont
 from flask import current_app
 from .camera_control import CameraControl
+from loguru import logger
 
 class CameraStatus:
     def __init__(self):
@@ -133,7 +134,14 @@ class OpenCVControl:
 
     def _log(self, level, msg):
         """Simple logger for OpenCVControl"""
-        print(f"[{level.upper()}] {msg}")
+        if level.lower() == 'info':
+            logger.info(msg)
+        elif level.lower() == 'warning':
+            logger.warning(msg)
+        elif level.lower() == 'error':
+            logger.error(msg)
+        else:
+            logger.debug(msg)
 
 
     def update_camera_params(self, camera_id, params):

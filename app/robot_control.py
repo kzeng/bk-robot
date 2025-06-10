@@ -1,10 +1,10 @@
 import socket
 import json
-from flask import current_app
+from config import Config
 import time
 import struct
 import random
-from config import Config
+from loguru import logger
 
 class RobotControl:
     def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT, mock=Config.MOCK_MODE):
@@ -32,7 +32,7 @@ class RobotControl:
         """Establish TCP connection to robot server"""
         if self.mock:
             self.connected = True
-            self._get_logger().info(f"Mock connected to robot at {self.host}:{self.port}")
+            logger.info(f"Mock connected to robot at {self.host}:{self.port}")
             return True
             
         try:
@@ -40,10 +40,10 @@ class RobotControl:
             self.socket.settimeout(self.timeout)
             self.socket.connect((self.host, self.port))
             self.connected = True
-            self._get_logger().info(f"Connected to robot at {self.host}:{self.port}")
+            logger.info(f"Connected to robot at {self.host}:{self.port}")
             return True
         except Exception as e:
-            self._get_logger().error(f"Connection failed: {str(e)}")
+            logger.error(f"Connection failed: {str(e)}")
             self.connected = False
             return False
 
@@ -100,7 +100,7 @@ class RobotControl:
 
         try:
             # Send command via TCP socket
-            self._get_logger().info(f"Sending command: {cmd_str}")
+            logger.info(f"Sending command: {cmd_str}")
             # Note: send() may block if network buffers are full
             bytes_sent = self.socket.send(cmd_str.encode('utf-8'))
             if bytes_sent != len(cmd_str):
@@ -115,7 +115,7 @@ class RobotControl:
             response = json.loads(rx.decode('utf-8'))
             return response
         except Exception as e:
-            self._get_logger().error(f"Command {cmd_str} failed: {str(e)}")
+            logger.error(f"Command {cmd_str} failed: {str(e)}")
             self.disconnect()
             return {'status': 'error', 'message': str(e)}
     
@@ -127,9 +127,7 @@ class RobotControl:
 
     def _get_logger(self):
         """Get logger from Flask app or current_app"""
-        if self.app:
-            return self.app.logger
-        return current_app.logger
+        return logger
 
     def get_status(self):
         """Get current robot status"""
@@ -174,20 +172,17 @@ class RobotControl:
         try:
             # Call actual robot status API
             api_request = '/api/robot_status'
-            self._get_logger().debug(f"Sending status request: {api_request}")
-            
+            logger.debug(f"Sending status request: {api_request}")
             # Send request
             self.socket.send(api_request.encode('utf-8'))
-            
             # Receive response
             rx = self.socket.recv(self.buffer_size)
             if not rx:
                 raise ConnectionError("No response from robot")
-                
             response = json.loads(rx.decode('utf-8'))
             return response
         except Exception as e:
-            self._get_logger().error(f"Status check failed: {str(e)}")
+            logger.error(f"Status check failed: {str(e)}")
             return {
                 'type': 'response',
                 'command': '/api/robot_status',

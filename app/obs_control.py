@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime
 from flask import current_app
 from obswebsocket import obsws, requests, exceptions
+from loguru import logger
 
 class OBSControl:
     def __init__(self, app=None):
@@ -72,7 +73,7 @@ class OBSControl:
                     raise e
                 
                 if not self.camera_scenes:
-                    current_app.logger.warning("No scenes found in OBS")
+                    logger.warning("No scenes found in OBS")
                     return {
                         "status": "ERROR", 
                         "message": "No scenes found in OBS"
@@ -137,19 +138,19 @@ class OBSControl:
                 connect_result = self.connect()
                 if connect_result["status"] != "OK":
                     raise RuntimeError(connect_result["message"])
-                current_app.logger.info(f"OBS connection successful.")
+                logger.info(f"OBS connection successful.")
 
                 # Check if the directory exists
                 if not os.path.exists(base_dir):
                     os.makedirs(base_dir)
-                    current_app.logger.info(f"Created directory: {base_dir}")
+                    logger.info(f"Created directory: {base_dir}")
                 else:
-                    current_app.logger.info(f"Directory exists: {base_dir}")
+                    logger.info(f"Directory exists: {base_dir}")
 
                 # 获取可用场景列表
                 scenes = self.ws.call(requests.GetSceneList())
                 scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
-                current_app.logger.debug(f"Available scenes: {scene_names}")
+                logger.debug(f"Available scenes: {scene_names}")
 
                 # powered by LAO-ZENG
                 scene_sources = {}
@@ -160,9 +161,9 @@ class OBSControl:
                         # Extract name of the first source (lowest index = bottom layer in OBS)
                         first_source_name = scene_items[0]['sourceName'].strip().replace(' ', '')
                         scene_sources[scene_name] = first_source_name
-                        print(f"First source in scene '{first_source_name}': {first_source_name}")
+                        logger.info(f"First source in scene '{first_source_name}': {first_source_name}")
                     else:
-                        print("No sources found in the current scene! so use scene name as source")
+                        logger.warning("No sources found in the current scene! so use scene name as source")
                         scene_sources[scene_name] = scene_name
         
 
@@ -179,9 +180,9 @@ class OBSControl:
                 #         source_names = []
                 #         if hasattr(inputs, 'inputs'):
                 #             source_names = [input['inputName'] for input in inputs.inputs]
-                #         current_app.logger.info(f"Got sources using GetInputList: {source_names}")
+                #         logger.info(f"Got sources using GetInputList: {source_names}")
                 #     except Exception as input_error:
-                #         current_app.logger.warning(f"Could not get inputs, trying GetSources: {str(input_error)}")
+                #         logger.warning(f"Could not get inputs, trying GetSources: {str(input_error)}")
                 #         # Fallback to GetSources for older versions
                 #         sources = self.ws.call(requests.GetSources())
                 #         source_names = []
@@ -193,11 +194,11 @@ class OBSControl:
                 #     # If still no sources, use scene names as a last resort
                 #     if not source_names:
                 #         source_names = scene_names.copy()
-                #         current_app.logger.warning("No sources found, using scene names as sources")
+                #         logger.warning("No sources found, using scene names as sources")
 
                 #     if not source_names:
                 #         raise RuntimeError("No sources found in OBS")
-                #     current_app.logger.info(f"Available sources: {source_names}")
+                #     logger.info(f"Available sources: {source_names}")
 
                 #     # Create mapping of scene names to their sources
                 #     scene_sources = {}
@@ -219,12 +220,12 @@ class OBSControl:
                 #         else:
                 #             # Fallback to first available source if no match found
                 #             scene_sources[scene] = source_names[0]
-                #             current_app.logger.warning(
+                #             logger.warning(
                 #                 f"No matching source for scene {scene}, using {source_names[0]}"
                 #             )
 
                 # except Exception as e:
-                #     current_app.logger.error(f"Error getting sources: {str(e)}")
+                #     logger.error(f"Error getting sources: {str(e)}")
 
 
 
@@ -253,11 +254,10 @@ class OBSControl:
                     
                     # 确保基础目录存在
                     os.makedirs(base_dir, exist_ok=True)
-                    current_app.logger.info(f"确保目录存在: {base_dir}")
-                    
+                    logger.info(f"确保目录存在: {base_dir}")
                     # 使用绝对路径并确保其有效性
                     abs_filepath = os.path.abspath(filepath)
-                    current_app.logger.info(f"尝试保存截图至: {abs_filepath}")
+                    logger.info(f"尝试保存截图至: {abs_filepath}")
                     
                     # Use the source mapped to this scene
                     self.ws.call(requests.SaveSourceScreenshot(
@@ -265,7 +265,7 @@ class OBSControl:
                         imageFormat="jpg",
                         imageFilePath=abs_filepath
                     ))
-                    current_app.logger.info(f"截图成功保存至: {abs_filepath}")
+                    logger.info(f"截图成功保存至: {abs_filepath}")
                     
                     results.append({
                         "camera_id": i,
@@ -284,7 +284,7 @@ class OBSControl:
 
         except Exception as e:
             # 捕获所有异常并记录日志
-            current_app.logger.error(f"Error in take_screenshot_all_cameras: {str(e)}")
+            logger.error(f"Error in take_screenshot_all_cameras: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": str(e),
@@ -333,21 +333,21 @@ class OBSControl:
                     raise RuntimeError(connect_result["message"])
             
             self.ws.call(requests.StartRecord())
-            current_app.logger.info("Recording started successfully.")
+            logger.info("Recording started successfully.")
             return {
                 "status": "OK",
                 "message": "Recording started",
                 "timestamp": time.time()
             }
         except exceptions.ConnectionFailure as e:
-            current_app.logger.error(f"Connection failure during start_recording: {str(e)}")
+            logger.error(f"Connection failure during start_recording: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": f"Connection failure: {str(e)}",
                 "timestamp": time.time()
             }
         except Exception as e:
-            current_app.logger.error(f"Error in start_recording: {str(e)}")
+            logger.error(f"Error in start_recording: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": f"Unexpected error: {str(e)}",
@@ -389,11 +389,11 @@ class OBSControl:
             output_path = ""
             try:
                 record_settings = self.ws.call(requests.GetRecordSettings())
-                current_app.logger.info(f"Current recording settings: {record_settings}")
+                logger.info(f"Current recording settings: {record_settings}")
                 output_path = record_settings.get('outputDirectory', '')
-                current_app.logger.info(f"Configured output directory: {output_path}")
+                logger.info(f"Configured output directory: {output_path}")
             except Exception as e:
-                current_app.logger.warning(f"Could not get recording settings: {str(e)}")
+                logger.warning(f"Could not get recording settings: {str(e)}")
                 # Fallback to getting output path from StopRecord response
             
             # First check if recording is actually active
@@ -403,7 +403,7 @@ class OBSControl:
             try:
                 # Get current program scene first as it may indicate active recording
                 current_scene = self.ws.call(requests.GetCurrentProgramScene())
-                current_app.logger.info(f"Current program scene: {current_scene.sceneName}")
+                logger.info(f"Current program scene: {current_scene.sceneName}")
                 
                 # Check recording status - handles multiple OBS API versions:
                 # 1. GetRecordStatus (modern API)
@@ -420,40 +420,39 @@ class OBSControl:
                     is_recording = status.recording
                     recording_filename = getattr(status, 'filename', None)
                 else:  # Unknown format - log warning and proceed to fallback
-                    current_app.logger.debug(f"Unrecognized status format: {vars(status)}")
+                    logger.debug(f"Unrecognized status format: {vars(status)}")
                     # Fallback to checking output status directly
                     try:
                         output_status = self.ws.call(requests.GetOutputStatus('adv_file_output'))
                         if hasattr(output_status, 'active'):
                             is_recording = output_status.active
                             recording_filename = getattr(output_status, 'path', None)
-                        current_app.logger.info(f"Output status: {vars(output_status)}")
+                        logger.info(f"Output status: {vars(output_status)}")
                     except Exception as e:
-                        current_app.logger.warning(f"Could not get output status: {str(e)}")
+                        logger.warning(f"Could not get output status: {str(e)}")
                 
                 if not is_recording:
-                    current_app.logger.warning(f"Initial status check shows no active recording")
+                    logger.warning(f"Initial status check shows no active recording")
                     # Try one last check by looking for active outputs
                     try:
                         outputs = self.ws.call(requests.ListOutputs())
-                        current_app.logger.info(f"All outputs: {outputs.outputs}")
+                        logger.info(f"All outputs: {outputs.outputs}")
                         for output in outputs.outputs:
                             if output.outputKind == 'adv_file_output' and output.outputActive:
                                 is_recording = True
                                 recording_filename = output.outputSettings.get('path', None)
-                                current_app.logger.info(f"Found active output: {output}")
+                                logger.info(f"Found active output: {output}")
                                 break
                     except Exception as e:
-                        current_app.logger.warning(f"Could not list outputs: {str(e)}")
+                        logger.warning(f"Could not list outputs: {str(e)}")
                     
                     if not is_recording:
                         # As final fallback, just attempt to stop recording anyway
-                        current_app.logger.warning("No active recording found, but attempting stop anyway")
+                        logger.warning("No active recording found, but attempting stop anyway")
                         # Don't return error - proceed with stop attempt
             except Exception as e:
-                current_app.logger.error(f"Error checking recording status: {str(e)}")
-                # Continue with stop attempt since some OBS versions may not support status check
-                current_app.logger.info("Proceeding with stop recording despite status check error")
+                logger.error(f"Error checking recording status: {str(e)}")
+                logger.info("Proceeding with stop recording despite status check error")
 
                 # Configure our desired output path
                 date_str = datetime.now().strftime("%Y%m%d")
@@ -461,7 +460,7 @@ class OBSControl:
                 os.makedirs(output_dir, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
                 filename = f"{self.recording_markers}_Camera1_{self.recording_start_time}.mkv"
-                current_app.logger.info(f"Configured output directory: {output_dir}")
+                logger.info(f"Configured output directory: {output_dir}")
                 
                 # Try to set recording settings if possible
                 try:
@@ -474,7 +473,7 @@ class OBSControl:
                         settings.outputPath = os.path.join(output_dir, filename)
                         self.ws.call(requests.SetRecordSettings(settings))
                 except Exception as e:
-                    current_app.logger.warning(f"Could not configure recording settings: {str(e)}")
+                    logger.warning(f"Could not configure recording settings: {str(e)}")
 
             # Stop recording and get the output path
             try:
@@ -517,13 +516,13 @@ class OBSControl:
                     # Move the file
                     os.rename(recording_path, new_path)
                     recording_path = new_path
-                    current_app.logger.info(f"Successfully moved recording to: {recording_path}")
+                    logger.info(f"Successfully moved recording to: {recording_path}")
                 else:
-                    current_app.logger.warning("Could not locate recording file")
+                    logger.warning("Could not locate recording file")
                     recording_path = ""
                     
             except Exception as e:
-                current_app.logger.error(f"Error during stop recording: {str(e)}")
+                logger.error(f"Error during stop recording: {str(e)}")
                 recording_path = ""
             
             return {
@@ -533,14 +532,14 @@ class OBSControl:
                 "file_path": recording_path if recording_path else ""
             }
         except exceptions.ConnectionFailure as e:
-            current_app.logger.error(f"Connection failure during stop_recording: {str(e)}")
+            logger.error(f"Connection failure during stop_recording: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": f"Connection failure: {str(e)}",
                 "timestamp": time.time()
             }
         except Exception as e:
-            current_app.logger.error(f"Error in stop_recording: {str(e)}")
+            logger.error(f"Error in stop_recording: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": f"Unexpected error: {str(e)}",
