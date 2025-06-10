@@ -72,19 +72,33 @@ class OpenCVControl:
         self.app = app
         self.config = app.config.get('CAMERA_CONFIG', {
             'resolution': {
-                'width': int(app.config.get('CAMERA_WIDTH', 1920)),
-                'height': int(app.config.get('CAMERA_HEIGHT', 1080))
+                'width': int(os.environ.get('CAMERA_WIDTH', 1920)),
+                'height': int(os.environ.get('CAMERA_HEIGHT', 1080))
             },
-            'fps': int(app.config.get('CAMERA_FPS', 30)),
-            'jpeg_quality': int(app.config.get('JPEG_QUALITY', 95)),
-            'buffer_size': int(app.config.get('CAMERA_BUFFER_SIZE', 10)),
+            'fps': int(os.environ.get('CAMERA_FPS', 30)),
+            'jpeg_quality': int(os.environ.get('JPEG_QUALITY', 95)),
+            'buffer_size': int(os.environ.get('CAMERA_BUFFER_SIZE', 10)),
             'enable_monitoring': True,
-            'control_params': {}
+            'camera_params': {
+                'brightness': int(os.environ.get('CAMERA_BRIGHTNESS', 16)),
+                'contrast': int(os.environ.get('CAMERA_CONTRAST', 40)),
+                'saturation': int(os.environ.get('CAMERA_SATURATION', 80)),
+                'sharpness': int(os.environ.get('CAMERA_SHARPNESS', 6)),
+                'gamma': int(os.environ.get('CAMERA_GAMMA', 120)),
+                'auto_exposure': int(os.environ.get('CAMERA_AUTO_EXPOSURE', 1)),
+                'exposure_time': int(os.environ.get('CAMERA_EXPOSURE_TIME', 80)),
+                'gain': int(os.environ.get('CAMERA_GAIN', 20)),
+                'wb_auto': int(os.environ.get('CAMERA_WB_AUTO', 0)),
+                'wb_temp': int(os.environ.get('CAMERA_WB_TEMP', 5000)),
+                'focus_auto': int(os.environ.get('CAMERA_FOCUS_AUTO', 0)),
+                'focus': int(os.environ.get('CAMERA_FOCUS', 200)),
+                'backlight': int(os.environ.get('CAMERA_BACKLIGHT', 0)),
+                'powerline_freq': int(os.environ.get('CAMERA_POWERLINE_FREQ', 1))
+            }
         })
         
         # Get list of available video devices
         self.camera_indices = []
-        camera_paths = []
         
         # Find all video devices
         if os.name == 'posix':  # Linux
@@ -93,11 +107,10 @@ class OpenCVControl:
                 video_devices = [d for d in devices if d.startswith('video')]
                 for device in sorted(video_devices):
                     try:
-                        device_path = f"/dev/{device}"
-                        camera_paths.append(device_path)
-                        self.camera_indices.append(device_path)
+                        device_num = int(device.replace('video', ''))
+                        self.camera_indices.append(device_num)
                     except Exception as e:
-                        self._log("warning", f"Could not open {device_path}: {e}")
+                        self._log("warning", f"Could not parse device number from {device}: {e}")
             except Exception as e:
                 self._log("warning", f"Could not list video devices: {e}")
         else:  # Windows
@@ -105,26 +118,12 @@ class OpenCVControl:
                 cap = cv2.VideoCapture(i)
                 if cap.isOpened():
                     self.camera_indices.append(i)
-                    camera_paths.append(str(i))
                     cap.release()
 
-        # Initialize cameras and their controls
-        for cam_path in camera_paths:
-            try:
-                cam_control = CameraControl(cam_path)
-                cam_control.open()
-                # Set initial parameters
-                if 'control_params' in self.config:
-                    cam_control.set_params(self.config['control_params'])
-                self.camera_controls[cam_path] = cam_control
-            except Exception as e:
-                self._log("warning", f"Could not initialize camera {cam_path}: {e}")
-                continue
-
-        # Start camera monitoring if enabled
-        if self.config.get('enable_monitoring', False):
-            self.start_monitoring()
-            
+        if not self.camera_indices:
+            self._log('warning', "No cameras were detected!")
+        else:
+            self._log('info', f"Detected cameras: {self.camera_indices}")
 
     def _log(self, level, msg):
         """Simple logger for OpenCVControl"""
@@ -199,12 +198,7 @@ class OpenCVControl:
                     params = [
                         cv2.IMWRITE_JPEG_QUALITY, 100,  # 使用最高JPEG质量
                         cv2.IMWRITE_JPEG_OPTIMIZE, 1,   # 启用JPEG优化
-                        cv2.IMWRITE_JPEG_PROGRESSIVE, 1, # 使用渐进式JPEG
-
-                        # 额外的JPEG参数, kzeng-optimized 
-                        cv2.IMWRITE_JPEG_LUMA_QUALITY, 100, # 亮度质量
-                        cv2.IMWRITE_JPEG_CHROMA_QUALITY, 100, # 色度质量
-                        cv2.IMWRITE_JPEG_SAMPLING_FACTOR, 1111 # 4:4:4采样,不降采样
+                        cv2.IMWRITE_JPEG_PROGRESSIVE, 1 # 使用渐进式JPEG
                     ]
                     cv2.imwrite(abs_filepath, frame, params)
 
@@ -253,18 +247,18 @@ class OpenCVControl:
 
             for idx in self.camera_indices:
                 try:
-                    device_path = f"/dev/video{idx}"
-                    self._log('info', f"Connecting to camera {idx}")
+                    device_path = f"/dev/video{idx}" if os.name == 'posix' else str(idx)
+                    self._log('info', f"Connecting to camera {device_path}")
                     
-                    # 仅在Linux下配置V4L2
+                    # Configure V4L2 settings first (Linux only)
                     if os.name == 'posix':
                         self._configure_v4l2_device(device_path)
                     
-                    # Try opening with OpenCV
+                    # Try opening with OpenCV using index number
                     cap = cv2.VideoCapture(idx)
                     if not cap.isOpened():
-                        failed_connects.append(idx)
-                        self._log('error', f"Failed to connect to camera {idx}")
+                        failed_connects.append(device_path)
+                        self._log('error', f"Failed to connect to camera {device_path}")
                         continue
 
                     # Configure camera settings
@@ -278,7 +272,7 @@ class OpenCVControl:
                     ret, frame = cap.read()
                     if ret and frame is not None:
                         self.cameras[idx] = cap
-                        successful_connects.append(idx)
+                        successful_connects.append(device_path)
                         
                         # Initialize monitoring
                         self.frame_queues[idx] = queue.Queue(maxsize=self.config['buffer_size'])
@@ -288,15 +282,15 @@ class OpenCVControl:
                         # Start frame grabber thread
                         self._start_frame_grabber(idx, cap)
                         
-                        self._log('info', f"Successfully connected to camera {idx}")
+                        self._log('info', f"Successfully connected to camera {device_path}")
                     else:
                         cap.release()
-                        failed_connects.append(idx)
-                        self._log('error', f"Could not capture test frame from camera {idx}")
+                        failed_connects.append(device_path)
+                        self._log('error', f"Could not capture test frame from camera {device_path}")
                         
                 except Exception as e:
-                    failed_connects.append(idx)
-                    self._log('error', f"Error connecting to camera {idx}: {str(e)}")
+                    failed_connects.append(device_path)
+                    self._log('error', f"Error connecting to camera {device_path}: {str(e)}")
             
             if not successful_connects:
                 return {
@@ -388,4 +382,73 @@ class OpenCVControl:
         self.frame_threads.clear()
         self.stop_events.clear()
         self.camera_status.clear()
+
+    def _configure_v4l2_device(self, device_path):
+        """Configure V4L2 device settings for optimal image quality"""
+        try:
+            # Get device info and check for MagicView cameras
+            info_result = subprocess.run(
+                ['v4l2-ctl', '-d', device_path, '--info'],
+                capture_output=True,
+                text=True
+            )
+            is_magicview = 'MagicView' in info_result.stdout
+            if is_magicview:
+                self._log('info', f"Detected MagicView camera at {device_path}")
+            
+            # Get supported formats and choose the best one
+            formats_result = subprocess.run(
+                ['v4l2-ctl', '-d', device_path, '--list-formats-ext'],
+                capture_output=True,
+                text=True
+            )
+            # Prefer MJPG format for better quality
+            if 'MJPG' in formats_result.stdout:
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-fmt-video=width={self.config["resolution"]["width"]},height={self.config["resolution"]["height"]},pixelformat=MJPG'])
+            elif 'YUYV' in formats_result.stdout:
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-fmt-video=width={self.config["resolution"]["width"]},height={self.config["resolution"]["height"]},pixelformat=YUYV'])
+            
+            # Get available controls
+            ctrl_result = subprocess.run(
+                ['v4l2-ctl', '-d', device_path, '--list-ctrls'],
+                capture_output=True,
+                text=True
+            )
+            controls = ctrl_result.stdout.lower()
+            
+            # Configure image quality settings using environment variables
+            try:
+                params = self.config['camera_params']
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=brightness={params["brightness"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=contrast={params["contrast"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=saturation={params["saturation"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=sharpness={params["sharpness"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gamma={params["gamma"]}'])
+                
+                # Exposure settings
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=auto_exposure={params["auto_exposure"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=exposure_time_absolute={params["exposure_time"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gain={params["gain"]}'])
+                
+                # White balance settings
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_automatic={params["wb_auto"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_temperature={params["wb_temp"]}'])
+                
+                # Focus settings
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_automatic_continuous={params["focus_auto"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_absolute={params["focus"]}'])
+                
+                # Other settings
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=backlight_compensation={params["backlight"]}'])
+                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=power_line_frequency={params["powerline_freq"]}'])
+                
+                self._log('info', f"Camera parameters configured for {device_path}")
+            except Exception as e:
+                self._log('warning', f"Some controls could not be set for {device_path}: {e}")
+            
+            return True
+            
+        except Exception as e:
+            self._log('error', f"Failed to configure V4L2 device {device_path}: {e}")
+            return False
 
