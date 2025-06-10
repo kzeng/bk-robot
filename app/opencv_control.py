@@ -46,13 +46,7 @@ class CameraStatus:
                 'is_connected': self.is_connected,
                 'last_error': self.last_error
             }
-            return {
-                'frame_count': self.frame_count,
-                'dropped_frames': self.dropped_frames,
-                'fps': round(self.fps, 2),
-                'is_connected': self.is_connected,
-                'last_error': self.last_error
-            }
+
 
 class OpenCVControl:
     def __init__(self, app=None):
