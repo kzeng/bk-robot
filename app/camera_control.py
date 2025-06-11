@@ -1,7 +1,7 @@
 import cv2
 import platform
 import subprocess
-from loguru import logger
+from app.utils.logger import configured_logger as logger
 
 class CameraControl:
     """Camera control implementation that works on both Windows and Linux"""
@@ -25,7 +25,12 @@ class CameraControl:
                 
     def _log(self, level, msg):
         """Simple logger for OpenCVControl"""
-        print(f"[{level.upper()}] {msg}")
+        if level.upper() == "INFO":
+            logger.info(msg)
+        elif level.upper() == "WARNING":
+            logger.warning(msg)
+        elif level.upper() == "ERROR":
+            logger.error(msg)
         
     def set_params(self, params):
         """Set camera parameters using platform-specific method"""
