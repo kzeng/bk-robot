@@ -12,7 +12,7 @@ from threading import Thread, Lock, Event
 from PIL import Image, ImageDraw, ImageFont
 from flask import current_app
 from .camera_control import CameraControl
-from loguru import logger
+from app.utils.logger import configured_logger as logger
 
 class CameraStatus:
     def __init__(self):

@@ -4,7 +4,7 @@ from config import Config
 import time
 import struct
 import random
-from loguru import logger
+from app.utils.logger import configured_logger as logger
 
 class RobotControl:
     def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT, mock=Config.ROBOT_MOCK_MODE):

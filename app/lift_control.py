@@ -2,6 +2,7 @@ import serial
 import datetime
 import re
 import time
+from app.utils.logger import configured_logger as logger
 
 
 class Lift:
@@ -23,6 +24,7 @@ class Lift:
         )
         self.last_command_time = None
         self.SET_CMD_TWICE = False  # Default: send command once
+        logger.info(f"Successfully connected to lift on port {port}")
 
     def is_connected(self):
         """Check if serial connection is active.
@@ -48,12 +50,15 @@ class Lift:
             # Send command as hex and add a newline
             self.serial_connection.write(command + b'\n')
             self.last_command_time = datetime.datetime.now()
+            logger.info(f"Sent command to lift: {command.hex()}")
 
             # If SET_CMD_TWICE is True, send the command twice with a 0.5s interval
             if self.SET_CMD_TWICE:
                 time.sleep(0.5)
                 self.serial_connection.write(command + b'\n')
+                logger.info(f"Sent command to lift (twice): {command.hex()}")
         except serial.SerialException as e:
+            logger.error(f"Failed to send command to lift: {str(e)}")
             raise ConnectionError(f"Failed to send command: {str(e)}")
 
 
