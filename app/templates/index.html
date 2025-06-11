@@ -36,9 +36,9 @@
   
             <div class="col-md-5">
                 <div class="control-panel">
-                    <h3>机器人控制A</h3>
+                    <h3>机器人控制</h3>
                     <div class="mb-3">
-                        <label class="form-label">接口 <a id="api-help-link" href="/docs/WATER（水滴）软件API手册.pdf" target="_blank"> 【?】</a></label>
+                        <label class="form-label"> <a id="api-help-link" href="#" target="_blank"> 接口文档 >></a></label>
                         <select class="form-select" id="robot-cmd" onchange="updateApiHelpLink()">
                             {% for all_apis in robot_all_apis_options %}
                             <option value="{{ all_apis.cmd }}" data-url="{{ all_apis.url }}">{{ all_apis.title }}</option>
@@ -127,10 +127,10 @@
                     <h3>
                         全局状态
                         <button class="btn btn-link btn-sm float-end p-0" onclick="togglePolling()" id="polling-toggle" style="color: inherit;">
-                            <i class="bi bi-eye-fill" id="polling-icon"></i>
+                            <i class="bi bi-eye-slash-fill" id="polling-icon"></i>
                         </button>
                     </h3>
-                    <pre id="status-info">等待获取全局状态...</pre>
+                    <pre id="status-info">状态轮询已关闭，点击右上角眼睛图标开启轮询...</pre>
                 </div>
             </div>
             <div class="col-md-7">
@@ -317,7 +317,7 @@ ${data.results ? 'Data: ' + JSON.stringify(data.results, null, 2) : ''}`;
         updateApiHelpLink();
 
         // 定期轮询状态
-        let isPolling = true;
+        let isPolling = false;
         let pollingTimeoutId = null;
 
         function togglePolling() {
@@ -357,6 +357,6 @@ ${data.results ? 'Data: ' + JSON.stringify(data.results, null, 2) : ''}`;
             }
         }
         // 启动状态轮询
-        pollStatus();
+        // pollStatus();
     </script>
 {% endblock %}
