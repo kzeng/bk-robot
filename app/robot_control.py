@@ -7,7 +7,7 @@ import random
 from loguru import logger
 
 class RobotControl:
-    def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT, mock=Config.MOCK_MODE):
+    def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT, mock=Config.ROBOT_MOCK_MODE):
         """Initialize robot control with TCP connection parameters
         
         Args:

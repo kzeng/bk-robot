@@ -21,7 +21,7 @@ class Config:
             'height': int(os.environ.get('CAMERA_HEIGHT', '1080'))
         },
         'fps': int(os.environ.get('CAMERA_FPS', '30')),
-        'jpeg_quality': int(os.environ.get('JPEG_QUALITY', '100')),
+        'jpeg_quality': int(os.environ.get('CAMERA_JPEG_QUALITY', '100')),
         'buffer_size': int(os.environ.get('CAMERA_BUFFER_SIZE', '10')),  # Number of frames to buffer
         'enable_monitoring': os.environ.get('CAMERA_MONITORING', False),
         'control_params': {
@@ -45,11 +45,11 @@ class Config:
     # Flask配置
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
       # 机器人底座配置
-    MOCK_MODE = os.environ.get('MOCK_MODE', False)
-    if MOCK_MODE == 'true' or MOCK_MODE == 'True' or MOCK_MODE == True or MOCK_MODE == '1':
-        MOCK_MODE = True
+    ROBOT_MOCK_MODE = os.environ.get('ROBOT_MOCK_MODE', False)
+    if ROBOT_MOCK_MODE == 'true' or ROBOT_MOCK_MODE == 'True' or ROBOT_MOCK_MODE == True or ROBOT_MOCK_MODE == '1':
+        ROBOT_MOCK_MODE = True
     else:
-        MOCK_MODE = False
+        ROBOT_MOCK_MODE = False
 
     ROBOT_IP = os.environ.get('ROBOT_IP', '192.168.10.10')
     ROBOT_PORT = int(os.environ.get('ROBOT_PORT', '31001'))
@@ -71,11 +71,11 @@ class Config:
     FTP_PORT = int(os.environ.get('FTP_PORT', '21'))
     FTP_USER = os.environ.get('FTP_USER', 'username')
     FTP_PASS = os.environ.get('FTP_PASS', 'password')
-    MOCK_FTP = os.environ.get('MOCK_FTP', False) 
-    if MOCK_FTP == 'true' or MOCK_FTP == 'True' or MOCK_FTP == True or MOCK_FTP == '1':
-        MOCK_FTP = True
+    FTP_MOCK_MODE = os.environ.get('FTP_MOCK_MODE', False) 
+    if FTP_MOCK_MODE == 'true' or FTP_MOCK_MODE == 'True' or FTP_MOCK_MODE == True or FTP_MOCK_MODE == '1':
+        FTP_MOCK_MODE = True
     else:
-        MOCK_FTP = False
+        FTP_MOCK_MODE = False
 
     # Add Lift configuration
     LIFT_PORT = os.environ.get('LIFT_PORT', '/dev/ttyUSB0')  # Serial port for lift control

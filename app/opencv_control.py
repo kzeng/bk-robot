@@ -76,7 +76,7 @@ class OpenCVControl:
                 'height': int(os.environ.get('CAMERA_HEIGHT', 1080))
             },
             'fps': int(os.environ.get('CAMERA_FPS', 30)),
-            'jpeg_quality': int(os.environ.get('JPEG_QUALITY', 95)),
+            'jpeg_quality': int(os.environ.get('CAMERA_JPEG_QUALITY', 95)),
             'buffer_size': int(os.environ.get('CAMERA_BUFFER_SIZE', 10)),
             'enable_monitoring': True,
             'camera_params': {

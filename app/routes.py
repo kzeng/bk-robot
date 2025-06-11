@@ -1003,7 +1003,7 @@ def upload_directory():
         config = current_app.config
         uploaded_files = []
         
-        if config['MOCK_FTP']:
+        if config['FTP_MOCK_MODE']:
             # Mock mode - just simulate upload
             logger.info(f"Mock FTP upload from directory: {directory}")
             for file in os.listdir(dir_path):
@@ -1233,7 +1233,7 @@ def settings():
         'CAMERA_WIDTH': str(current_app.config['CAMERA_CONFIG']['resolution']['width']),
         'CAMERA_HEIGHT': str(current_app.config['CAMERA_CONFIG']['resolution']['height']),
         'CAMERA_FPS': str(current_app.config['CAMERA_CONFIG']['fps']),
-        'JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
+        'CAMERA_JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
         
         # 高级相机参数
@@ -1258,8 +1258,8 @@ def settings():
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
         'USE_OPENCV': str(current_app.config['USE_OPENCV']).lower(),
-        'MOCK_MODE': str(current_app.config['MOCK_MODE']).lower(),
-        'MOCK_FTP': str(current_app.config.get('MOCK_FTP', 'false')).lower(),
+        'ROBOT_MOCK_MODE': str(current_app.config['ROBOT_MOCK_MODE']).lower(),
+        'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': str(current_app.config.get('FTP_PORT', '')),
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
@@ -1297,7 +1297,7 @@ def update_settings():
         required_fields = [
             # 基础配置
             'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
-            'JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
+            'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
             'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT',
             # 相机控制参数
             'CAMERA_BRIGHTNESS', 'CAMERA_CONTRAST', 'CAMERA_SATURATION',
@@ -1313,7 +1313,7 @@ def update_settings():
         
         # 验证数值范围
         validations = {
-            'JPEG_QUALITY': (1, 100),
+            'CAMERA_JPEG_QUALITY': (1, 100),
             'CAMERA_BUFFER_SIZE': (1, 100),
             'CAMERA_BRIGHTNESS': (0, 255),
             'CAMERA_CONTRAST': (0, 255),
@@ -1339,7 +1339,7 @@ def update_settings():
         # 更新.env文件
         for key, value in data.items():
             # 确保布尔值被正确处理
-            if key in ['MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP']:
+            if key in ['ROBOT_MOCK_MODE', 'USE_OPENCV', 'FTP_MOCK_MODE']:
                 value = str(value).lower()  # 确保是小写的 'true' 或 'false'
             set_key(env_path, key, str(value))
         

@@ -30,7 +30,7 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">JPEG质量(1-100)</label>
-                                <input type="number" class="form-control" name="JPEG_QUALITY" min="1" max="100" value="{{ env.JPEG_QUALITY }}" required>
+                                <input type="number" class="form-control" name="CAMERA_JPEG_QUALITY" min="1" max="100" value="{{ env.CAMERA_JPEG_QUALITY }}" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">缓冲区大小</label>
@@ -161,7 +161,7 @@
                             </div>
                             <div class="mb-3">
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" name="MOCK_MODE" {% if env.MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" name="ROBOT_MOCK_MODE" {% if env.ROBOT_MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
                                     <label class="form-check-label">模拟模式</label>
                                 </div>
                             </div>
@@ -187,7 +187,7 @@
                             </div>
                             <div class="mb-3">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="MOCK_FTP" {% if env.MOCK_FTP in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" name="FTP_MOCK_MODE" {% if env.FTP_MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
                                     <label class="form-check-label">FTP模拟模式</label>
                                 </div>
                             </div>
@@ -248,7 +248,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     const settings = {};
     // 处理所有复选框字段，包括高级相机参数
     const checkboxFields = [
-        'MOCK_MODE', 'USE_OPENCV', 'MOCK_FTP',
+        'ROBOT_MOCK_MODE', 'USE_OPENCV', 'FTP_MOCK_MODE',
         'CAMERA_AUTO_EXPOSURE', 'CAMERA_WB_AUTO', 'CAMERA_FOCUS_AUTO'
     ];
     for (let field of checkboxFields) {
