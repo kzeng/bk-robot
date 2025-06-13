@@ -57,7 +57,7 @@
         document.addEventListener('DOMContentLoaded', loadLogs);
 
         let currentPage = 1;
-        const pageSize = 20;
+        const pageSize = 10;
         
         function loadLogs() {
             fetch(`/api/task-logs?page=${currentPage}&size=${pageSize}`)

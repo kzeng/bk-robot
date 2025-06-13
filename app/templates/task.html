@@ -67,6 +67,20 @@
                         <!-- Tasks will be populated here -->
                     </tbody>
                 </table>
+                
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item">
+                            <a class="page-link" href="#" id="prevPage">上一页</a>
+                        </li>
+                        <li class="page-item">
+                            <span class="page-link" id="currentPage">1</span>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="#" id="nextPage">下一页</a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
         </div>
     </div>
@@ -154,14 +168,18 @@
         // Save edited task
         document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
 
+        let currentPage = 1;
+        const pageSize = 10;
+        
         function loadTasks() {
-            fetch('/api/tasks')
+            fetch(`/api/tasks?page=${currentPage}&size=${pageSize}`)
                 .then(response => response.json())
-                .then(tasks => {
+                .then(data => {
                     const tableBody = document.getElementById('tasksTable');
                     tableBody.innerHTML = '';
+                    document.getElementById('currentPage').textContent = currentPage;
                     
-                    tasks.forEach(task => {
+                    data.data.forEach(task => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${task.task_id}</td>
@@ -181,6 +199,20 @@
                     });
                 });
         }
+        
+        document.getElementById('prevPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) {
+                currentPage--;
+                loadTasks();
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            currentPage++;
+            loadTasks();
+        });
 
         function getActionText(action) {
             if (action === 0 || action === "0") return '拍照';

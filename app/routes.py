@@ -352,15 +352,43 @@ def take_screenshot():
 @bp.route('/tasks', methods=['GET'])
 def list_tasks():
     """获取所有盘点任务"""
-    tasks = Task.query.order_by(Task.task_id.desc()).all()
-    return jsonify([{
-        'task_id': task.task_id,
-        'marker': task.marker,
-        'action': task.action,
-        'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
-        'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
-        'description': task.description
-    } for task in tasks])
+    try:
+        page = int(request.args.get('page', 1))
+        size = int(request.args.get('size', 10))
+        
+        if page < 1 or size < 1:
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'Invalid page or size parameters'
+            }), 400
+
+        # Get paginated tasks
+        tasks = Task.query.order_by(
+            Task.task_id.desc()
+        ).paginate(page=page, per_page=size, error_out=False)
+
+        return jsonify({
+            'status': 'OK',
+            'data': [{
+                'task_id': task.task_id,
+                'marker': task.marker,
+                'action': task.action,
+                'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
+                'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
+                'description': task.description
+            } for task in tasks.items],
+            'pagination': {
+                'page': page,
+                'size': size,
+                'total': tasks.total,
+                'pages': tasks.pages
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Failed to get tasks: {str(e)}'
+        }), 500
 
 
 
