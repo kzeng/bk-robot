@@ -1363,3 +1363,21 @@ def update_settings():
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")
         return jsonify({'status': 'ERROR', 'message': str(e)}), 500
+
+@bp.route('/api/robot/status')
+def robot_status():
+    """获取机器人当前状态API"""
+    robot_control = current_app.robot_control
+    status = robot_control.get_status()
+    
+    results = status.get("results", {})
+    response = {
+        "move_target": results.get("move_target", ""),
+        "move_status": results.get("move_status", ""),
+        "running_status": results.get("running_status", ""),
+        "charge_state": results.get("charge_state", False),
+        "estop_state": results.get("estop_state", False),
+        "power_percent": results.get("power_percent", 0)
+    }
+    
+    return jsonify(response)
