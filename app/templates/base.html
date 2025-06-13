@@ -11,18 +11,32 @@
     <style>
         .footer {
             border-top: 1px solid rgba(0,0,0,0.1);
-        }        .badge {
-            line-height: 1.4;
+            position: fixed;
+            bottom: -10px;
+            width: 100%;
+            z-index: 1000;
+        }
+        main {
+            padding-bottom: 120px; /* Initial value, will be updated by JS */
+        }        
+        .badge {
+            line-height: 1.2;
             font-weight: normal;
             min-width: 140px;
             white-space: normal;
-        }        .table-status th {
+        }        
+        .table-status th {
             font-weight: normal;
             color: #666;
             padding-bottom: 0.1rem;
         }
         .table-status td {
             padding-top: 0.1rem;
+        }
+        .status-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 12px;
         }
     </style>
     {% block styles %}{% endblock %}
@@ -56,20 +70,25 @@
     {% endblock %}
     <main class="container py-4 flex-grow-1">
         {% block content %}{% endblock %}
+        <br>
+        <br>
+        <br>
+        <br>
     </main>
+  
     {% block footer %}
-    <footer class="footer mt-auto py-2 bg-light">
+    <footer class="footer mt-auto py-2 bg-dark text-white">
         <div class="container">
-            <table class="table table-status table-sm table-borderless mb-0">
+            <table class="table table-dark table-status table-sm table-borderless mb-0">
                 <thead>
                     <tr>
-                        <th class="text-center" style="width: 15%">目标点位</th>
-                        <th class="text-center" style="width: 15%">执行状态</th>
-                        <th class="text-center" style="width: 15%">任务状态</th>
-                        <th class="text-center" style="width: 12%">充电状态</th>
-                        <th class="text-center" style="width: 12%">急停状态</th>
-                        <th class="text-center" style="width: 10%">电量</th>
-                        <th class="text-end" style="width: 21%">
+                        <th class="text-center status-title" style="width: 15%">目标点位</th>
+                        <th class="text-center status-title" style="width: 15%">执行状态</th>
+                        <th class="text-center status-title" style="width: 15%">任务状态</th>
+                        <th class="text-center status-title" style="width: 12%">充电状态</th>
+                        <th class="text-center status-title" style="width: 12%">急停状态</th>
+                        <th class="text-center status-title" style="width: 10%">电量</th>
+                        <th class="text-end status-title" style="width: 21%">
                             <span id="statusTimestamp" class="me-2">-</span>
                         </th>
                     </tr>
@@ -108,6 +127,15 @@
     <!-- Base Scripts -->
     <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/robot-status.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const footer = document.querySelector('.footer');
+            if (footer) {
+                const footerHeight = footer.offsetHeight;
+                document.querySelector('main').style.paddingBottom = `${footerHeight + 20}px`;
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

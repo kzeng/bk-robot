@@ -25,18 +25,22 @@
         #polling-icon {
             font-size: 1.3rem;
         }
+        .mb-4 {
+        margin-bottom: 0.8rem !important;
+        margin-left: 20px;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
     
     <div class="container mt-4">
-        <h1 class="mb-4">控制面板</h1>
+        <h3 class="mb-4">控制面板</h3>
         <div class="row">
   
             <div class="col-md-5">
                 <div class="control-panel">
-                    <h3>机器人控制</h3>
+                    <h5>机器人控制</h5>
                     <div class="mb-3">
                         <label class="form-label"> <a id="api-help-link" href="#" target="_blank"> 接口文档 >></a></label>
                         <select class="form-select" id="robot-cmd" onchange="updateApiHelpLink()">
@@ -69,7 +73,7 @@
 
             <div class="col-md-4">
                 <div class="control-panel">
-                    <h3>摄像头控制</h3>
+                    <h5>摄像头控制</h5>
                 
                     <button class="btn btn-danger" onclick="startRecording()" disabled>
                         开始录制 <i class="fas fa-circle ms-2"></i>
@@ -88,7 +92,7 @@
 
             <div class="col-md-3">
                 <div class="control-panel">
-                    <h3>升降柱控制</h3>
+                    <h5>升降柱控制</h5>
                         <button class="btn btn-primary w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
                         移动到一号位 <i class="bi bi-arrow-right ms-2"></i>
                         </button>
@@ -124,18 +128,18 @@
         <div class="row">
             <div class="col-md-5">
                 <div class="status-panel">
-                    <h3>
+                    <h5>
                         全局状态
                         <button class="btn btn-link btn-sm float-end p-0" onclick="togglePolling()" id="polling-toggle" style="color: inherit;">
                             <i class="bi bi-eye-slash-fill" id="polling-icon"></i>
                         </button>
-                    </h3>
+                    </h5>
                     <pre id="status-info">状态轮询已关闭，点击右上角眼睛图标开启轮询...</pre>
                 </div>
             </div>
             <div class="col-md-7">
                 <div class="status-panel">
-                    <h3>操作状态</h3>
+                    <h5>操作状态</h5>
                     <pre id="opt-info">等待获取操作状态...</pre>
                 </div>
             </div>
