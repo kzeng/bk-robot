@@ -1,8 +1,26 @@
-import os
 from dotenv import load_dotenv
+import os
+from loguru import logger
 
 basedir = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(os.path.join(basedir, '.env'))
+env_path = os.path.join(basedir, '.env')
+
+# 检查 .env 文件
+# logger.debug(f"[Config] .env path: {env_path}")
+# logger.debug(f"[Config] .env exists: {os.path.exists(env_path)}")
+# if os.path.exists(env_path):
+#     with open(env_path, 'r') as f:
+#         logger.debug(f"[Config] .env content:\n{f.read()}")
+
+# # 记录 .env 加载前的环境变量值
+# raw_use_opencv = os.environ.get('USE_OPENCV')
+# logger.debug(f"[Config] Before load_dotenv, USE_OPENCV={raw_use_opencv}")
+
+load_dotenv(env_path, override=True)  # 添加 override=True 确保重载
+
+# # 记录 .env 加载后的环境变量值
+# env_use_opencv = os.environ.get('USE_OPENCV')
+# logger.debug(f"[Config] After load_dotenv, USE_OPENCV={env_use_opencv}")
 
 # you  can change these variables in .env file
 
@@ -13,6 +31,14 @@ class Config:
     BASEDIR = basedir
     # admin password hashlib.sha1
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'f865b53623b121fd34ee5426c792e5c33af8c227')
+    
+    # Camera control configuration
+    USE_OPENCV = os.environ.get('USE_OPENCV')
+    # logger.debug(f"[Config] Config class reading USE_OPENCV directly from environ: {USE_OPENCV}")
+    # 如果没有值，设置默认值
+    if USE_OPENCV is None:
+        USE_OPENCV = '0'
+    # logger.debug(f"[Config] Config class final USE_OPENCV={USE_OPENCV}")
     
     # Camera configuration
     CAMERA_CONFIG = {
