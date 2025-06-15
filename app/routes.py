@@ -1374,19 +1374,21 @@ def update_settings():
         # 重新加载环境变量以立即生效
         load_dotenv(env_path, override=True)
         
-        # 尝试更新相机参数
-        if current_app.camera_control and hasattr(current_app.camera_control, 'update_camera_params'):
-            camera_params = {k.lower().replace('camera_', ''): v for k, v in data.items() 
-                           if k.startswith('CAMERA_') and k not in ['CAMERA_WIDTH', 'CAMERA_HEIGHT', 
-                                                                   'CAMERA_FPS', 'CAMERA_BUFFER_SIZE']}
-            # 获取第一个摄像头id
-            camera_ids = list(getattr(current_app.camera_control, 'camera_controls', {}).keys())
-            if camera_ids:
-                camera_id = camera_ids[0]
-                current_app.camera_control.update_camera_params(camera_id, camera_params)
-        
-        logger.info("Settings updated successfully")
-        return jsonify({'status': 'OK', 'message': '设置已保存'})
+        # 更新 __init__.py 时间戳以触发 Flask 重载
+        if update_init_timestamp():
+            logger.info("Settings and timestamp updated successfully")
+            return jsonify({
+                'status': 'OK', 
+                'message': '设置已保存，系统正在重新加载...',
+                'reload': True
+            })
+        else:
+            logger.warning("Settings saved but reload trigger failed")
+            return jsonify({
+                'status': 'OK', 
+                'message': '设置已保存，但自动重载失败，请手动重启应用',
+                'reload': False
+            })
         
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")
@@ -1409,3 +1411,29 @@ def robot_status():
     }
     
     return jsonify(response)
+
+def update_init_timestamp():
+    """更新 __init__.py 的时间戳注释以触发 Flask 重载"""
+    try:
+        init_file = os.path.join(os.path.dirname(__file__), '__init__.py')
+        
+        with open(init_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # 更新或添加时间戳注释
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp_line = f"# Last config update: {timestamp}\n"
+        
+        if lines and lines[0].startswith('# Last config update:'):
+            lines[0] = timestamp_line
+        else:
+            lines.insert(0, timestamp_line)
+        
+        with open(init_file, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+        
+        logger.info(f"Updated __init__.py timestamp to trigger reload: {timestamp}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update __init__.py timestamp: {str(e)}")
+        return False
