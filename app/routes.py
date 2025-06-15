@@ -1122,32 +1122,48 @@ def delete_directory():
 @bp.route('/api/photos/delete_image', methods=['POST'])
 def delete_image():
     """删除指定目录下的单个图片文件"""
-    logger.info("Received request to delete image.......")
+    logger.info("Received request to delete image")
     try:
         data = request.get_json()
-        directory = data.get('directory', '')
-        filename = data.get('filename', '')
-        
-        logger.info(f"Directory: {directory}, Filename: {filename}")
-
-
-        if not directory or not filename:
+        if not data:
             return jsonify({
                 'status': 'ERROR',
-                'message': 'Directory or filename missing'
+                'message': 'No JSON data received'
+            }), 400
+
+        directory = data.get('directory', '')  # 允许空目录，表示根目录
+        filename = data.get('filename')
+        
+        logger.info(f"Deleting image - Directory: {directory}, Filename: {filename}")
+
+        if not filename:  # 只检查文件名是否存在
+            return jsonify({
+                'status': 'ERROR',
+                'message': 'Filename is required'
             }), 400
         
-        screenshots_dir = os.path.join(current_app.root_path, 'static', 'screenshots')
-        file_path = os.path.join(screenshots_dir, directory, filename)
+        # 获取截图根目录，使用项目根目录下的static目录
+        screenshots_dir = os.path.normpath(os.path.join(current_app.root_path, '..', 'static', 'screenshots'))
         
-        # 修复路径问题：使用项目根目录下的static目录
-        # 修正方法：移除app目录层级
-        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
-        file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        # 如果目录不为空，则添加到路径中
+        if directory:
+            file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        else:
+            # 目录为空时，搜索年月日目录
+            # Handle both filename formats:
+            # 1. CameraX-YYYYMMDD_HHMMSS.jpg
+            # 2. Unknown-CameraX-YYYYMMDD_HHMMSS.jpg
+            if 'Unknown-' in filename:
+                year_month_day = filename.split('-')[2][:8]  # Extract from Unknown-CameraX-YYYYMMDD_HHMMSS
+            else:
+                year_month_day = filename.split('_')[1][:8]  # Extract from CameraX-YYYYMMDD_HHMMSS
+            
+            if year_month_day and year_month_day.isdigit():
+                file_path = os.path.normpath(os.path.join(screenshots_dir, year_month_day, filename))
+            else:
+                file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
         
-        logger.info(f"Full file path: {file_path}")
-        logger.info(f"File exists: {os.path.exists(file_path)}")
-
+        logger.info(f"Trying to delete file: {file_path}")
         
         if not os.path.exists(file_path):
             return jsonify({
