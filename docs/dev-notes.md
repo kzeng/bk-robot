@@ -8,6 +8,13 @@
 pip config set global.index-url https://repo.huaweicloud.com/repository/pypi/simple
 
 
+## install git
+sudo apt-get install git
+
+git config set global.email "zengkai001@qq.com"
+git config set global.username "zengkai"
+
+
 
 ## todo
 
