@@ -546,6 +546,10 @@ def async_run_task(app, task_id):
                 logger.info("Lift moving to position 2...")
                 app.lift.move_to_position_two()
                 time.sleep(app.config.LIFT_WAIT_TIME)  # wait for lift to reach position
+            else:
+                logger.error("Lift control not initialized, please check")
+                raise Exception("Lift control not initialized, please check")
+
 
             if task.action == 0:  # 拍照
                 subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
