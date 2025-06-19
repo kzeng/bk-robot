@@ -7,7 +7,9 @@ import os
 from .robot_control import RobotControl
 from .obs_control import OBSControl
 from .opencv_control import OpenCVControl
-from loguru import logger
+from .lift_control import Lift
+from config import Config
+from app.utils.logger import configured_logger as logger
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -79,6 +81,18 @@ def create_app(test_config=None):
         if not app.config.get('OBS_WS_URL') or not app.config.get('OBS_PASSWORD'):
             logger.warning("OBS configuration not properly loaded - check config.py")
 
+    # Initialize lift control
+    try:
+        app.lift = Lift(
+            port=app.config.get('LIFT_PORT', '/dev/ttyUSB0'),
+            baudrate=app.config.get('LIFT_BAUDRATE', 9600)
+        )
+        logger.info(f"Lift initialized on port {app.lift.serial_connection.port}")
+    except Exception as e:
+        logger.error(f"Failed to initialize lift: {str(e)}")
+        app.lift = None
+
+    # 注册蓝图
     from . import routes
     app.register_blueprint(routes.bp)
 

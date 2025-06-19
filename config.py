@@ -106,6 +106,8 @@ class Config:
     # Add Lift configuration
     LIFT_PORT = os.environ.get('LIFT_PORT', '/dev/ttyUSB0')  # Serial port for lift control
 
+    LIFT_WAIT_TIME = int(os.environ.get('LIFT_WAIT_TIME', '15'))  # Time to wait after sending lift command
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'instance/tasks.db'))
     SQLALCHEMY_TRACK_MODIFICATIONS = False

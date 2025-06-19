@@ -541,6 +541,12 @@ def async_run_task(app, task_id):
                                .first()
         
         try:
+            # move lift to position two before starting the task
+            if app.lift:
+                logger.info("Lift moving to position 2...")
+                app.lift.move_to_position_two()
+                time.sleep(app.config.LIFT_WAIT_TIME)  # wait for lift to reach position
+
             if task.action == 0:  # 拍照
                 subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
                 completed_markers = set()
@@ -650,6 +656,12 @@ def async_run_task(app, task_id):
                     logger.error(f"Error stopping recording after failure: {stop_error}")
         finally:
             try:
+                # return lift to initial position
+                if app.lift:
+                    logger.info("Task completed, moving lift to position one (initial position)...")
+                    app.lift.move_to_position_one()
+                    time.sleep(app.config.LIFT_WAIT_TIME)  # Wait for lift to reach position
+
                 if task_log:
                     task_log.status = status
                     task_log.end_time = datetime.now()
@@ -658,7 +670,15 @@ def async_run_task(app, task_id):
                     db.session.commit()
                     logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
             except Exception as e:
-                logger.error(f"Failed to update task log: {str(e)}")
+                logger.error(f"Failed to update task log or control lift: {str(e)}")
+                # make sure to handle lift errors gracefully
+                try:
+                    if app.lift:
+                        app.lift.move_to_position_one()
+                        time.sleep(app.config.LIFT_WAIT_TIME)
+                except Exception as lift_error:
+                    logger.error(f"Failed to lower lift in error handler: {lift_error}")
+
 
 # @bp.route('/api/tasks/<int:task_id>/run', methods=['POST'])
 # def run_task(task_id):
@@ -1436,7 +1456,7 @@ def update_init_timestamp():
         with open(init_file, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
-        # 更新或添加时间戳注释
+        # 更新或添加时间戳
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         timestamp_line = f"# Last config update: {timestamp}\n"
         
