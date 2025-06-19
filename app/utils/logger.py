@@ -5,30 +5,57 @@ from loguru import logger
 import sys
 import os
 
-# 获取项目根目录
+# Get project root directory and create logs directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-LOG_FILE = os.path.join(PROJECT_ROOT, "bk-robot.log")
+LOGS_DIR = os.path.join(PROJECT_ROOT, "app", "logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
 
-# 移除默认的处理器
+# Define log files
+LOG_FILE = os.path.join(LOGS_DIR, "app.log")
+DAILY_LOG_FILE = os.path.join(LOGS_DIR, "app.{time:YYYY-MM-DD}.log")
+
+# Remove default handler
 logger.remove()
 
-# 添加控制台输出
+# Add console output handler with colors
 logger.add(
     sys.stderr, 
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-    level="INFO"
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>",
+    level="INFO",
+    enqueue=True,  # Thread-safe
+    backtrace=True,  # Include variables in tracebacks
+    diagnose=True  # Enable exception diagnosis
 )
 
-# 添加文件输出
+# Add size-based rotation handler
 logger.add(
     LOG_FILE,
-    rotation="20 MB",  # 日志文件达到20MB时轮转
-    retention="30 days",  # 保留30天的日志
-    compression="zip",  # 压缩旧的日志文件
+    rotation="20 MB",  # Rotate when size reaches 20MB
+    retention="30 days",  # Keep logs for 30 days
+    compression="zip",  # Compress rotated files
     encoding="utf-8",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-    level="INFO"
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="DEBUG",
+    enqueue=True,  # Thread-safe
+    backtrace=True,  # Include variables in tracebacks
+    diagnose=True,  # Enable exception diagnosis
+    catch=True  # Catch exceptions within the logging system
 )
 
-# 导出配置好的logger
+# Add daily rotation handler
+logger.add(
+    DAILY_LOG_FILE,
+    rotation="00:00",  # Rotate at midnight
+    retention="30 days",  # Keep logs for 30 days
+    compression="zip",  # Compress rotated files
+    encoding="utf-8",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+    level="DEBUG",
+    enqueue=True,
+    backtrace=True,
+    diagnose=True,
+    catch=True
+)
+
+# Export configured logger
 configured_logger = logger

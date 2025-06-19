@@ -149,3 +149,9 @@ Thumbs.db
 # kzeng add 
 static/screenshots/
 static/video/
+
+# Logs
+app/logs/
+*.log
+*.log.*
+*.zip
