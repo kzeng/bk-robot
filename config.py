@@ -105,6 +105,7 @@ class Config:
 
     # Add Lift configuration
     LIFT_PORT = os.environ.get('LIFT_PORT', '/dev/ttyUSB0')  # Serial port for lift control
+    LIFT_BAUD_RATE = int(os.environ.get('LIFT_BAUD_RATE', '115200'))
 
     LIFT_WAIT_TIME = int(os.environ.get('LIFT_WAIT_TIME', '15'))  # Time to wait after sending lift command
 

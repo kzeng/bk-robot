@@ -253,6 +253,7 @@ class OpenCVControl:
                     # Configure V4L2 settings first (Linux only)
                     if os.name == 'posix':
                         self._configure_v4l2_device(device_path)
+                        time.sleep(0.5)  # Allow time for settings to apply
                     
                     # Try opening with OpenCV using index number
                     cap = cv2.VideoCapture(idx)
@@ -261,6 +262,9 @@ class OpenCVControl:
                         self._log('error', f"Failed to connect to camera {device_path}")
                         continue
 
+                    # Add delay after opening camera
+                    time.sleep(0.5)  # Allow camera initialization
+
                     # Configure camera settings
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
@@ -268,8 +272,21 @@ class OpenCVControl:
                     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
                     
+                    # Add delay after settings configuration
+                    time.sleep(0.5)  # Allow settings to take effect
+
                     # Test frame capture
-                    ret, frame = cap.read()
+                    # ret, frame = cap.read()
+
+                    # Test frame capture with retry mechanism
+                    max_retries = 3
+                    for retry in range(max_retries):
+                        ret, frame = cap.read()
+                        if ret and frame is not None:
+                            break
+                        time.sleep(0.5)  # Wait before retry
+
+
                     if ret and frame is not None:
                         self.cameras[idx] = cap
                         successful_connects.append(device_path)
@@ -281,16 +298,21 @@ class OpenCVControl:
                         
                         # Start frame grabber thread
                         self._start_frame_grabber(idx, cap)
+
+                        # # Allow frame grabber to initialize
+                        # time.sleep(0.5)
                         
                         self._log('info', f"Successfully connected to camera {device_path}")
                     else:
                         cap.release()
                         failed_connects.append(device_path)
                         self._log('error', f"Could not capture test frame from camera {device_path}")
-                        
+                        time.sleep(0.5)  # Delay before next camera attempt
+
                 except Exception as e:
                     failed_connects.append(device_path)
                     self._log('error', f"Error connecting to camera {device_path}: {str(e)}")
+                    time.sleep(0.5)  # Delay before next camera attempt
             
             if not successful_connects:
                 return {

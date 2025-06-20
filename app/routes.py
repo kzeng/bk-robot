@@ -63,6 +63,11 @@ robot_all_apis_options = [
             "cmd": "/api/markers/insert"
         },
         {
+            "title": "5.2获取marker点位列表",
+            "url": "#",
+            "cmd": "/api/markers/query_list"
+        },
+        {
             "title": "6.机器人直接控制指令",
             "url": "#",
             "cmd": "/api/joy_control"
@@ -545,7 +550,7 @@ def async_run_task(app, task_id):
             if app.lift:
                 logger.info("Lift moving to position 2...")
                 app.lift.move_to_position_two()
-                time.sleep(app.config.LIFT_WAIT_TIME)  # wait for lift to reach position
+                time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # wait for lift to reach position
             else:
                 logger.error("Lift control not initialized, please check")
                 raise Exception("Lift control not initialized, please check")
@@ -556,7 +561,7 @@ def async_run_task(app, task_id):
                 completed_markers = set()
                 for start_marker, end_marker in subtasks:
                     app.logger.info(f"Starting movement from {start_marker} to {end_marker}")
-                    move_result = app.robot_control.send_command(f"/api/move?marker={start_marker},{end_marker}")
+                    move_result = app.robot_control.send_command(f"/api/move?markers={start_marker},{end_marker}")
 
                     # HERE: Check if the move_result is vali. IMPORTANT!!!!!!!!!!!!! KZENG
                     if move_result.get('status') != 'OK':
@@ -590,7 +595,7 @@ def async_run_task(app, task_id):
                         time.sleep(1)
             elif task.action == 1:  # 录像
                 markers = ','.join(marker_list)
-                move_result = app.robot_control.send_command(f"/api/move?marker={markers}")
+                move_result = app.robot_control.send_command(f"/api/move?markers={markers}")
                 if move_result.get('status') != 'OK':
                     raise Exception(f"Failed to start movement: {move_result.get('message')}")
                 logger.info("Started movement through markers for recording task")
@@ -626,7 +631,7 @@ def async_run_task(app, task_id):
                 subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
                 for start_marker, end_marker in subtasks:
                     logger.info(f"Moving from {start_marker} to {end_marker} (move only, no photo/video)")
-                    move_result = app.robot_control.send_command(f"/api/move?marker={start_marker},{end_marker}")
+                    move_result = app.robot_control.send_command(f"/api/move?markers={start_marker},{end_marker}")
                     if move_result.get('status') != 'OK':
                         raise Exception(f"Failed to start movement: {move_result.get('message')}")
                     while True:
@@ -664,7 +669,7 @@ def async_run_task(app, task_id):
                 if app.lift:
                     logger.info("Task completed, moving lift to position one (initial position)...")
                     app.lift.move_to_position_one()
-                    time.sleep(app.config.LIFT_WAIT_TIME)  # Wait for lift to reach position
+                    time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to reach position
 
                 if task_log:
                     task_log.status = status
@@ -679,7 +684,7 @@ def async_run_task(app, task_id):
                 try:
                     if app.lift:
                         app.lift.move_to_position_one()
-                        time.sleep(app.config.LIFT_WAIT_TIME)
+                        time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
                 except Exception as lift_error:
                     logger.error(f"Failed to lower lift in error handler: {lift_error}")
 
@@ -1329,10 +1334,11 @@ def settings():
         'ROBOT_MOCK_MODE': str(current_app.config['ROBOT_MOCK_MODE']).lower(),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
-        'FTP_PORT': str(current_app.config.get('FTP_PORT', '')),
+        'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
         'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
         'LIFT_PORT': str(current_app.config.get('LIFT_PORT', '')),
+        'LIFT_WAIT_TIME': int(current_app.config.get('LIFT_WAIT_TIME', '15')),
     }
     
     # 如果.env文件不存在，创建一个新的

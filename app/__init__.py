@@ -85,7 +85,7 @@ def create_app(test_config=None):
     try:
         app.lift = Lift(
             port=app.config.get('LIFT_PORT', '/dev/ttyUSB0'),
-            baudrate=app.config.get('LIFT_BAUDRATE', 9600)
+            baudrate=app.config.get('LIFT_BAUDRATE', 115200)
         )
         logger.info(f"Lift initialized on port {app.lift.serial_connection.port}")
     except Exception as e:
