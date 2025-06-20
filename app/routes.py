@@ -812,7 +812,7 @@ def get_lift():
     """获取Lift实例，按需初始化，避免全局current_app错误"""
     from .lift_control import Lift
     port = current_app.config.get('LIFT_PORT', '/dev/ttyUSB0')
-    baudrate = 9600
+    baudrate = 115200
     try:
         return Lift(port=port, baudrate=baudrate)
     except Exception as e:
