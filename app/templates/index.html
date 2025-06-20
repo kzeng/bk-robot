@@ -163,9 +163,10 @@
     <script>
         // 机器人充电函数 -------------------------------------------------------------
         async function recharge() {
-            if (!confirm('确定要让机器人前往充电站吗？')) {
-                return;
-            }
+
+            //if (!confirm('确定要让机器人前往充电站吗？')) {
+            //    return;
+            //}
             
             const response = await fetch('/api/robot/recharge', {
                 method: 'POST',
@@ -183,9 +184,9 @@
 
         // 机器人急停控制函数 -------------------------------------------------------------
         async function enterEstop() {
-            if (!confirm('确定要使机器人进入急停状态吗？')) {
-                return;
-            }
+           // if (!confirm('确定要使机器人进入急停状态吗？')) {
+           //     return;
+           // }
             
             const response = await fetch('/api/robot/cmd', {
                 method: 'POST',
@@ -206,9 +207,9 @@
         }
         
         async function exitEstop() {
-            if (!confirm('确定要退出急停状态吗？')) {
-                return;
-            }
+           // if (!confirm('确定要退出急停状态吗？')) {
+           //     return;
+           // }
             
             const response = await fetch('/api/robot/cmd', {
                 method: 'POST',

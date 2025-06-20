@@ -164,19 +164,65 @@ class RobotControl:
     def recharge(self):
         """Move robot to charging station (marker=CD)"""
         result = self.send_command("/api/move?marker=CD")
-        if result.get('status') == 'ERROR':
-            # Check if robot is already at charging station
-            status = self.get_status()
-            if status.get('results', {}).get('move_target') == 'CD' and \
-               status.get('results', {}).get('move_status') == 'succeeded':
-                return {
-                    'status': 'OK',
-                    'message': 'Already at charging station',
-                    'results': status.get('results', {})
-                }
+        # if result.get('status') == 'OK':
+        #     # Check if robot is already at charging station
+        #     status = self.get_status()
+        #     if status.get('results', {}).get('move_target') == 'CD' and \
+        #        status.get('results', {}).get('move_status') == 'succeeded':
+        #         return {
+        #             'status': 'OK',
+        #             'message': 'Already at charging station',
+        #             'results': status.get('results', {})
+        #         }
         return result
 
+
+
+
+
     def get_status(self):
+        # returns the current status of the robot.
+        # OK:
+        #     {
+        #     "type": "response",
+        #     "command": "/api/robot_status",
+        #     "uuid": "",
+        #     "status": "OK",
+        #     "error_message": "",
+        #     "results": {
+        #     "move_target": "target_name", // 移动指令指定的目标点位名称
+        #     "move_status": "running", // 移动指令的执行状态。详细解释见后边
+        #     "running_status": "running", // v0.7.12新增，移动任务的具体状态， 详细见后面解释
+        #     "move_retry_times": 3, //此次数每增加1，表示机器人进行了新一轮的路径重试；路径规划
+        #     "charge_state": bool, //true->充电中状态。false->未充电状态。
+        #     "soft_estop_state": bool, // 通过API接口设置的软急停状态, true->急停中，false->非急
+        #     "hard_estop_state": bool, // 通过硬件急停按钮设置的硬急停状态, true->急停中，false
+        #     "estop_state": bool, // hard_estop_state || sofpt_estop_state, true->急停中，false
+        #     "power_percent": 100, //电量百分比，单位：%
+        #     "current_pose": {
+        #     "x": 11.0,
+        #     // 单位：m
+        #     "y": 11.0,
+        #     // 单位：m
+        #     "theta": 0.5, //单位：rad
+        #     }
+        #     "current_floor": 16,
+        #     "chargepile_id": "1234", // v0.9.6新增。充电状态下表示当前正在充电的充电桩ID，非充
+        #     "error_code": "00000000"
+        #     // v0.7.7新增，16进制错误码，总共8个字节表示，非0表示机
+        #     }
+        #     }
+
+        # ERROR:        
+        #     {
+        #     "type": "response",
+        #     "command": "/api/robot_status",
+        #     "uuid": "",
+        #     "status": "UNKNOWN_ERROR",
+        #     "error_message": "Can't catch current robot status"
+        #     "results"
+        #     }
+
         """Get current robot status"""
         if not self.connected and not self.connect():
             return {
