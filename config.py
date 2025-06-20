@@ -26,7 +26,7 @@ load_dotenv(env_path, override=True)  # 添加 override=True 确保重载
 
 
 class Config:
-    NEED_AUTH = os.environ.get('NEED_AUTH', False) 
+    NEED_AUTH = os.environ.get('NEED_AUTH', True) 
     # Set BASEDIR for the application
     BASEDIR = basedir
     # admin password hashlib.sha1
