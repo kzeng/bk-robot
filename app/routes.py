@@ -58,25 +58,20 @@ robot_all_apis_options = [
             "cmd": "/api/robot_info"
         },
         {
-            "title": "5.点位功能接口",
-            "url": "#",
-            "cmd": "/api/markers/insert"
-        },
-        {
             "title": "5.2获取marker点位列表",
             "url": "#",
             "cmd": "/api/markers/query_list"
         },
-        {
-            "title": "6.机器人直接控制指令",
-            "url": "#",
-            "cmd": "/api/joy_control"
-        },
-        {
-            "title": "7.机器人急停控制指令",
-            "url": "#",
-            "cmd": "/api/estop"
-        },
+        # {
+        #     "title": "6.机器人直接控制指令",
+        #     "url": "#",
+        #     "cmd": "/api/joy_control"
+        # },
+        # {
+        #     "title": "7.机器人急停控制指令",
+        #     "url": "#",
+        #     "cmd": "/api/estop"
+        # },
         {
             "title": "8.校正机器人当前位置",
             "url": "#",
@@ -87,71 +82,61 @@ robot_all_apis_options = [
             "url": "#",
             "cmd": "/api/request_data"
         },
+        # {
+        #     "title": "11.设置参数",
+        #     "url": "#",
+        #     "cmd": "/api/set_params"
+        # },
+        # {
+        #     "title": "12.获取参数",
+        #     "url": "#",
+        #     "cmd": "/api/get_params"
+        # },
         {
-            "title": "10.机器人主动通知",
-            "url": "#",
-            "cmd": "/api/xxxxxxxxxxx"
-        },
-        {
-            "title": "11.设置参数",
-            "url": "#",
-            "cmd": "/api/set_params"
-        },
-        {
-            "title": "12.获取参数",
-            "url": "#",
-            "cmd": "/api/get_params"
-        },
-        {
-            "title": "13.无线网络接口",
-            "url": "#",
-            "cmd": "/api/wifi/list"
-        },
-        {
-            "title": "14.地图接口",
+            "title": "14.获取地图列表",
             "url": "#",
             "cmd": "/api/map/list"
         },
         {
-            "title": "15.关机重启接口",
+            "title": "14.3获取当前地图",
             "url": "#",
-            "cmd": "/api/shutdown"
+            "cmd": "/api/map/get_current_map"
         },
-        {
-            "title": "16.软件更新接口",
-            "url": "#",
-            "cmd": "/api/software/get_version"
-        },
-        {
-            "title": "17.设置灯带接口",
-            "url": "#",
-            "cmd": "/api/LED/set_luminance"
-        },
-        {
-            "title": "18.自诊断接口",
-            "url": "#",
-            "cmd": "/api/diagnosis/get_result"
-        },
-        {
-            "title": "19.获取电源状态接口",
-            "url": "#",
-            "cmd": "/api/get_power_status"
-        },
+        # {
+        #     "title": "15.关机重启接口",
+        #     "url": "#",
+        #     "cmd": "/api/shutdown"
+        # },
+        # {
+        #     "title": "17.设置灯带接口",
+        #     "url": "#",
+        #     "cmd": "/api/LED/set_luminance"
+        # },
+        # {
+        #     "title": "18.自诊断接口",
+        #     "url": "#",
+        #     "cmd": "/api/diagnosis/get_result"
+        # },
+        # {
+        #     "title": "19.获取电源状态接口",
+        #     "url": "#",
+        #     "cmd": "/api/get_power_status"
+        # },
         {
             "title": "20.获取机器人全局路径接口",
             "url": "#",
             "cmd": "/api/get_planned_path"
         },
-        {
-            "title": "21.获取电梯状态接口",
-            "url": "#",
-            "cmd": "/api/lift_status"
-        },
-        {
-            "title": "22.获取两点间路径接口",
-            "url": "#",
-            "cmd": "/api/make_plan"
-        },
+        # {
+        #     "title": "21.获取电梯状态接口",
+        #     "url": "#",
+        #     "cmd": "/api/lift_status"
+        # },
+        # {
+        #     "title": "22.获取两点间路径接口",
+        #     "url": "#",
+        #     "cmd": "/api/make_plan"
+        # },
         {
             "title": "23.获取机器人当前位置接口",
             "url": "#",
