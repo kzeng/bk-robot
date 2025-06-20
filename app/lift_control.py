@@ -23,7 +23,7 @@ class Lift:
             timeout=1
         )
         self.last_command_time = None
-        self.SET_CMD_TWICE = False  # Default: send command once
+        self.SET_CMD_TWICE = True  # Default: send command once
         logger.info(f"Successfully connected to lift on port {port}")
 
     def is_connected(self):
