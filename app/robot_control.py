@@ -7,17 +7,15 @@ import random
 from app.utils.logger import configured_logger as logger
 
 class RobotControl:
-    def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT, mock=Config.ROBOT_MOCK_MODE):
+    def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT):
         """Initialize robot control with TCP connection parameters
         
         Args:
             host (str): Robot server IP address
             port (int): Robot server port
-            mock (bool): Enable mock mode for development without real robot
         """
         self.host = host
         self.port = port
-        self.mock = mock
         self.socket = None
         self.connected = False
         self.timeout = 5  # seconds
@@ -30,11 +28,6 @@ class RobotControl:
 
     def connect(self):
         """Establish TCP connection to robot server"""
-        if self.mock:
-            self.connected = True
-            logger.info(f"Mock connected to robot at {self.host}:{self.port}")
-            return True
-            
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(self.timeout)
@@ -84,40 +77,79 @@ class RobotControl:
         if not self.connected and not self.connect():
             return {'status': 'error', 'message': 'Connection failed'}
 
-        if self.mock:
-            # Standardized mock response structure
-            time.sleep(0.1)  # Simulate network delay
-            return {
-                'status': 'ok',
-                'command': cmd_str,
-                'message': 'Command executed in mock mode',
-                'response': {
-                    'mock': True,
-                    'command': cmd_str,
-                    'timestamp': time.time()
-                }
-            }
-
         try:
-            # Send command via TCP socket
+            if not self.socket:
+                raise ConnectionError("Socket not initialized")
+                
             logger.info(f"Sending command: {cmd_str}")
-            # Note: send() may block if network buffers are full
-            bytes_sent = self.socket.send(cmd_str.encode('utf-8'))
-            if bytes_sent != len(cmd_str):
-                raise ConnectionError("Incomplete command sent")
-
-            # Receive response with timeout
-            # recv() will block until data arrives or timeout occurs
-            rx = self.socket.recv(self.buffer_size)
+            
+            # Send command
+            cmd_bytes = cmd_str.encode('utf-8')
+            bytes_sent = self.socket.send(cmd_bytes)
+            if bytes_sent != len(cmd_bytes):
+                raise ConnectionError(f"Only sent {bytes_sent}/{len(cmd_bytes)} bytes")
+            
+            # Wait for response
+            rx = b''
+            while True:
+                chunk = self.socket.recv(self.buffer_size)
+                if not chunk:
+                    break
+                rx += chunk
+                try:
+                    # Try to parse partial response
+                    response = json.loads(rx.decode('utf-8'))
+                    if response.get('complete', True):
+                        return response
+                except json.JSONDecodeError:
+                    continue
+            
             if not rx:
-                raise ConnectionError("No response from robot")
-
+                raise ConnectionError("No response received")
+                
             response = json.loads(rx.decode('utf-8'))
             return response
-        except Exception as e:
-            logger.error(f"Command {cmd_str} failed: {str(e)}")
+            
+        except socket.timeout as e:
+            error_msg = f"Command timeout: {str(e)}"
+            logger.error(error_msg)
             self.disconnect()
-            return {'status': 'error', 'message': str(e)}
+            return {
+                'status': 'ERROR',
+                'command': cmd_str,
+                'message': error_msg,
+                'results': None
+            }
+        except ConnectionError as e:
+            error_msg = f"Connection error: {str(e)}"
+            logger.error(error_msg)
+            self.disconnect()
+            return {
+                'status': 'ERROR',
+                'command': cmd_str,
+                'message': error_msg,
+                'results': None
+            }
+        except json.JSONDecodeError as e:
+            error_msg = f"Invalid response format: {str(e)}"
+            logger.error(error_msg)
+            self.disconnect()
+            return {
+                'status': 'ERROR',
+                'command': cmd_str,
+                'message': error_msg,
+                'results': None
+            }
+        except Exception as e:
+            error_msg = f"Unexpected error: {str(e)}"
+            logger.error(error_msg)
+            self.disconnect()
+            return {
+                'status': 'ERROR',
+                'command': cmd_str,
+                'message': error_msg,
+                'results': None
+            }
     
 
 
@@ -129,6 +161,21 @@ class RobotControl:
         """Get logger from Flask app or current_app"""
         return logger
 
+    def recharge(self):
+        """Move robot to charging station (marker=CD)"""
+        result = self.send_command("/api/move?marker=CD")
+        if result.get('status') == 'ERROR':
+            # Check if robot is already at charging station
+            status = self.get_status()
+            if status.get('results', {}).get('move_target') == 'CD' and \
+               status.get('results', {}).get('move_status') == 'succeeded':
+                return {
+                    'status': 'OK',
+                    'message': 'Already at charging station',
+                    'results': status.get('results', {})
+                }
+        return result
+
     def get_status(self):
         """Get current robot status"""
         if not self.connected and not self.connect():
@@ -138,35 +185,6 @@ class RobotControl:
                 'status': 'ERROR',
                 'error_message': 'Connection failed',
                 'results': None
-            }
-
-        if self.mock:
-            # Mock response with sample data
-            return {
-                'type': 'response',
-                'command': '/api/robot_status',
-                'uuid': '',
-                'status': 'OK',
-                'error_message': '',
-                'results': {
-                    'move_target': 'target_name',
-                    'move_status': 'running',
-                    'running_status': 'running',
-                    'move_retry_times': 3,
-                    'charge_state': False,
-                    'soft_estop_state': False,
-                    'hard_estop_state': False,
-                    'estop_state': False,
-                    'power_percent': 85,
-                    'current_pose': {
-                        'x': 11.0,
-                        'y': 11.0,
-                        'theta': 0.5
-                    },
-                    'current_floor': 16,
-                    'chargepile_id': '0',
-                    'error_code': '00000000'
-                }
             }
 
         try:

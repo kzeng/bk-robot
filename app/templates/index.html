@@ -68,6 +68,10 @@
                     <button class="btn btn-success" onclick="exitEstop()">
                         退出急停 <i class="fas fa-play ms-2"></i>
                     </button>
+
+                    <button class="btn btn-warning" onclick="recharge()">
+                        前往充电 <i class="fas fa-battery-full ms-2"></i>
+                    </button>
                 </div>
             </div>
 
@@ -157,6 +161,26 @@
 
 {% block scripts %}
     <script>
+        // 机器人充电函数 -------------------------------------------------------------
+        async function recharge() {
+            if (!confirm('确定要让机器人前往充电站吗？')) {
+                return;
+            }
+            
+            const response = await fetch('/api/robot/recharge', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const result = await response.json();
+            updateOperationResult({
+                ...result,
+                container: 'opt-info',
+                command: '前往充电'
+            });
+        }
+
         // 机器人急停控制函数 -------------------------------------------------------------
         async function enterEstop() {
             if (!confirm('确定要使机器人进入急停状态吗？')) {
