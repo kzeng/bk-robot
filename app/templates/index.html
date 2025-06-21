@@ -70,7 +70,7 @@
                     </button>
 
                     <button class="btn btn-lg btn-warning" onclick="recharge()">
-                        前往充电 <i class="fas fa-battery-full ms-2"></i>
+                        前往充电 <i class="fas fa-plug ms-2"></i>
                     </button>
                 </div>
             </div>
@@ -98,18 +98,21 @@
             <div class="col-md-3">
                 <div class="control-panel">
                     <h5>升降柱控制</h5>
-                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
-                        移动到一号位 <i class="bi bi-arrow-right ms-2"></i>
+
+                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_to_position_three')" disabled>
+                        移动到三号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
+
                         </button>
                         <button class="btn btn-lg btn-primary w-100 mb-2 lift" onclick="sendCommand('move_to_position_two')">
-                        移动到二号位 <i class="bi bi-arrow-right ms-2"></i>
+                        移动到二号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
+
                         </button>
-                        
-                       
-                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_to_position_three')" disabled>
-                        移动到三号位 <i class="bi bi-arrow-right ms-2"></i>
+                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
+                        移动到一号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
+
                         </button>
 
+                   
                         <!--
                         <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_up')">上升
                         <i class="bi bi-arrow-up ms-2"></i>
