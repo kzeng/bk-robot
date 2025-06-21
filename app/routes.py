@@ -1456,7 +1456,6 @@ def settings():
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
         'USE_OPENCV': str(current_app.config['USE_OPENCV']).lower(),
-        'ROBOT_MOCK_MODE': str(current_app.config['ROBOT_MOCK_MODE']).lower(),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
@@ -1538,7 +1537,7 @@ def update_settings():
         # 更新.env文件
         for key, value in data.items():
             # 确保布尔值被正确处理
-            if key in ['ROBOT_MOCK_MODE', 'USE_OPENCV', 'FTP_MOCK_MODE']:
+            if key in ['USE_OPENCV', 'FTP_MOCK_MODE']:
                 value = str(value).lower()  # 确保是小写的 'true' 或 'false'
             set_key(env_path, key, str(value))
         

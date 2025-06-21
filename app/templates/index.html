@@ -56,20 +56,20 @@
                         <input type="text" class="form-control" id="params" placeholder="p1=v1&p2=v2&p3=v3">
                     </div>
                    
-                    <button class="btn btn-primary" onclick="doRobotCmd()">
+                    <button class="btn btn-lg btn-primary" onclick="doRobotCmd()">
                         执行 <i class="fas fa-paper-plane ms-2"></i>
                     </button>
                     <hr>
 
-                    <button class="btn btn-danger" onclick="enterEstop()">
+                    <button class="btn btn-lg btn-danger" onclick="enterEstop()">
                         进入急停 <i class="fas fa-exclamation-triangle ms-2"></i>
                     </button>
 
-                    <button class="btn btn-success" onclick="exitEstop()">
+                    <button class="btn btn-lg btn-success" onclick="exitEstop()">
                         退出急停 <i class="fas fa-play ms-2"></i>
                     </button>
 
-                    <button class="btn btn-warning" onclick="recharge()">
+                    <button class="btn btn-lg btn-warning" onclick="recharge()">
                         前往充电 <i class="fas fa-battery-full ms-2"></i>
                     </button>
                 </div>
@@ -79,17 +79,17 @@
                 <div class="control-panel">
                     <h5>摄像头控制</h5>
                  
-                    <button class="btn btn-danger" onclick="startRecording()" disabled>
+                    <button class="btn btn-lg btn-danger" onclick="startRecording()" disabled>
                         开始录制 <i class="fas fa-circle ms-2"></i>
                     </button>
-                    <button class="btn btn-warning" onclick="stopRecording()" disabled>
+                    <button class="btn btn-lg btn-warning" onclick="stopRecording()" disabled>
                         停止录制 <i class="fas fa-stop ms-2"></i>
                     </button>
                     <br>
                     <hr>
                
              
-                    <button class="btn btn-info" onclick="takeScreenshot()">
+                    <button class="btn btn-lg btn-info" onclick="takeScreenshot()">
                         拍摄截图 <i class="fas fa-camera ms-2"></i>
                     </button>
                 </div>
@@ -98,34 +98,34 @@
             <div class="col-md-3">
                 <div class="control-panel">
                     <h5>升降柱控制</h5>
-                        <button class="btn btn-success w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
+                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
                         移动到一号位 <i class="bi bi-arrow-right ms-2"></i>
                         </button>
-                        <button class="btn btn-primary w-100 mb-2 lift" onclick="sendCommand('move_to_position_two')">
+                        <button class="btn btn-lg btn-primary w-100 mb-2 lift" onclick="sendCommand('move_to_position_two')">
                         移动到二号位 <i class="bi bi-arrow-right ms-2"></i>
                         </button>
                         
                        
-                        <button class="btn btn-danger w-100 mb-2 lift" onclick="sendCommand('move_to_position_three')" disabled>
+                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_to_position_three')" disabled>
                         移动到三号位 <i class="bi bi-arrow-right ms-2"></i>
                         </button>
 
                         <!--
-                        <button class="btn btn-success w-100 mb-2 lift" onclick="sendCommand('move_up')">上升
+                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_up')">上升
                         <i class="bi bi-arrow-up ms-2"></i>
                         </button>
-                        <button class="btn btn-danger w-100 mb-2 lift" onclick="sendCommand('move_down')">下降
+                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_down')">下降
                         <i class="bi bi-arrow-down ms-2"></i>
                         </button>
-                        <button class="btn btn-warning w-100 mb-2 lift" onclick="sendCommand('reset')">复位
+                        <button class="btn btn-lg btn-warning w-100 mb-2 lift" onclick="sendCommand('reset')">复位
 
                         <i class="bi bi-arrow-counterclockwise ms-2"></i>
                         </button>
-                        <button class="btn btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_up')">停止上升
+                        <button class="btn btn-lg btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_up')">停止上升
 
                         <i class="bi bi-align-top ms-2"></i>
                         </button>
-                        <button class="btn btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_down')">停止下降
+                        <button class="btn btn-lg btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_down')">停止下降
 
                         <i class="bi bi-align-bottom ms-2"></i>
                         </button>
@@ -140,7 +140,7 @@
                 <div class="status-panel">
                     <h5>
                         全局状态
-                        <button class="btn btn-link btn-sm float-end p-0" onclick="togglePolling()" id="polling-toggle" style="color: inherit;">
+                        <button class="btn btn-lg btn-link btn-sm float-end p-0" onclick="togglePolling()" id="polling-toggle" style="color: inherit;">
                             <i class="bi bi-eye-slash-fill" id="polling-icon"></i>
                         </button>
                     </h5>

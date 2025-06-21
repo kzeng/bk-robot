@@ -169,7 +169,7 @@
         document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
 
         let currentPage = 1;
-        const pageSize = 10;
+        const pageSize = 5;
         
         function loadTasks() {
             fetch(`/api/tasks?page=${currentPage}&size=${pageSize}`)
@@ -189,10 +189,10 @@
                             <td>${task.update_at || '-'}</td>
                             <td>${task.description}</td>
                             <td>
-                                <button class="btn btn-sm btn-primary" onclick="editTask(${task.task_id})">编辑</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
+                                <button class="btn btn-lg btn-primary" onclick="editTask(${task.task_id})">编辑</button>
+                                <button class="btn btn-lg btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
 
-                                <button class="btn btn-sm btn-success" onclick="runTask(${task.task_id})">执行</button>
+                                <button class="btn btn-lg btn-success" onclick="runTask(${task.task_id})">执行</button>
                             </td>
                         `;
                         tableBody.appendChild(row);

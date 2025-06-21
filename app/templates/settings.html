@@ -159,12 +159,6 @@
                                 <label class="form-label">机器人端口</label>
                                 <input type="number" class="form-control" name="ROBOT_PORT" value="{{ env.ROBOT_PORT }}" required>
                             </div>
-                            <div class="mb-3">
-                                <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" name="ROBOT_MOCK_MODE" {% if env.ROBOT_MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
-                                    <label class="form-check-label">模拟模式</label>
-                                </div>
-                            </div>
                         </div>
                         <!-- FTP配置 -->
                         <div class="mb-4">
@@ -248,7 +242,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     const settings = {};
     // 处理所有复选框字段，包括高级相机参数
     const checkboxFields = [
-        'ROBOT_MOCK_MODE', 'USE_OPENCV', 'FTP_MOCK_MODE',
+        'USE_OPENCV', 'FTP_MOCK_MODE',
         'CAMERA_AUTO_EXPOSURE', 'CAMERA_WB_AUTO', 'CAMERA_FOCUS_AUTO'
     ];
     for (let field of checkboxFields) {
