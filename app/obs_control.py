@@ -88,7 +88,7 @@ class OBSControl:
             self.connected = False
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
-    def take_screenshot_all_cameras(self, position_info):
+    def take_photo_all_cameras(self, position_info):
         """Capture screenshots from all configured OBS cameras
         
         Handles the full workflow:
@@ -284,7 +284,7 @@ class OBSControl:
 
         except Exception as e:
             # 捕获所有异常并记录日志
-            logger.error(f"Error in take_screenshot_all_cameras: {str(e)}")
+            logger.error(f"Error in take_photo_all_cameras: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": str(e),

@@ -149,7 +149,7 @@ class OpenCVControl:
         else:
             raise ValueError(f"Camera {camera_id} not found")
 
-    def take_screenshot_all_cameras(self, position_info):
+    def take_photo_all_cameras(self, position_info):
         """Capture screenshots from all connected cameras with high quality"""
         if self.simulation_mode:
             return {
@@ -224,7 +224,7 @@ class OpenCVControl:
             }
 
         except Exception as e:
-            self._log('error', f"Error in take_screenshot_all_cameras: {str(e)}")
+            self._log('error', f"Error in take_photo_all_cameras: {str(e)}")
             return {
                 "status": "ERROR",
                 "message": str(e),
@@ -440,33 +440,37 @@ class OpenCVControl:
             
             # Configure image quality settings using environment variables
             try:
-                params = self.config['camera_params']
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=brightness={params["brightness"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=contrast={params["contrast"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=saturation={params["saturation"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=sharpness={params["sharpness"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gamma={params["gamma"]}'])
-                
-                # Exposure settings
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=auto_exposure={params["auto_exposure"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=exposure_time_absolute={params["exposure_time"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gain={params["gain"]}'])
-                
-                # White balance settings
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_automatic={params["wb_auto"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_temperature={params["wb_temp"]}'])
-                
-                # Focus settings
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_automatic_continuous={params["focus_auto"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_absolute={params["focus"]}'])
-                
-                # Other settings
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=backlight_compensation={params["backlight"]}'])
-                subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=power_line_frequency={params["powerline_freq"]}'])
-                
-                self._log('info', f"Camera parameters configured for {device_path}")
+                if True:
+                    params = self.config['camera_params']
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=brightness={params["brightness"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=contrast={params["contrast"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=saturation={params["saturation"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=sharpness={params["sharpness"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gamma={params["gamma"]}'])
+                    
+                    # Exposure settings
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=auto_exposure={params["auto_exposure"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=exposure_time_absolute={params["exposure_time"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=gain={params["gain"]}'])
+                    
+                    # White balance settings
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_automatic={params["wb_auto"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=white_balance_temperature={params["wb_temp"]}'])
+                    
+                    # Focus settings
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_automatic_continuous={params["focus_auto"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=focus_absolute={params["focus"]}'])
+                    
+                    # Other settings
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=backlight_compensation={params["backlight"]}'])
+                    subprocess.run(['v4l2-ctl', '-d', device_path, f'--set-ctrl=power_line_frequency={params["powerline_freq"]}'])
+                    
+                    self._log('info', f"Camera parameters configured for {device_path}")
+                else:
+                    self._log('warning', f"Camera parameters not configured for {device_path} - USE_OPENCV is False")
+
             except Exception as e:
-                self._log('warning', f"Some controls could not be set for {device_path}: {e}")
+                self._log('warning', f"Skipped camera parameter configuration for {device_path}: {e}")
             
             return True
             

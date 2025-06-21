@@ -325,7 +325,7 @@ def take_screenshot():
                 return jsonify(result), 500
                 
         # Take screenshots
-        result = camera_control.take_screenshot_all_cameras(position_info=position_info)
+        result = camera_control.take_photo_all_cameras(position_info=position_info)
         return jsonify(result)
         
     except Exception as e:
@@ -551,118 +551,161 @@ def async_run_task(app, task_id):
 
 
             if task.action == 0:  # 拍照
-                subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
+                # subtasks = [(marker_list[i], marker_list[i+1]) for i in range(len(marker_list)-1)]
+                # completed_markers = set()
+                # for target_marker in marker_list:
+                #     app.logger.info(f"Moving to target marker: {target_marker}")
+                #     # 尝试最多3次发送移动命令
+                #     max_retries = 3
+                #     retry_count = 0
+                #     move_result = None
+                    
+                #     while retry_count < max_retries:
+                #         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        
+                #         if move_result and move_result.get('status') == 'OK':
+                #             break
+                            
+                #         retry_count += 1
+                #         time.sleep(1)  # 等待1秒后重试
+                #         logger.warning(f"Retry {retry_count} for moving to {target_marker}")
+                    
+                #     if not move_result:
+                #         logger.error(f"Robot returned None when moving to {target_marker}, checking connection...")
+                #         # 检查连接状态并尝试重新连接
+                #         if not app.robot_control.connected:
+                #             logger.info("Attempting to reconnect to robot...")
+                #             if not app.robot_control.connect():
+                #                 raise Exception(f"Failed to reconnect to robot when moving to {target_marker}")
+                #             # 重试最后一次
+                #             move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                    
+                #     if not move_result or move_result.get('status') != 'OK':
+                #         error_msg = move_result.get('message') if move_result else "Robot controller not responding after 3 retries"
+                #         logger.error(f"Failed to move to {target_marker}: {error_msg}")
+                #         # 确保升降柱回到安全位置
+                #         try:
+                #             if app.lift:
+                #                 logger.info("Moving lift to position one due to movement failure...")
+                #                 app.lift.move_to_position_one()
+                #         except Exception as lift_error:
+                #             logger.error(f"Failed to move lift to position one: {str(lift_error)}")
+                #         raise Exception(f"Failed to start movement to {target_marker}: {error_msg}")
+                    
+                #     retry_count = 0
+                #     while retry_count < 30:  # 30秒超时
+                #         robot_status = app.robot_control.send_command("/api/robot_status")
+                #         if not robot_status or robot_status.get('status') != 'OK':
+                #             retry_count += 1
+                #             time.sleep(1)
+                #             continue
+                        
+                #         results = robot_status.get('results', {})
+                #         move_status = results.get('move_status')
+                #         if move_status == 'succeeded':
+                #             break
+                #         elif move_status in ['failed', 'canceled']:
+                #             raise Exception(f"Movement {move_status} at {target_marker}")
+                        
+                #         retry_count += 1
+                #         time.sleep(1)
+                #     else:
+                #         raise Exception(f"Timeout waiting for robot to reach {target_marker}")
+
+                #     # 拍照逻辑
+                #     logger.info(f"Robot reached marker {target_marker}, taking photos")
+                #     photo_result = app.obs_control.take_photo_all_cameras(position_info=target_marker)
+                #     if photo_result.get('status') == 'OK':
+                #         new_files = photo_result.get('file_paths', [])
+                #         if new_files:
+                #             file_paths.extend(new_files)
+                #             logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                #         else:
+                #             status = 3
+                #             logger.warning(f"No photos saved at {target_marker}")
+                #     else:
+                #         status = 3
+                #         logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                #     completed_markers.add(target_marker)
+                #     break
+     
                 completed_markers = set()
                 for target_marker in marker_list:
-                    app.logger.info(f"Moving to target marker: {target_marker}")
-                    # 尝试最多3次发送移动命令
-                    max_retries = 3
-                    retry_count = 0
-                    move_result = None
-                    
-                    while retry_count < max_retries:
-                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
-                        
-                        if move_result and move_result.get('status') == 'OK':
-                            break
-                            
-                        retry_count += 1
-                        time.sleep(1)  # 等待1秒后重试
-                        logger.warning(f"Retry {retry_count} for moving to {target_marker}")
-                    
-                    if not move_result:
-                        logger.error(f"Robot returned None when moving to {target_marker}, checking connection...")
-                        # 检查连接状态并尝试重新连接
-                        if not app.robot_control.connected:
-                            logger.info("Attempting to reconnect to robot...")
-                            if not app.robot_control.connect():
-                                raise Exception(f"Failed to reconnect to robot when moving to {target_marker}")
-                            # 重试最后一次
-                            move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
-                    
-                    if not move_result or move_result.get('status') != 'OK':
-                        error_msg = move_result.get('message') if move_result else "Robot controller not responding after 3 retries"
-                        logger.error(f"Failed to move to {target_marker}: {error_msg}")
-                        # 确保升降柱回到安全位置
-                        try:
-                            if app.lift:
-                                logger.info("Moving lift to position one due to movement failure...")
-                                app.lift.move_to_position_one()
-                        except Exception as lift_error:
-                            logger.error(f"Failed to move lift to position one: {str(lift_error)}")
-                        raise Exception(f"Failed to start movement to {target_marker}: {error_msg}")
-                    
-                    retry_count = 0
-                    while retry_count < 30:  # 30秒超时
-                        robot_status = app.robot_control.send_command("/api/robot_status")
-                        if not robot_status or robot_status.get('status') != 'OK':
-                            retry_count += 1
-                            time.sleep(1)
-                            continue
-                        
-                        results = robot_status.get('results', {})
-                        move_status = results.get('move_status')
-                        if move_status == 'succeeded':
-                            break
-                        elif move_status in ['failed', 'canceled']:
-                            raise Exception(f"Movement {move_status} at {target_marker}")
-                        
-                        retry_count += 1
-                        time.sleep(1)
-                    else:
-                        raise Exception(f"Timeout waiting for robot to reach {target_marker}")
+                    logger.info(f"Moving to target marker: {target_marker} / {marker_list} (action: move & photo)")
 
-                    # 拍照逻辑
-                    logger.info(f"Robot reached marker {target_marker}, taking photos")
-                    photo_result = app.obs_control.take_screenshot_all_cameras(position_info=target_marker)
-                    if photo_result.get('status') == 'OK':
-                        new_files = photo_result.get('file_paths', [])
-                        if new_files:
-                            file_paths.extend(new_files)
-                            logger.info(f"Saved {len(new_files)} photos at {target_marker}")
-                        else:
-                            status = 3
-                            logger.warning(f"No photos saved at {target_marker}")
-                    else:
-                        status = 3
-                        logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
-                    completed_markers.add(target_marker)
-                    break
-            
-            elif task.action == 1:  # 录像
-                markers = ','.join(marker_list)
-                move_result = app.robot_control.send_command(f"/api/move?markers={markers}")
-                if move_result.get('status') != 'OK':
-                    raise Exception(f"Failed to start movement: {move_result.get('message')}")
-                logger.info("Started movement through markers for recording task")
-                recording_started = False
-                last_marker = marker_list[-1]
-                while True:
-                    robot_status = app.robot_control.send_command("/api/robot_status")
-                    if robot_status.get('status') != 'OK':
-                        raise Exception("Failed to get robot status")
-                    results = robot_status.get('results', {})
-                    current_target = results.get('move_target')
-                    move_status = results.get('move_status')
-                    if not recording_started and move_status == 'succeeded':
-                        logger.info("Robot reached first marker, starting recording")
-                        start_result = app.obs_control.start_recording()
-                        if start_result.get('status') != 'OK':
-                            status = 3
-                            logger.warning(f"Start recording failed: {start_result.get('message')}")
-                        recording_started = True
-                    if (current_target == last_marker and move_status == 'succeeded') or \
-                       move_status in ['failed', 'canceled']:
-                        if recording_started:
-                            logger.info("Stopping recording")
-                            stop_result = app.obs_control.stop_recording()
-                            if stop_result.get('status') != 'OK':
-                                status = 3
-                                logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                    move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+
+                    logger.info(f"Movement result: {move_result} (action: move & photo)")
+
+                    # Wait for the robot to finish moving, monitoring the status
+                    while True:
+                        logger.debug(f"Checking robot status (action: move & photo)")
+                        
+                        robot_status = app.robot_control.send_command("/api/robot_status")
+                        logger.debug(f"Robot status: {robot_status}")
+                        if robot_status.get('status') != 'OK' and robot_status.get('results').get('move_status') == 'succeeded':
+                            # logger.debug(f"Robot reached marker {target_marker}")
+                            time.sleep(1)
+
+                            # 拍照逻辑
+                            logger.info(f"Robot reached marker {target_marker}, taking photos")
+
+                            photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
+
+                            if photo_result.get('status') == 'OK':
+                                new_files = photo_result.get('filepath', [])  #filepath?? file_paths??
+                                if new_files:
+                                    file_paths.extend(new_files)
+                                    logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                                else:
+                                    status = 3
+                                    logger.warning(f"No photos saved at {target_marker}")
                             else:
-                                file_paths.extend(stop_result.get('file_paths', []))
-                        break
-                    time.sleep(1)
+                                status = 3
+                                logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                                
+                            completed_markers.add(target_marker)
+
+                            break
+                        else:
+                            time.sleep(1)
+
+            elif task.action == 1:  # 录像
+                pass
+                # markers = ','.join(marker_list)
+                # move_result = app.robot_control.send_command(f"/api/move?markers={markers}")
+                # if move_result.get('status') != 'OK':
+                #     raise Exception(f"Failed to start movement: {move_result.get('message')}")
+                # logger.info("Started movement through markers for recording task")
+                # recording_started = False
+                # last_marker = marker_list[-1]
+                # while True:
+                #     robot_status = app.robot_control.send_command("/api/robot_status")
+                #     if robot_status.get('status') != 'OK':
+                #         raise Exception("Failed to get robot status")
+                #     results = robot_status.get('results', {})
+                #     current_target = results.get('move_target')
+                #     move_status = results.get('move_status')
+                #     if not recording_started and move_status == 'succeeded':
+                #         logger.info("Robot reached first marker, starting recording")
+                #         start_result = app.obs_control.start_recording()
+                #         if start_result.get('status') != 'OK':
+                #             status = 3
+                #             logger.warning(f"Start recording failed: {start_result.get('message')}")
+                #         recording_started = True
+                #     if (current_target == last_marker and move_status == 'succeeded') or \
+                #        move_status in ['failed', 'canceled']:
+                #         if recording_started:
+                #             logger.info("Stopping recording")
+                #             stop_result = app.obs_control.stop_recording()
+                #             if stop_result.get('status') != 'OK':
+                #                 status = 3
+                #                 logger.warning(f"Stop recording failed: {stop_result.get('message')}")
+                #             else:
+                #                 file_paths.extend(stop_result.get('file_paths', []))
+                #         break
+                #     time.sleep(1)
+
             elif task.action == 99:  # 仅是移动
                 # for target_marker in marker_list:
                 #     logger.info(f"Moving to target marker: {target_marker} (move only, no photo/video)")
@@ -709,7 +752,7 @@ def async_run_task(app, task_id):
                 #         raise Exception(f"Timeout waiting for robot to reach {target_marker}")
 
                 for target_marker in marker_list:
-                    logger.info(f"Moving to target marker: {target_marker} (move only, no photo/video)")
+                    logger.info(f"Moving to target marker: {target_marker} / {marker_list} (move only, no photo/video)")
 
                     move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
 
@@ -742,13 +785,13 @@ def async_run_task(app, task_id):
             except Exception as lift_error:
                 logger.error(f"Failed to move lift to position one in error handler: {str(lift_error)}")
             
-            if task.action == 1 and 'recording_started' in locals() and recording_started:
-                try:
-                    stop_result = app.obs_control.stop_recording()
-                    if stop_result.get('status') == 'OK':
-                        file_paths.extend(stop_result.get('file_paths', []))
-                except Exception as stop_error:
-                    logger.error(f"Error stopping recording after failure: {stop_error}")
+            # if task.action == 1 and 'recording_started' in locals() and recording_started:
+            #     try:
+            #         stop_result = app.obs_control.stop_recording()
+            #         if stop_result.get('status') == 'OK':
+            #             file_paths.extend(stop_result.get('file_paths', []))
+            #     except Exception as stop_error:
+            #         logger.error(f"Error stopping recording after failure: {stop_error}")
         finally:
             try:
                 # return lift to initial position
