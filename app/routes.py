@@ -18,6 +18,13 @@ from dotenv import load_dotenv, set_key
 from loguru import logger
 
 
+TASK_STATUS_READY        = 0
+TASK_STATUS_INPROGRESS   = 1
+TASK_STATUS_COMPLETED    = 2
+TASK_STATUS_PARTIAL      = 3
+TASK_STATUS_FAILED       = 4
+
+
 def async_route(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -513,27 +520,13 @@ def async_run_task(app, task_id):
                                   .order_by(TaskLog.start_time.desc())\
                                   .first()
             if task_log:
-                task_log.status = 4  # 任务失败
+                task_log.status = TASK_STATUS_FAILED  # 任务失败
                 task_log.end_time = datetime.now()
                 db.session.commit()
             return
             
-        # case 1:
-        # case '1':
-        # return '进行中';
-        # case 2:
-        # case '2':
-        # return '已完成';
-        # case 3:
-        # case '3':
-        # return '部分完成';
-        # case 4:
-        # case '4':
-        # return '执行失败';
-        # default:
-        # return '准备就绪';
-
-        status = 1  # 1 = in progress
+    
+        status = TASK_STATUS_INPROGRESS  # 1 = in progress
         file_paths = []
         task_log = TaskLog.query.filter_by(task_id=task_id)\
                                .order_by(TaskLog.start_time.desc())\
@@ -629,46 +622,126 @@ def async_run_task(app, task_id):
                 #     completed_markers.add(target_marker)
                 #     break
      
-                completed_markers = set()
-                for target_marker in marker_list:
-                    logger.info(f"Moving to target marker: {target_marker} / {marker_list} (action: move & photo)")
+                #############################################################################################################################
+                # completed_markers = set()
+                # for target_marker in marker_list:
+                #     logger.info(f"Moving to target marker: {target_marker} / {marker_list} (action: move & photo)")
 
-                    move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                #     move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
 
-                    logger.info(f"Movement result: {move_result} (action: move & photo)")
+                #     logger.info(f"Movement result: {move_result} (action: move & photo)")
 
-                    # Wait for the robot to finish moving, monitoring the status
-                    while True:
-                        logger.debug(f"Checking robot status (action: move & photo)")
+                #     # Wait for the robot to finish moving, monitoring the status
+                #     while True:
+                #         logger.debug(f"Checking robot status (action: move & photo)")
                         
-                        robot_status = app.robot_control.send_command("/api/robot_status")
-                        logger.debug(f"Robot status: {robot_status}")
-                        if robot_status.get('status') != 'OK' and robot_status.get('results').get('move_status') == 'succeeded':
-                            # logger.debug(f"Robot reached marker {target_marker}")
-                            time.sleep(1)
+                #         robot_status = app.robot_control.send_command("/api/robot_status")
+                #         logger.debug(f"Robot status: {robot_status}")
+                #         if robot_status.get('status') != 'OK' and robot_status.get('results').get('move_status') == 'succeeded':
+                #             # logger.debug(f"Robot reached marker {target_marker}")
+                #             time.sleep(1)
 
-                            # 拍照逻辑
-                            logger.info(f"Robot reached marker {target_marker}, taking photos")
+                #             # 拍照逻辑
+                #             logger.info(f"Robot reached marker {target_marker}, taking photos")
 
-                            photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
+                #             photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
 
-                            if photo_result.get('status') == 'OK':
-                                new_files = photo_result.get('filepath', [])  #filepath?? file_paths??
-                                if new_files:
-                                    file_paths.extend(new_files)
-                                    logger.info(f"Saved {len(new_files)} photos at {target_marker}")
-                                else:
-                                    status = 3
-                                    logger.warning(f"No photos saved at {target_marker}")
-                            else:
-                                status = 3
-                                logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                #             if photo_result.get('status') == 'OK':
+                #                 new_files = photo_result.get('filepath', [])  #filepath?? file_paths??
+                #                 if new_files:
+                #                     file_paths.extend(new_files)
+                #                     logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                #                 else:
+                #                     status = 3
+                #                     logger.warning(f"No photos saved at {target_marker}")
+                #             else:
+                #                 status = 3
+                #                 logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
                                 
-                            completed_markers.add(target_marker)
+                #             completed_markers.add(target_marker)
 
-                            break
-                        else:
+                #             break
+                #         else:
+                #             time.sleep(1)
+
+                logger.info("Starting movement through markers for photo task ......")
+                current_marker_index = 0
+                while current_marker_index < len(marker_list):
+                    target_marker = marker_list[current_marker_index]
+                    logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
+
+                    # Try moving up to 3 times
+                    max_retries = 3
+                    retry_count = 0
+                    move_success = False
+                    
+                    while retry_count < max_retries and not move_success:
+                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        
+                        if not move_result:
+                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                            retry_count += 1
                             time.sleep(1)
+                            continue
+                            
+                        logger.info(f"Movement result: {move_result}")
+
+                        # Wait for the robot to finish moving, monitoring the status
+                        move_complete = False
+                        status_checks = 0
+                        max_status_checks = 30  # 30 second timeout
+                        
+                        while not move_complete and status_checks < max_status_checks:
+                            robot_status = app.robot_control.send_command("/api/robot_status")
+                            
+                            if not robot_status:
+                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
+                                status_checks += 1
+                                time.sleep(1)
+                                continue
+                                
+                            logger.debug(f"Robot status: {robot_status}")
+                            
+                            if robot_status.get('status') == 'OK':
+                                results = robot_status.get('results', {})
+                                actual_marker = results.get('move_target')
+                                move_status = results.get('move_status')
+                                
+                                if move_status == 'succeeded' and actual_marker == target_marker:
+                                    logger.info(f"Robot successfully reached marker {target_marker}")
+
+                                    # take photos at the target marker
+                                    logger.info(f"Taking photos at marker {target_marker}")
+                                    time.sleep(3)  # Give some time for the robot to stabilize at the marker
+                                    photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
+                                    if photo_result.get('status') == 'OK':
+                                        new_files = photo_result.get('filepath', [])
+                                        if new_files:
+                                            file_paths.extend(new_files)
+                                            logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                                        else:
+                                            status = TASK_STATUS_PARTIAL  # 3 = partial success
+                                            logger.warning(f"No photos saved at {target_marker}")
+                                    else:
+                                        status = TASK_STATUS_PARTIAL  # 3 = partial success
+                                        logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                                        logger.debug(f"Photo result: {photo_result}")
+
+                                    move_success = True
+                                    move_complete = True
+                                    current_marker_index += 1  # Only advance to next marker after confirmed success
+                                elif move_status in ['failed', 'canceled']:
+                                    raise Exception(f"Movement {move_status} at {target_marker}")
+                            else:
+                                status_checks += 1
+                                time.sleep(1)
+                                
+                        if not move_complete:
+                            logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            retry_count += 1
+                            
+                    if not move_success:
+                        raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
 
             elif task.action == 1:  # 录像
                 pass
