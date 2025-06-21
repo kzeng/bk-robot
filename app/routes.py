@@ -706,53 +706,11 @@ def async_run_task(app, task_id):
                 #         break
                 #     time.sleep(1)
 
-            elif task.action == 99:  # 仅是移动
-                # for target_marker in marker_list:
-                #     logger.info(f"Moving to target marker: {target_marker} (move only, no photo/video)")
-                    
-                #     # 尝试最多3次发送移动命令
-                #     max_retries = 3
-                #     retry_count = 0
-                #     move_result = None
-                    
-                #     while retry_count < max_retries:
-                #         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
-                        
-                #         if move_result and move_result.get('status') == 'OK':
-                #             break
-                            
-                #         retry_count += 1
-                #         time.sleep(1)  # 等待1秒后重试
-                #         logger.warning(f"Retry {retry_count} for moving to {target_marker}")
-                    
-                #     if not move_result or move_result.get('status') != 'OK':
-                #         error_msg = move_result.get('message') if move_result else "No response from robot after 3 retries"
-                #         logger.error(f"Failed to move to {target_marker}: {error_msg}")
-                #         raise Exception(f"Failed to start movement to {target_marker}: {error_msg}")
-                    
-                #     retry_count = 0
-                #     while retry_count < 30:  # 30秒超时
-                #         robot_status = app.robot_control.send_command("/api/robot_status")
-                #         if not robot_status or robot_status.get('status') != 'OK':
-                #             retry_count += 1
-                #             time.sleep(1)
-                #             continue
-                        
-                #         results = robot_status.get('results', {})
-                #         move_status = results.get('move_status')
-                #         if move_status == 'succeeded':
-                #             logger.info(f"Robot reached marker {target_marker}")
-                #             break
-                #         elif move_status in ['failed', 'canceled']:
-                #             raise Exception(f"Movement {move_status} at {target_marker}")
-                        
-                #         retry_count += 1
-                #         time.sleep(1)
-                #     else:
-                #         raise Exception(f"Timeout waiting for robot to reach {target_marker}")
-
-                for target_marker in marker_list:
-                    logger.info(f"Moving to target marker: {target_marker} / {marker_list} (move only, no photo/video)")
+            elif task.action == 99:  # Move only
+                current_marker_index = 0
+                while current_marker_index < len(marker_list):
+                    target_marker = marker_list[current_marker_index]
+                    logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
 
                     # Try moving up to 3 times
                     max_retries = 3
@@ -786,11 +744,18 @@ def async_run_task(app, task_id):
                                 
                             logger.debug(f"Robot status: {robot_status}")
                             
-                            if robot_status.get('status') == 'OK' and \
-                               robot_status.get('results', {}).get('move_status') == 'succeeded':
-                                logger.info(f"Robot successfully reached marker {target_marker}")
-                                move_success = True
-                                move_complete = True
+                            if robot_status.get('status') == 'OK':
+                                results = robot_status.get('results', {})
+                                actual_marker = results.get('move_target')
+                                move_status = results.get('move_status')
+                                
+                                if move_status == 'succeeded' and actual_marker == target_marker:
+                                    logger.info(f"Robot successfully reached marker {target_marker}")
+                                    move_success = True
+                                    move_complete = True
+                                    current_marker_index += 1  # Only advance to next marker after confirmed success
+                                elif move_status in ['failed', 'canceled']:
+                                    raise Exception(f"Movement {move_status} at {target_marker}")
                             else:
                                 status_checks += 1
                                 time.sleep(1)
