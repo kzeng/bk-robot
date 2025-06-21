@@ -754,20 +754,53 @@ def async_run_task(app, task_id):
                 for target_marker in marker_list:
                     logger.info(f"Moving to target marker: {target_marker} / {marker_list} (move only, no photo/video)")
 
-                    move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
-
-                    logger.info(f"Movement result: {move_result}")
-
-                    # Wait for the robot to finish moving, monitoring the status
-                    while True:
-                        robot_status = app.robot_control.send_command("/api/robot_status")
-                        logger.debug(f"Robot status: {robot_status}")
-                        if robot_status.get('status') != 'OK' and robot_status.get('results').get('move_status') == 'succeeded':
-                            logger.debug(f"Robot reached marker {target_marker}")
+                    # Try moving up to 3 times
+                    max_retries = 3
+                    retry_count = 0
+                    move_success = False
+                    
+                    while retry_count < max_retries and not move_success:
+                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        
+                        if not move_result:
+                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                            retry_count += 1
                             time.sleep(1)
-                            break
-                        else:
-                            time.sleep(1)
+                            continue
+                            
+                        logger.info(f"Movement result: {move_result}")
+
+                        # Wait for the robot to finish moving, monitoring the status
+                        move_complete = False
+                        status_checks = 0
+                        max_status_checks = 30  # 30 second timeout
+                        
+                        while not move_complete and status_checks < max_status_checks:
+                            robot_status = app.robot_control.send_command("/api/robot_status")
+                            
+                            if not robot_status:
+                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
+                                status_checks += 1
+                                time.sleep(1)
+                                continue
+                                
+                            logger.debug(f"Robot status: {robot_status}")
+                            
+                            if robot_status.get('status') == 'OK' and \
+                               robot_status.get('results', {}).get('move_status') == 'succeeded':
+                                logger.info(f"Robot successfully reached marker {target_marker}")
+                                move_success = True
+                                move_complete = True
+                            else:
+                                status_checks += 1
+                                time.sleep(1)
+                                
+                        if not move_complete:
+                            logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            retry_count += 1
+                            
+                    if not move_success:
+                        raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
             else:
                 status = 4
                 raise Exception(f"Unknown action type: {task.action}")
