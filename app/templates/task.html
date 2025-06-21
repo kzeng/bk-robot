@@ -103,7 +103,7 @@
                             <label for="action" class="form-label">操作类型</label>
                             <select class="form-select" id="action">
                                 <option value="0">拍照</option>
-                                <option value="1">录像</option>
+                                <!-- <option value="1">录像</option> -->
                                 <option value="99">仅是移动</option>
                             </select>
                         </div>
@@ -355,17 +355,31 @@
         }
 
         // 在runTask等需要弹出当前任务状态面板的地方调用 showTaskPanel(task)
+        function pollTaskStatus(taskId) {
+            const interval = setInterval(() => {
+                fetch(`/api/tasks/${taskId}`)
+                    .then(response => response.json())
+                    .then(task => {
+                        if (task.status && task.status !== 1) { // 1=进行中
+                            clearInterval(interval);
+                            updateTaskStatus(task);
+                        }
+                    });
+            }, 1000);
+        }
+
+        function updateTaskStatus(task) {
+            document.getElementById('taskStatus').innerHTML = 
+                `<span>${getStatusText(task.status)}</span>`;
+        }
+
         function runTask(taskId) {
             fetch(`/api/tasks/${taskId}`)
                 .then(response => response.json())
                 .then(task => {
                     showTaskPanel(task);
-                    // 这里可以加上实际的任务启动逻辑
                     fetch(`/api/tasks/${taskId}/run`, { method: 'POST' })
-                        .then(response => response.json())
-                        .then(data => {
-                            // 可根据data.status等更新taskStatus
-                        });
+                        .then(() => pollTaskStatus(taskId));
                 });
         }
     </script>

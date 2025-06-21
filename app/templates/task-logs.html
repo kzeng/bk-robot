@@ -57,7 +57,7 @@
         document.addEventListener('DOMContentLoaded', loadLogs);
 
         let currentPage = 1;
-        const pageSize = 10;
+        const pageSize = 5;
         
         function loadLogs() {
             fetch(`/api/task-logs?page=${currentPage}&size=${pageSize}`)
@@ -81,7 +81,7 @@
                             </td>
                             <td>${log.file_count}</td>
                             <td>
-                                <button class="btn btn-sm btn-primary" onclick="viewLogDetails(${log.log_id})">
+                                <button class="btn btn-lg btn-primary" onclick="viewLogDetails(${log.log_id})">
                                     查看详情
                                 </button>
                             </td>
