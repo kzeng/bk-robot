@@ -42,7 +42,7 @@
                 </nav>
             </div>
             <div class="card-footer">
-                <button id="clearLogsBtn" class="btn btn-danger">清空日志</button>
+                <button id="clearLogsBtn" class="btn btn-lg btn-danger">清空日志</button>
             </div>
         </div>
     </div>
@@ -75,14 +75,16 @@
                             <td>${log.start_time}</td>
                             <td>${log.end_time}</td>
                             <td>
-                                <span class="badge ${log.status === 1 ? 'bg-warning' : log.status === 2 ? 'bg-success' : log.status === 3 ? 'bg-primary' : 'bg-danger'}">
+                                <h3>
+                                <span class="badge rounded-pill ${log.status === 1 ? 'bg-warning' : log.status === 2 ? 'bg-success' : log.status === 3 ? 'bg-primary' : 'bg-danger'}">
                                     ${log.status === 1 ? '进行中' : log.status === 2 ? '已完成' : log.status === 3 ? '部分完成' : '失败'}
                                 </span>
+                                </h3>
                             </td>
                             <td>${log.file_count}</td>
                             <td>
                                 <button class="btn btn-lg btn-primary" onclick="viewLogDetails(${log.log_id})">
-                                    查看详情
+                                    详情
                                 </button>
                             </td>
                         `;
