@@ -909,7 +909,7 @@ sudo usermod -a -G video $USER
 3. **创建udev规则**
 ````bash
 SUBSYSTEM=="video4linux", KERNEL=="video[0-9]*", GROUP="video", MODE="0666"
-SUBSYSTEM=="usb", ATTR{idVendor}=="xxxx", ATTR{idProduct}=="yyyy", GROUP="video", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0edc", ATTR{idProduct}=="3080", GROUP="video", MODE="0666"
 ````
 
 4. **重新加载udev规则**
@@ -1095,3 +1095,28 @@ sudo udevadm trigger
     'backlight_comp': 0,    # 有LED补光，无需背光补偿
     'power_line_freq': 1    # 保持交流频率设置
 }
+
+-----------------------------
+
+bk@bk-defaultstring:~$ lsusb
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 0edc:3080 MagicView-UVC800 MagicView-UVC800
+Bus 001 Device 003: ID 0edc:3080 MagicView-UVC800 MagicView-UVC800
+Bus 001 Device 004: ID 0edc:3080 MagicView-UVC800 MagicView-UVC800
+Bus 001 Device 005: ID 222a:0001 ILI Technology Corp. Multi-Touch Screen
+Bus 001 Device 006: ID 0edc:3080 MagicView-UVC800 MagicView-UVC800
+Bus 001 Device 007: ID 0edc:3080 MagicView-UVC800 MagicView-UVC800
+Bus 001 Device 008: ID 05e3:0610 Genesys Logic, Inc. Hub
+Bus 001 Device 009: ID 1a86:7523 QinHeng Electronics CH340 serial converter
+Bus 001 Device 010: ID 1c4f:0034 SiGma Micro XM102K Optical Wheel Mouse
+Bus 001 Device 011: ID 0bda:8176 Realtek Semiconductor Corp. RTL8188CUS 802.11n WLAN Adapter
+Bus 001 Device 012: ID 1a2c:9002 China Resource Semico Co., Ltd USB Keyboard
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+
+
+bk@bk-defaultstring:~/BOKU-SERVICE-HOME/bk-robot$ uname -a
+Linux bk-defaultstring 6.6.0-15-generic #0ok13-KYLINOS SMP PREEMPT_DYNAMIC Fri Jan 24 06:22:51 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+bk@bk-defaultstring:~/BOKU-SERVICE-HOME/bk-robot$ 
+
+
+
