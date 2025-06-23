@@ -101,6 +101,41 @@
             </div>
         </div>
     </div>
+
+    <!-- Upload Progress Modal -->
+    <div class="modal fade" id="uploadProgressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">正在上传目录...</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">正在上传目录及其子目录中的图片到FTP服务器，请稍候...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Result Modal -->
+    <div class="modal fade" id="uploadResultModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">上传结果</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="uploadResultBody">
+                    <!-- Results will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}
@@ -296,14 +331,17 @@
             modal.show();
         }
 
-        // 上传选中目录
+        // 上传选中目录(包含子目录)
         function uploadSelectedDirectory() {
             if (!selectedDirectory) {
                 alert('请先选择一个目录');
                 return;
             }
             
-            if (confirm(`确定要上传目录 "${selectedDirectory}" 下的所有图片吗？`)) {
+            if (confirm(`确定要上传目录 "${selectedDirectory}" 及其所有子目录下的图片到FTP服务器吗？`)) {
+                const loadingModal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
+                loadingModal.show();
+                
                 fetch('/api/photos/upload', {
                     method: 'POST',
                     headers: {
@@ -313,14 +351,67 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    alert(data.message || '上传成功');
-                    if (data.success) {
-                        loadImages();
+                    // 显示上传结果详情
+                    const resultModal = new bootstrap.Modal(document.getElementById('uploadResultModal'));
+                    const resultBody = document.getElementById('uploadResultBody');
+                    
+                    // 构建结果HTML
+                    let html = `<h5>上传结果: ${data.message}</h5>`;
+                    html += `<p>总文件数: ${data.uploaded_files.length}</p>`;
+                    
+                    // 按目录分组统计
+                    const dirStats = {};
+                    data.uploaded_files.forEach(file => {
+                        const dir = file.directory || '根目录';
+                        if (!dirStats[dir]) {
+                            dirStats[dir] = { success: 0, failed: 0 };
+                        }
+                        if (file.status === 'success') {
+                            dirStats[dir].success++;
+                        } else {
+                            dirStats[dir].failed++;
+                        }
+                    });
+                    
+                    // 添加目录统计
+                    html += '<div class="mt-3"><h6>目录统计:</h6><ul class="list-group">';
+                    for (const [dir, stats] of Object.entries(dirStats)) {
+                        const successClass = stats.failed > 0 ? 'text-warning' : 'text-success';
+                        html += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${dir || '根目录'}
+                                <span class="badge ${successClass}">
+                                    ${stats.success}成功 ${stats.failed > 0 ? stats.failed + '失败' : ''}
+                                </span>
+                            </li>`;
                     }
+                    html += '</ul></div>';
+                    
+                    // 添加失败详情(如果有)
+                    const failedFiles = data.uploaded_files.filter(f => f.status === 'failed');
+                    if (failedFiles.length > 0) {
+                        html += '<div class="mt-3"><h6>失败文件:</h6><ul class="list-group">';
+                        failedFiles.forEach(file => {
+                            html += `
+                                <li class="list-group-item">
+                                    <div>${file.directory ? file.directory + '/' : ''}${file.file}</div>
+                                    <small class="text-danger">${file.error}</small>
+                                </li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    resultBody.innerHTML = html;
+                    loadingModal.hide();
+                    resultModal.show();
+                    
+                    // 刷新图片列表
+                    loadImages();
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('上传过程中发生错误');
+                    loadingModal.hide();
+                    alert('上传过程中发生错误: ' + error.message);
                 });
             }
         }

@@ -1235,7 +1235,7 @@ def get_images_in_directory():
 
 @bp.route('/api/photos/upload', methods=['POST'])
 def upload_directory():
-    """上传指定目录下的所有图片到FTP服务器"""
+    """上传指定目录及其子目录下的所有图片到FTP服务器(保留目录结构)"""
     try:
         data = request.get_json()
         directory = data.get('directory', '')
@@ -1243,7 +1243,7 @@ def upload_directory():
         if not directory:
             return jsonify({
                 'status': 'ERROR',
-                'message': 'No directory specified'
+                'message': '未指定目录'
             }), 400
         
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
@@ -1252,7 +1252,7 @@ def upload_directory():
         if not os.path.exists(dir_path):
             return jsonify({
                 'status': 'ERROR',
-                'message': f'Directory not found: {directory}'
+                'message': f'目录不存在: {directory}'
             }), 404
 
         config = current_app.config
@@ -1260,31 +1260,65 @@ def upload_directory():
         
         if config['FTP_MOCK_MODE']:
             # Mock mode - just simulate upload
-            logger.info(f"Mock FTP upload from directory: {directory}")
-            for file in os.listdir(dir_path):
-                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                    uploaded_files.append(file)
+            logger.info(f"模拟FTP上传(保留目录结构): {directory}")
+            for root, _, files in os.walk(dir_path):
+                for file in files:
+                    if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                        rel_path = os.path.relpath(root, dir_path)
+                        uploaded_files.append({
+                            'file': file,
+                            'directory': rel_path if rel_path != '.' else ''
+                        })
         else:
-            # Real FTP upload
+            # Real FTP upload with directory structure
             try:
                 with FTP() as ftp:
                     # Connect to FTP server
                     ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
                     ftp.login(config['FTP_USER'], config['FTP_PASS'])
-                    logger.info(f"Connected to FTP server: {config['FTP_HOST']}")
+                    logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
-                    # Upload each file
-                    for file in os.listdir(dir_path):
-                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                            file_path = os.path.join(dir_path, file)
-                            try:
-                                with open(file_path, 'rb') as f:
-                                    ftp.storbinary(f'STOR {file}', f)
-                                uploaded_files.append(file)
-                                logger.info(f"Uploaded {file} to FTP server")
-                            except Exception as file_error:
-                                logger.error(f"Error uploading {file}: {str(file_error)}")
-                                continue
+                    # Recursively upload files preserving directory structure
+                    for root, _, files in os.walk(dir_path):
+                        for file in files:
+                            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                                file_path = os.path.join(root, file)
+                                rel_path = os.path.relpath(root, dir_path)
+                                
+                                try:
+                                    # Create full remote directory path including the root directory
+                                    full_remote_dir = os.path.join(directory, rel_path).replace('\\', '/') if rel_path != '.' else directory
+                                    
+                                    # Create all directories in the path
+                                    path_parts = full_remote_dir.split('/')
+                                    current_path = ''
+                                    for part in path_parts:
+                                        current_path = os.path.join(current_path, part).replace('\\', '/')
+                                        try:
+                                            ftp.mkd(current_path)
+                                        except ftplib.error_perm as e:
+                                            if not str(e).startswith('550'):  # Ignore "directory already exists" errors
+                                                raise
+                                    
+                                    # Upload file with full path
+                                    remote_path = os.path.join(full_remote_dir, file).replace('\\', '/')
+                                    with open(file_path, 'rb') as f:
+                                        ftp.storbinary(f'STOR {remote_path}', f)
+                                    
+                                    uploaded_files.append({
+                                        'file': file,
+                                        'directory': rel_path if rel_path != '.' else '',
+                                        'status': 'success'
+                                    })
+                                    logger.info(f"已上传文件: {remote_path}")
+                                except Exception as file_error:
+                                    logger.error(f"上传文件失败 {file}: {str(file_error)}")
+                                    uploaded_files.append({
+                                        'file': file,
+                                        'directory': rel_path if rel_path != '.' else '',
+                                        'status': 'failed',
+                                        'error': str(file_error)
+                                    })
             except ftplib.all_errors as ftp_error:
                 logger.error(f"FTP connection error: {str(ftp_error)}")
                 return jsonify({
