@@ -1119,4 +1119,321 @@ Linux bk-defaultstring 6.6.0-15-generic #0ok13-KYLINOS SMP PREEMPT_DYNAMIC Fri J
 bk@bk-defaultstring:~/BOKU-SERVICE-HOME/bk-robot$ 
 
 
+------------------------
+
+在 OpenKylin v2.0（基于 Debian/Ubuntu 的架构）中，**回滚到旧内核版本**的方法是在系统启动时使用 **GRUB 引导菜单** 选择一个旧的内核进行启动。以下是详细的步骤说明：
+
+---
+
+## 🧭 方法一：在启动时手动进入 GRUB 选择旧内核
+
+### ✅ 步骤：
+
+1. **重启系统**
+
+2. **在出现 OpenKylin 或 GRUB 界面时，快速按下 `Esc` 或 `Shift` 键**
+
+   * 有些系统是 `Esc`（尤其是基于 Debian 的），有些是 `Shift`。
+   * 如果是双系统，GRUB 会自动显示，无需按键。
+
+3. **进入 GRUB 菜单后，选择：**
+
+   ```text
+   Advanced options for OpenKylin
+   ```
+
+4. 你会看到多个内核版本，例如：
+
+   ```text
+   OpenKylin, with Linux 6.6.0-15-generic
+   OpenKylin, with Linux 6.6.0-13-generic
+   OpenKylin, with Linux 6.6.0-15-generic (recovery mode)
+   ...
+   ```
+
+5. **使用键盘上下方向键选择较旧版本**（如 `6.6.0-13`）并按下 `Enter` 启动。
+
+6. 进入系统后，使用以下命令确认当前内核版本：
+
+   ```bash
+   uname -r
+   ```
+
+   确保不是 `6.6.0-15-generic`（有问题的版本）。
+
+---
+
+## 📌 方法二：设置默认启动为旧内核（永久性）
+
+如果旧内核工作正常，你可以将其设置为默认启动项。
+
+### 1. 查看 GRUB 条目顺序：
+
+```bash
+grep menuentry /boot/grub/grub.cfg
+```
+
+你会看到类似输出：
+
+```text
+menuentry 'OpenKylin, with Linux 6.6.0-15-generic' ...
+menuentry 'OpenKylin, with Linux 6.6.0-13-generic' ...
+```
+
+默认是第一个（从0开始计数），我们假设你想改用第二项，即 `1`.
+
+### 2. 修改默认项：
+
+编辑配置文件：
+
+```bash
+sudo nano /etc/default/grub
+```
+
+将：
+
+```bash
+GRUB_DEFAULT=0
+```
+
+改为：
+
+```bash
+GRUB_DEFAULT="Advanced options for OpenKylin>OpenKylin, with Linux 6.6.0-13-generic"
+```
+
+或者，如果你只想指定编号（如第 1 个高级选项中的第 1 个）：
+
+```bash
+GRUB_DEFAULT=1
+```
+
+### 3. 更新 GRUB 配置：
+
+```bash
+sudo update-grub
+```
+
+---
+
+## ✅ 建议
+
+如果你确认旧内核正常使用摄像头，你可以：
+
+* 暂时用旧内核工作
+* 阻止系统更新内核（通过 apt pin 或 hold）
+* 或者提交 bug 给 OpenKylin 社区协助修复新版本内核的兼容性问题
+
+---
+
+是否需要我帮你写一个脚本快速切换默认启动内核？或者帮助你卸载/锁定出问题的内核版本？
+
+---------------------------
+
+你可以通过 `apt-mark hold` 或者设置 `APT::Pin` 来阻止 OpenKylin（基于 Debian/Ubuntu 架构）自动更新内核。以下是详细的两种方法：
+
+---
+
+## ✅ 方法一：使用 `apt-mark hold` 阻止内核自动升级（推荐）
+
+这是最直接、最安全的方式。
+
+### 步骤：
+
+1. **查看当前内核版本：**
+
+```bash
+uname -r
+```
+
+假设输出为：
+
+```
+6.6.0-13-generic
+```
+
+2. **锁定该版本对应的内核包：**
+
+一般内核相关包名如下（以 `6.6.0-13` 为例）：
+
+```bash
+sudo apt-mark hold \
+linux-image-6.6.0-13-generic \
+linux-headers-6.6.0-13-generic \
+linux-modules-6.6.0-13-generic \
+linux-modules-extra-6.6.0-13-generic
+```
+
+你也可以使用通配法自动查找：
+
+```bash
+dpkg -l | grep 6.6.0-13
+```
+
+确认包名后执行 `apt-mark hold` 锁定这些包。
+
+3. **验证是否锁定成功：**
+
+```bash
+apt-mark showhold
+```
+
+应看到列出了上述包。
+
+---
+
+## 🚫 取消锁定（如果将来需要恢复自动更新）：
+
+```bash
+sudo apt-mark unhold linux-image-6.6.0-13-generic
+```
+
+---
+
+## 🔒 方法二：使用 APT Pinning 精细控制（进阶用法）
+
+你可以使用 `apt preferences` 文件设置 pin 规则阻止某些包升级。
+
+### 步骤：
+
+1. **创建或编辑 pin 配置文件：**
+
+```bash
+sudo nano /etc/apt/preferences.d/hold-kernel
+```
+
+2. **添加内容如下（以阻止 6.6.0-13 之外的所有版本为例）：**
+
+```text
+Package: linux-image-generic
+Pin: version 6.6.0-13*
+Pin-Priority: 1001
+```
+
+你也可以对多个内核组件设置类似的规则。
+
+3. **更新 apt 缓存：**
+
+```bash
+sudo apt update
+```
+
+---
+
+## 🧪 查看将被升级的内核（用于验证）
+
+在系统升级前，可以预览升级内容：
+
+```bash
+apt list --upgradable
+```
+
+如果 `linux-image` 系列没有出现在输出中，说明锁定成功。
+
+---
+
+## 🛡️ 建议
+
+* 方法一足以满足大多数用户使用需求。
+* 保持定期手动检查更新，但避免自动推送新内核。
+* 如果你打算部署到多台机器，也可以写成脚本批量处理。
+
+是否需要我为你写一个一键锁定当前内核版本的脚本？
+---------------------
+
+
+---
+
+## ✅ 方法一：查看当前系统中所有已安装的内核版本
+
+```bash
+dpkg --list | grep linux-image
+```
+
+你会看到如下类似输出：
+
+```text
+ii  linux-image-6.6.0-13-generic     6.6.0-13.13     amd64        Signed kernel image generic
+ii  linux-image-6.6.0-15-generic     6.6.0-15.15     amd64        Signed kernel image generic
+```
+
+也可以加 `headers` 和 `modules`：
+
+```bash
+dpkg --list | grep -E 'linux-(image|headers|modules)'
+```
+
+---
+
+## ✅ 方法二：按安装顺序列出内核相关包
+
+```bash
+dpkg-query -l 'linux-*' | grep '^ii'
+```
+
+可以清楚看到 `linux-image`, `linux-headers`, `linux-modules` 等组件。
+
+---
+
+## ✅ 方法三：列出 `/boot` 目录下的内核文件（内核文件实际存在）
+
+```bash
+ls -l /boot | grep vmlinuz
+```
+
+输出类似：
+
+```text
+-rw------- 1 root root 12345678  2025-04-01  vmlinuz-6.6.0-13-generic
+-rw------- 1 root root 12345678  2025-05-12  vmlinuz-6.6.0-15-generic
+```
+
+这些是系统可以引导启动的内核镜像。
+
+---
+
+## ✅ 方法四：查看 GRUB 引导菜单中可启动的内核项
+
+```bash
+grep menuentry /boot/grub/grub.cfg
+```
+
+输出类似：
+
+```text
+menuentry 'OpenKylin, with Linux 6.6.0-15-generic' ...
+menuentry 'OpenKylin, with Linux 6.6.0-13-generic' ...
+```
+
+这可以用于确认可选的回滚版本。
+
+---
+
+## ✅ 方法五：查看运行历史记录中使用过的内核（通过日志）
+
+```bash
+zgrep "Linux version" /var/log/dmesg*
+```
+
+可以看到历史上系统启动过的内核版本。
+
+---
+
+## 💡 补充小技巧：清理旧内核
+
+如果你确认旧内核不再需要，可以使用以下命令清理：
+
+```bash
+sudo apt autoremove --purge
+```
+
+⚠️ **但千万不要删除当前正在运行的内核！**
+你可以通过以下命令确认当前内核：
+
+```bash
+uname -r
+```
+
+---
+
 
