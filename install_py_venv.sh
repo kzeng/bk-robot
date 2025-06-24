@@ -56,3 +56,17 @@ pip install \
 
 echo -e "\nInstallation completed successfully!"
 echo -e "To activate the virtual environment in the future, run: source venv/bin/activate"
+
+
+# 4. Check if apt-get is available and prompt to install v4l-utils
+if command -v apt-get >/dev/null 2>&1; then
+    echo -e "\nDetected apt-get package manager."
+    read -p "Do you want to install 'v4l-utils' using apt-get? [Y/n]: " yn
+    yn=${yn:-Y}
+    if [[ "$yn" =~ ^[Yy]$ ]]; then
+        sudo apt-get update
+        sudo apt-get install -y v4l-utils
+    else
+        echo "Skipping installation of v4l-utils."
+    fi
+fi
