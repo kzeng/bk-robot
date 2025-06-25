@@ -1540,6 +1540,7 @@ def settings():
         'CAMERA_FPS': str(current_app.config['CAMERA_CONFIG']['fps']),
         'CAMERA_JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
+        'PHOTO_MODE': str(current_app.config.get('PHOTO_MODE', '0')),
         
         # 高级相机参数
         'CAMERA_BRIGHTNESS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('brightness', '16')),
@@ -1562,7 +1563,6 @@ def settings():
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
-        'USE_OPENCV': str(current_app.config['USE_OPENCV']).lower(),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
@@ -1604,6 +1604,7 @@ def update_settings():
             'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
             'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT',
+            'PHOTO_MODE',
             # 相机控制参数
             'CAMERA_BRIGHTNESS', 'CAMERA_CONTRAST', 'CAMERA_SATURATION',
             'CAMERA_SHARPNESS', 'CAMERA_GAMMA', 'CAMERA_AUTO_EXPOSURE',
@@ -1629,7 +1630,8 @@ def update_settings():
             'CAMERA_WB_AUTO': (0, 1),
             'CAMERA_FOCUS_AUTO': (0, 1),
             'CAMERA_BACKLIGHT': (0, 1),
-            'CAMERA_POWERLINE_FREQ': (1, 2)
+            'CAMERA_POWERLINE_FREQ': (1, 2),
+            'PHOTO_MODE': (0, 2)  # 添加 PHOTO_MODE 的验证范围
         }
         
         for field, (min_val, max_val) in validations.items():
@@ -1644,7 +1646,7 @@ def update_settings():
         # 更新.env文件
         for key, value in data.items():
             # 确保布尔值被正确处理
-            if key in ['USE_OPENCV', 'FTP_MOCK_MODE']:
+            if key in ['FTP_MOCK_MODE']:
                 value = str(value).lower()  # 确保是小写的 'true' 或 'false'
             set_key(env_path, key, str(value))
         

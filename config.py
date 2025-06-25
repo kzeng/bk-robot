@@ -33,12 +33,12 @@ class Config:
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'f865b53623b121fd34ee5426c792e5c33af8c227')
     
     # Camera control configuration
-    USE_OPENCV = os.environ.get('USE_OPENCV')
-    # logger.debug(f"[Config] Config class reading USE_OPENCV directly from environ: {USE_OPENCV}")
-    # 如果没有值，设置默认值
-    if USE_OPENCV is None:
-        USE_OPENCV = '0'
-    # logger.debug(f"[Config] Config class final USE_OPENCV={USE_OPENCV}")
+    PHOTO_MODE = os.environ.get('PHOTO_MODE')
+    # logger.debug(f"[Config] Config class reading PHOTO_MODE directly from environ: {PHOTO_MODE}")
+    # 如果没有值，设置默认值为'0'(OBS模式)
+    if PHOTO_MODE is None:
+        PHOTO_MODE = '0'
+    # logger.debug(f"[Config] Config class final PHOTO_MODE={PHOTO_MODE}")
     
     # Camera configuration
     CAMERA_CONFIG = {

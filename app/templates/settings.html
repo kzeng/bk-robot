@@ -37,6 +37,23 @@
                                 <input type="number" class="form-control" name="CAMERA_BUFFER_SIZE" value="{{ env.CAMERA_BUFFER_SIZE }}" required>
                             </div>
                             
+                            <!-- 拍照模式选择 -->
+                            <div class="mb-3">
+                                <label class="form-label d-block">拍照模式</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode0" value="0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
+                                    <label class="form-check-label" for="photoMode0">OBS模式</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode1" value="1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
+                                    <label class="form-check-label" for="photoMode1">OpenCV模式</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode2" value="2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
+                                    <label class="form-check-label" for="photoMode2">FFmpeg模式</label>
+                                </div>
+                            </div>
+                            
                             <!-- Advanced Camera Parameters -->
                             <h6 class="mt-4 mb-3">高级相机参数</h6>
                             
@@ -214,13 +231,30 @@
                                 <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
                             </div>
                             <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="USE_OPENCV" {% if env.USE_OPENCV in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
-                                    <label class="form-check-label">使用OpenCV模式(否则使用OBS)</label><br>
-                                    <small class="form-text text-muted ms-2">
-                                        注意： 只有OpenCV模式启用时，高级相机参数设置才有效。
-                                    </small>
+                                <label class="form-label">拍照模式</label>
+                                <div class="mt-2">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode0">
+                                            OBS模式
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode1">
+                                            OpenCV模式
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode2">
+                                            FFmpeg模式
+                                        </label>
+                                    </div>
                                 </div>
+                                <small class="form-text text-muted mt-2">
+                                    注意：只有 OpenCV 模式和 FFmpeg 模式启用时，高级相机参数设置才有效。
+                                </small>
                             </div>
                         </div>
 
