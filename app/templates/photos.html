@@ -96,6 +96,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
+                    <div id="imageFilename" class="mb-2 fw-bold"></div>
                     <img id="fullSizeImage" src="" class="img-fluid" alt="Full size image">
                 </div>
             </div>
@@ -236,7 +237,7 @@
                             col.innerHTML = `
                                 <div class="card img-container">
                                     <img src="${image.thumbnailUrl || '#'}" class="card-img-top thumbnail" alt="${image.filename || 'Image'}"
-                                         onclick="viewImage('${image.fullUrl || '#'}')">
+                                         onclick="viewImage('${image.fullUrl || '#'}', '${image.filename ? image.filename.replace(/'/g, "\\'") : ''}')">
                                     <div class="card-body p-2">
                                         <p class="card-text text-truncate mb-1" title="${image.filename || ''}">${image.filename || 'Unknown'}</p>
                                         <small class="text-muted">${image.size ? `${(image.size / 1024).toFixed(1)} KB` : '未知大小'}</small>
@@ -325,9 +326,10 @@
         }
 
         // 查看原图
-        function viewImage(fullUrl) {
+        function viewImage(fullUrl, filename) {
             const modal = new bootstrap.Modal(document.getElementById('imageModal'));
             document.getElementById('fullSizeImage').src = fullUrl;
+            document.getElementById('imageFilename').textContent = filename || '';
             modal.show();
         }
 
