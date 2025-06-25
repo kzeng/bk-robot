@@ -12,15 +12,9 @@ env_path = os.path.join(basedir, '.env')
 #     with open(env_path, 'r') as f:
 #         logger.debug(f"[Config] .env content:\n{f.read()}")
 
-# # 记录 .env 加载前的环境变量值
-# raw_use_opencv = os.environ.get('USE_OPENCV')
-# logger.debug(f"[Config] Before load_dotenv, USE_OPENCV={raw_use_opencv}")
 
 load_dotenv(env_path, override=True)  # 添加 override=True 确保重载
 
-# # 记录 .env 加载后的环境变量值
-# env_use_opencv = os.environ.get('USE_OPENCV')
-# logger.debug(f"[Config] After load_dotenv, USE_OPENCV={env_use_opencv}")
 
 # you  can change these variables in .env file
 
@@ -84,13 +78,6 @@ class Config:
     # My Ubuntu
     OBS_WS_URL = os.environ.get('OBS_WS_URL', 'ws://192.168.0.109:4455')
     OBS_PASSWORD = os.environ.get('OBS_PASSWORD', '123456')
-
-    # USE opencv-python (default obs)
-    USE_OPENCV = os.environ.get('USE_OPENCV', False) 
-    if USE_OPENCV == 'true' or USE_OPENCV == 'True' or USE_OPENCV == True or USE_OPENCV == '1':
-        USE_OPENCV = True
-    else:
-        USE_OPENCV = False
 
     # FTP Server configuration
     FTP_HOST = os.environ.get('FTP_HOST', 'ftp.example.com')

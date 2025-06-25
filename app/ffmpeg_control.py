@@ -3,10 +3,12 @@ FFmpeg based camera control implementation
 """
 import os
 import subprocess
+import time
+import cv2
 from datetime import datetime
 from loguru import logger
 
-class FFmpegCameraControl:
+class FFmpegControl:
     """FFmpeg camera control implementation"""
     def __init__(self):
         """Initialize FFmpeg camera control"""
@@ -25,38 +27,21 @@ class FFmpegCameraControl:
                 for device in sorted(video_devices):
                     try:
                         device_num = int(device.replace('video', ''))
-                        # 验证设备是否可用
-                        test_command = [
-                            'ffmpeg',
-                            '-f', 'video4linux2',
-                            '-i', f'/dev/video{device_num}',
-                            '-t', '0.1',  # 只测试0.1秒
-                            '-f', 'null',
-                            '-'
-                        ]
-                        result = subprocess.run(test_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        if result.returncode == 255:  # FFmpeg在快速退出时返回255
+                        # 更可靠的设备检测方式
+                        cap = cv2.VideoCapture(device_num)
+                        if cap.isOpened():
                             self.camera_indices.append(device_num)
+                            cap.release()
                     except Exception as e:
                         logger.warning(f"Could not check device {device}: {e}")
             except Exception as e:
                 logger.warning(f"Could not list video devices: {e}")
         else:  # Windows
             for i in range(10):  # 尝试前10个摄像头索引
-                test_command = [
-                    'ffmpeg',
-                    '-f', 'dshow',  # Windows使用DirectShow
-                    '-i', f'video={i}',
-                    '-t', '0.1',
-                    '-f', 'null',
-                    '-'
-                ]
-                try:
-                    result = subprocess.run(test_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    if result.returncode == 255:  # FFmpeg在快速退出时返回255
-                        self.camera_indices.append(i)
-                except Exception:
-                    continue
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    self.camera_indices.append(i)
+                    cap.release()
 
         if not self.camera_indices:
             logger.warning("No cameras were detected!")
@@ -66,11 +51,27 @@ class FFmpegCameraControl:
     def _load_camera_config(self):
         """Load camera configuration from environment variables"""
         logger.debug("Loading camera configuration")
-        # 从环境变量加载摄像头配置
-        self.width = os.getenv('CAMERA_WIDTH', '1920')
-        self.height = os.getenv('CAMERA_HEIGHT', '1080')
+        
+        # Get requested resolution from env or use defaults
+        self.width  = int(os.getenv('CAMERA_WIDTH', '1080'))
+        self.height = int(os.getenv('CAMERA_HEIGHT', '720'))
+        
+        # # Camera hardware only supports up to 640x480
+        # max_width = 640
+        # max_height = 480
+        
+        # # Use requested resolution if supported, otherwise use max supported
+        # self.width = str(min(req_width, max_width))
+        # self.height = str(min(req_height, max_height))
+        
+        # if req_width > max_width or req_height > max_height:
+        #     logger.warning(
+        #         f"Requested resolution {req_width}x{req_height} not supported. "
+        #         f"Using maximum supported resolution: {self.width}x{self.height}"
+        #     )
+            
         self.fps = os.getenv('CAMERA_FPS', '30')
-        self.jpeg_quality = os.getenv('CAMERA_JPEG_QUALITY', '100')
+        self.jpeg_quality = os.getenv('CAMERA_JPEG_QUALITY', '95')
         logger.info(f"Camera config loaded: {self.width}x{self.height} @{self.fps}fps, quality:{self.jpeg_quality}")
 
     def take_photo(self, camera_id, save_path=None):
@@ -102,6 +103,57 @@ class FFmpegCameraControl:
             
             logger.info(f"Taking photo with FFmpeg from camera {camera_id}, saving to: {save_path}")
             
+            # Pre-configure camera using v4l2-ctl (Linux only)
+            if os.name == 'posix':
+                device_path = f"/dev/video{camera_id}"
+                try:
+                    # # Get supported formats and resolutions
+                    # formats = subprocess.run(
+                    #     ['v4l2-ctl', '-d', device_path, '--list-formats-ext'],
+                    #     capture_output=True,
+                    #     text=True
+                    # ).stdout
+                    
+                    # # Try to set highest available resolution
+                    # if '1920x1080' in formats:
+                    #     target_width = 1920
+                    #     target_height = 1080
+                    # elif '1280x720' in formats:
+                    #     target_width = 1280
+                    #     target_height = 720
+                    # else:
+                    #     target_width = 640
+                    #     target_height = 480
+
+                    
+                    # Set camera parameters
+                    subprocess.run([
+                        'v4l2-ctl', '-d', device_path,
+                        f'--set-fmt-video=width={self.width},height={self.height},pixelformat=MJPG'
+                    ])
+                    subprocess.run([
+                        'v4l2-ctl', '-d', device_path,
+                        '--set-ctrl=brightness=128',
+                        '--set-ctrl=contrast=128',
+                        '--set-ctrl=saturation=128',
+                        '--set-ctrl=sharpness=128',
+                        '--set-ctrl=exposure_auto=1',
+                        '--set-ctrl=exposure_absolute=250',
+                        '--set-ctrl=white_balance_temperature_auto=0',
+                        '--set-ctrl=white_balance_temperature=5000'
+                    ])
+                    time.sleep(1.0)  # Allow settings to stabilize
+                    
+                    # Update our resolution to match what we set
+                    # self.width = str(target_width)
+                    # self.height = str(target_height)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to pre-configure camera {device_path}: {e}")
+                    # Fall back to default resolution
+                    self.width = '640'
+                    self.height = '480'
+            
             # 构建FFmpeg命令
             command = [
                 'ffmpeg',
@@ -118,14 +170,33 @@ class FFmpegCameraControl:
                     '-f', 'dshow',
                     '-i', f'video={camera_id}'
                 ])
-                
+            
+            # -input_format yuyv422 -qscale:v 1
+            # ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -i /dev/video0 -frames 1 -c:v copy best_quality.jpg
+            # command.extend([
+            #     '-input_format', 'mjpeg',  # 明确指定输入格式
+            #     '-pixel_format', 'yuvj420p',  # 指定像素格式
+            #     '-vframes', '1',  # 只捕获一帧
+            #     '-video_size', f'{self.width}x{self.height}',  # 设置分辨率
+            #     '-framerate', self.fps,  # 设置帧率
+            #     '-qscale:v', str(int(100/int(self.jpeg_quality))), 
+            #     save_path  # 输出文件
+            # ])
+
+            # ffmpeg -f v4l2 -input_format yuyv422 -video_size 1280x720 -i /dev/video0 \
+            #     -frames 1 -qscale:v 1 -pix_fmt yuvj444p -vf "unsharp=3:3:1.0" \
+            #     -y best_photo.jpg
             command.extend([
-                '-vframes', '1',  # 只捕获一帧
+                '-input_format', 'yuyv422',   
+                '-frames', '1', 
+                '-pix_fmt', 'yuvj444p',
+                '-vf', 'unsharp=3:3:1.0',
                 '-video_size', f'{self.width}x{self.height}',  # 设置分辨率
                 '-framerate', self.fps,  # 设置帧率
-                '-qscale:v', str(int(100/int(self.jpeg_quality))),  # 设置质量
+                '-qscale:v', str(int(100/int(self.jpeg_quality))),
                 save_path  # 输出文件
             ])
+
 
             logger.debug(f"Executing FFmpeg command: {' '.join(command)}")
             
@@ -139,9 +210,11 @@ class FFmpegCameraControl:
 
             if result.returncode == 0:
                 logger.info(f"Photo captured successfully from camera {camera_id}")
+                # Log full FFmpeg output for debugging
+                logger.debug(f"FFmpeg output:\n{result.stderr}")
                 return save_path, True
             else:
-                logger.error(f"FFmpeg capture failed for camera {camera_id}: {result.stderr}")
+                logger.error(f"FFmpeg capture failed for camera {camera_id}. Full output:\n{result.stderr}")
                 return None, False
 
         except Exception as e:
@@ -229,6 +302,11 @@ class FFmpegCameraControl:
                 "position": position_info,
                 "results": []
             }
+
+    def init_app(self, app):
+        """Initialize with Flask app"""
+        self.app = app
+        logger.info("Initialized FFmpeg camera control with Flask app")
 
     def cleanup(self):
         """Cleanup resources"""

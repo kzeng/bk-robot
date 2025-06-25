@@ -1,4 +1,4 @@
-# Last config update: 2025-06-24 19:07:56
+# Last config update: 2025-06-25 21:20:25
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -7,7 +7,7 @@ import os
 from .robot_control import RobotControl
 from .obs_control import OBSControl
 from .opencv_control import OpenCVControl
-from .ffmpeg_control import FFmpegCameraControl
+from .ffmpeg_control import FFmpegControl
 from .lift_control import Lift
 from config import Config
 from app.utils.logger import configured_logger as logger
@@ -17,12 +17,11 @@ migrate = Migrate()
 socketio = SocketIO()
 robot_control = RobotControl()
 
-# Initialize all camera controllers
-obs_control = OBSControl()
-opencv_control = OpenCVControl()
-ffmpeg_control = FFmpegCameraControl()
-
 def create_app(test_config=None):
+    # Initialize camera controllers only when needed
+    obs_control = None
+    opencv_control = None
+    ffmpeg_control = None
     app = Flask(__name__)
     
     # 设置ROOT_PATH为项目根目录
@@ -62,6 +61,7 @@ def create_app(test_config=None):
     
     if photo_mode == '0':
         logger.info("[create_app] Using OBS for camera control")
+        obs_control = OBSControl()
         obs_control.init_app(app)
         app.obs_control = obs_control
         app.camera_control = obs_control
@@ -70,16 +70,19 @@ def create_app(test_config=None):
             logger.warning("OBS configuration not properly loaded - check config.py")
     elif photo_mode == '1':
         logger.info("[create_app] Using OpenCV for camera control")
+        opencv_control = OpenCVControl()
         opencv_control.init_app(app)
         app.opencv_control = opencv_control
         app.camera_control = opencv_control
     elif photo_mode == '2':
         logger.info("[create_app] Using FFmpeg for camera control")
+        ffmpeg_control = FFmpegControl()
         ffmpeg_control.init_app(app)
         app.ffmpeg_control = ffmpeg_control
         app.camera_control = ffmpeg_control
     else:
         logger.warning(f"[create_app] Invalid PHOTO_MODE: {photo_mode}, falling back to OBS")
+        obs_control = OBSControl()
         obs_control.init_app(app)
         app.obs_control = obs_control
         app.camera_control = obs_control

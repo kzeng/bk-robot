@@ -37,22 +37,6 @@
                                 <input type="number" class="form-control" name="CAMERA_BUFFER_SIZE" value="{{ env.CAMERA_BUFFER_SIZE }}" required>
                             </div>
                             
-                            <!-- 拍照模式选择 -->
-                            <div class="mb-3">
-                                <label class="form-label d-block">拍照模式</label>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode0" value="0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
-                                    <label class="form-check-label" for="photoMode0">OBS模式</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode1" value="1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
-                                    <label class="form-check-label" for="photoMode1">OpenCV模式</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" id="photoMode2" value="2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
-                                    <label class="form-check-label" for="photoMode2">FFmpeg模式</label>
-                                </div>
-                            </div>
                             
                             <!-- Advanced Camera Parameters -->
                             <h6 class="mt-4 mb-3">高级相机参数</h6>
@@ -282,7 +266,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     const settings = {};
     // 处理所有复选框字段，包括高级相机参数
     const checkboxFields = [
-        'USE_OPENCV', 'FTP_MOCK_MODE',
+        'FTP_MOCK_MODE',
         'CAMERA_AUTO_EXPOSURE', 'CAMERA_WB_AUTO', 'CAMERA_FOCUS_AUTO'
     ];
     for (let field of checkboxFields) {
