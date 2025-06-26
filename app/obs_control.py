@@ -249,7 +249,7 @@ class OBSControl:
                     
                     
                     # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
-                    filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.jpg"
+                    filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
                     filepath = os.path.join(base_dir, filename)
                     
                     # 确保基础目录存在
@@ -262,7 +262,7 @@ class OBSControl:
                     # Use the source mapped to this scene
                     self.ws.call(requests.SaveSourceScreenshot(
                         sourceName=scene_sources[scene],
-                        imageFormat="jpg",
+                        imageFormat="png",
                         imageFilePath=abs_filepath
                     ))
                     logger.info(f"截图成功保存至: {abs_filepath}")
