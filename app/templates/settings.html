@@ -40,10 +40,10 @@
                             
                             <!-- Advanced Camera Parameters -->
                             <h6 class="mt-4 mb-3">高级相机参数</h6>
-                            
+
                             <!-- Image Parameters -->
-                            <div class="card mb-3">
-                                <div class="card-header">图像参数</div>
+                            <div class="card mb-3" style="background-color: #e3f2fd;">
+                                <div class="card-header" style="background-color: #bbdefb;">图像参数</div>
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-6">
@@ -75,8 +75,8 @@
                             </div>
 
                             <!-- Exposure Parameters -->
-                            <div class="card mb-3">
-                                <div class="card-header">曝光参数</div>
+                            <div class="card mb-3" style="background-color: #e3f2fd;">
+                                <div class="card-header" style="background-color: #bbdefb;">曝光参数</div>
                                 <div class="card-body">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="CAMERA_AUTO_EXPOSURE" value="1" 
@@ -97,8 +97,8 @@
                             </div>
 
                             <!-- White Balance Parameters -->
-                            <div class="card mb-3">
-                                <div class="card-header">白平衡参数</div>
+                            <div class="card mb-3" style="background-color: #e3f2fd;">
+                                <div class="card-header" style="background-color: #bbdefb;">白平衡参数</div>
                                 <div class="card-body">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="CAMERA_WB_AUTO" value="1"
@@ -115,8 +115,8 @@
                             </div>
 
                             <!-- Other Parameters -->
-                            <div class="card mb-3">
-                                <div class="card-header">其他参数</div>
+                            <div class="card mb-3" style="background-color: #e3f2fd;">
+                                <div class="card-header" style="background-color: #bbdefb;">其他参数</div>
                                 <div class="card-body">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="CAMERA_FOCUS_AUTO" value="1"
@@ -216,23 +216,23 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">拍照模式</label>
-                                <div class="mt-2">
-                                    <div class="form-check mb-2">
+                                <div class="mt-2 d-flex gap-4">
+                                    <div class="form-check">
                                         <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
                                         <label class="form-check-label" for="photoMode0">
-                                            OBS模式
+                                            OBS
                                         </label>
                                     </div>
-                                    <div class="form-check mb-2">
+                                    <div class="form-check">
                                         <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
                                         <label class="form-check-label" for="photoMode1">
-                                            OpenCV模式
+                                            OpenCV
                                         </label>
                                     </div>
-                                    <div class="form-check mb-2">
+                                    <div class="form-check">
                                         <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
                                         <label class="form-check-label" for="photoMode2">
-                                            FFmpeg模式
+                                            FFmpeg
                                         </label>
                                     </div>
                                 </div>
