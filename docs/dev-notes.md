@@ -2166,3 +2166,22 @@ lsusb -t
 
 通过这些步骤，你的脚本可以安全地自动运行，解决开机无 `/dev/video*` 的问题。
 
+
+
+-----------------
+
+安装UVC驱动
+尽管大多数Ubuntu版本默认已包含UVC驱动，但在某些情况下，可能需要手动安装或更新。以下是详细的安装步骤：
+
+更新系统包列表：
+
+sudo apt-get update
+安装UVC驱动和相关工具：
+
+sudo apt-get install linux-headers-generic build-essential
+sudo apt-get install uvcvideo-dkms
+uvcvideo-dkms是一个动态内核模块支持包，可以确保UVC驱动与当前内核版本兼容。
+
+重启系统：
+
+sudo reboot
