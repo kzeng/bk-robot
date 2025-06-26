@@ -1,4 +1,4 @@
-# Last config update: 2025-06-25 21:20:25
+# Last config update: 2025-06-26 10:58:45
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -98,7 +98,7 @@ def create_app(test_config=None):
         logger.error(f"Failed to initialize lift: {str(e)}")
         app.lift = None
 
-    # 注册蓝图
+    # register blueprints
     from . import routes
     app.register_blueprint(routes.bp)
 
