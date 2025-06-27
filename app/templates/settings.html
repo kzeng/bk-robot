@@ -162,7 +162,80 @@
                             </div>
                         </div>
 
-                         <br><br>
+                        <br><br>
+                        <!-- OBS配置 -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
+                            <div class="mb-3">
+                                <label class="form-label">WebSocket URL</label>
+                                <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">密码</label>
+                                <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">拍照模式</label>
+                                <div class="mt-2 d-flex gap-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode0">
+                                            OBS
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode1">
+                                            OpenCV
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
+                                        <label class="form-check-label" for="photoMode2">
+                                            FFmpeg
+                                        </label>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted mt-2">
+                                    注意：只有 OpenCV 模式和 FFmpeg 模式启用时，高级相机参数设置才有效。
+                                </small>
+                            </div>
+
+                            <!-- OBS Control Panel -->
+                            <div class="card mt-3 border">
+                                <div class="card-header bg-light">
+                                    <i class="fas fa-desktop me-2"></i>OBS 控制面板
+                                </div>
+                                <div class="card-body">
+                                    <!-- Control Buttons -->
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-primary w-100 shadow-sm" id="startObsUI">
+                                                <i class="fas fa-desktop me-2"></i>启动 OBS 界面
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-success w-100 shadow-sm" id="startObsHeadless">
+                                                <i class="fas fa-server me-2"></i>启动 OBS 服务
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-danger w-100 shadow-sm" id="stopObs">
+                                                <i class="fas fa-trash me-2"></i>退出 OBS
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Status Display -->
+                                    <div class="alert shadow-sm" id="obsStatus" role="alert">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <span id="obsStatusText">正在检查OBS状态...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <br><br>
                         <!-- FTP配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-server me-2"></i>FTP配置</h5>
@@ -202,54 +275,13 @@
                             </div>
                         </div>
 
-                         <br><br>
-                        <!-- OBS配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
-                            <div class="mb-3">
-                                <label class="form-label">WebSocket URL</label>
-                                <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">密码</label>
-                                <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">拍照模式</label>
-                                <div class="mt-2 d-flex gap-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode0">
-                                            OBS
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode1">
-                                            OpenCV
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode2">
-                                            FFmpeg
-                                        </label>
-                                    </div>
-                                </div>
-                                <small class="form-text text-muted mt-2">
-                                    注意：只有 OpenCV 模式和 FFmpeg 模式启用时，高级相机参数设置才有效。
-                                </small>
-                            </div>
-                        </div>
+
 
                     </div>
                 </div>
-                <div class="d-flex justify-content-between mt-4">
+                <div class="mt-4 d-flex justify-content-end">
                     <button type="submit" class="btn btn-lg btn-primary">
                         <i class="fas fa-save me-2"></i>保存设置
-                    </button>
-                    <button type="button" class="btn btn-lg btn-secondary" onclick="window.location.reload()">
-                        <i class="fas fa-undo me-2"></i>重置
                     </button>
                 </div>
             </form>
@@ -260,6 +292,232 @@
 
 {% block scripts %}
 <script>
+// OBS Control Functions
+async function checkObsStatus() {
+    const statusEl = document.getElementById('obsStatus');
+    const statusTextEl = document.getElementById('obsStatusText');
+    
+    try {
+        const response = await fetch('/api/obs/status');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("服务器返回了非JSON格式的数据");
+        }
+        
+        const data = await response.json();
+        if (data.running) {
+            statusEl.className = 'alert alert-success';
+            statusTextEl.textContent = data.headless ? 
+                'OBS正在后台运行' : 'OBS正在运行(UI模式)';
+        } else {
+            statusEl.className = 'alert alert-warning';
+            statusTextEl.textContent = 'OBS未运行';
+        }
+    } catch (error) {
+        console.error('OBS状态检查错误:', error);
+        statusEl.className = 'alert alert-danger';
+        statusTextEl.textContent = '检查OBS状态时出错: 请确保后端服务正常运行';
+    }
+}
+
+// 页面加载时检查状态和初始化相机配置状态
+document.addEventListener('DOMContentLoaded', () => {
+    checkObsStatus();
+    updateCameraConfigState(); // 初始化相机配置的启用/禁用状态
+});
+
+// OBS控制按钮事件处理
+document.getElementById('startObsUI').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/api/obs/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ headless: false })
+        });
+        if (!response.ok) throw new Error('启动失败');
+        await checkObsStatus();
+    } catch (error) {
+        alert('启动OBS(UI)失败: ' + error.message);
+    }
+});
+
+document.getElementById('startObsHeadless').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/api/obs/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ headless: true })
+        });
+        if (!response.ok) throw new Error('启动失败');
+        await checkObsStatus();
+    } catch (error) {
+        alert('启动OBS(后台)失败: ' + error.message);
+    }
+});
+
+document.getElementById('stopObs').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/api/obs/stop', { method: 'POST' });
+        if (!response.ok) throw new Error('停止失败');
+        await checkObsStatus();
+    } catch (error) {
+        alert('停止OBS失败: ' + error.message);
+    }
+});
+
+// 控制相机配置区域启用/禁用状态的函数
+function updateCameraConfigState() {
+    // 获取所有拍照模式单选按钮
+    const photoModes = document.getElementsByName('PHOTO_MODE');
+    let selectedMode;
+    
+    // 获取当前选中的模式
+    for (const mode of photoModes) {
+        if (mode.checked) {
+            selectedMode = mode.value;
+            break;
+        }
+    }
+    
+    // 获取需要控制的输入元素
+    const cameraInputs = document.querySelectorAll(`
+        input[name="CAMERA_WIDTH"],
+        input[name="CAMERA_HEIGHT"],
+        input[name="CAMERA_FPS"],
+        input[name="CAMERA_JPEG_QUALITY"],
+        input[name="CAMERA_BUFFER_SIZE"],
+        input[name="CAMERA_BRIGHTNESS"],
+        input[name="CAMERA_CONTRAST"],
+        input[name="CAMERA_SATURATION"],
+        input[name="CAMERA_SHARPNESS"],
+        input[name="CAMERA_GAMMA"],
+        input[name="CAMERA_AUTO_EXPOSURE"],
+        input[name="CAMERA_EXPOSURE_TIME"],
+        input[name="CAMERA_GAIN"],
+        input[name="CAMERA_WB_AUTO"],
+        input[name="CAMERA_WB_TEMP"],
+        input[name="CAMERA_FOCUS_AUTO"],
+        input[name="CAMERA_FOCUS"],
+        input[name="CAMERA_BACKLIGHT"],
+        input[name="CAMERA_POWERLINE_FREQ"]
+    `);
+    
+    // 根据模式设置输入框和下拉框状态
+    const isEnabled = selectedMode === '1' || selectedMode === '2'; // OpenCV或FFmpeg模式
+    
+    // 处理所有相机相关的输入框
+    cameraInputs.forEach(input => {
+        const parentCard = input.closest('.card');
+        // 添加或移除视觉反馈
+        if (!isEnabled) {
+            // 使用 readonly 而不是 disabled，确保值能被提交
+            input.readOnly = true;
+            input.classList.add('bg-light', 'text-muted');
+            input.style.opacity = '0.7';
+            input.style.cursor = 'not-allowed';
+            input.title = "在OBS模式下此选项无需配置";
+            
+            // 相关label变灰
+            const label = input.previousElementSibling;
+            if (label && label.classList.contains('form-label')) {
+                label.classList.add('text-muted');
+            }
+            
+            // 特殊处理复选框
+            if (input.type === 'checkbox') {
+                input.disabled = true; // 复选框使用disabled，因为readonly对它无效
+                const checkLabel = input.nextElementSibling;
+                if (checkLabel) {
+                    checkLabel.classList.add('text-muted');
+                }
+            }
+            
+            // 给卡片添加禁用效果
+            if (parentCard) {
+                parentCard.style.opacity = '0.85';
+            }
+        } else {
+            input.readOnly = false;
+            if (input.type === 'checkbox') {
+                input.disabled = false;
+            }
+            input.classList.remove('bg-light', 'text-muted');
+            input.style.opacity = '';
+            input.style.cursor = '';
+            input.removeAttribute('title');
+            
+            // 恢复label颜色
+            const label = input.previousElementSibling;
+            if (label && label.classList.contains('form-label')) {
+                label.classList.remove('text-muted');
+            }
+            
+            // 恢复复选框label颜色
+            if (input.type === 'checkbox') {
+                const checkLabel = input.nextElementSibling;
+                if (checkLabel) {
+                    checkLabel.classList.remove('text-muted');
+                }
+            }
+            
+            // 恢复卡片效果
+            if (parentCard) {
+                parentCard.style.opacity = '';
+            }
+        }
+    });
+    
+    // 处理下拉框（如电源频率选择器）
+    const cameraSelects = document.querySelectorAll('select[name="CAMERA_POWERLINE_FREQ"]');
+    cameraSelects.forEach(select => {
+        // 使用 readonly 效果，但保持表单提交功能
+        if (!isEnabled) {
+            // 由于select不支持readonly，我们保存当前值并禁用它
+            select.setAttribute('data-original-value', select.value);
+            select.classList.add('bg-light', 'text-muted');
+            select.style.opacity = '0.7';
+            select.style.cursor = 'not-allowed';
+            select.title = "在OBS模式下此选项无需配置";
+            
+            // 相关label变灰
+            const label = select.previousElementSibling;
+            if (label && label.classList.contains('form-label')) {
+                label.classList.add('text-muted');
+            }
+            
+            // 为select添加事件，防止值被改变
+            select.addEventListener('change', function(e) {
+                this.value = this.getAttribute('data-original-value');
+            });
+        } else {
+            select.removeAttribute('data-original-value');
+            select.classList.remove('bg-light', 'text-muted');
+            select.style.opacity = '';
+            select.style.cursor = '';
+            select.removeAttribute('title');
+            
+            // 移除change事件监听器
+            const newSelect = select.cloneNode(true);
+            select.parentNode.replaceChild(newSelect, select);
+            
+            // 恢复label颜色
+            const label = newSelect.previousElementSibling;
+            if (label && label.classList.contains('form-label')) {
+                label.classList.remove('text-muted');
+            }
+        }
+    });
+}
+
+// 监听拍照模式变化
+document.querySelectorAll('input[name="PHOTO_MODE"]').forEach(radio => {
+    radio.addEventListener('change', updateCameraConfigState);
+});
+
+// 设置表单处理
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const formData = new FormData(this);

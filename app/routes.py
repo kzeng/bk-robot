@@ -13,6 +13,9 @@ import ftplib
 from ftplib import FTP
 import logging
 import serial
+import platform
+import psutil
+import subprocess
 from .lift_control import Lift
 from dotenv import load_dotenv, set_key
 from loguru import logger
@@ -1564,3 +1567,167 @@ def update_init_timestamp():
     except Exception as e:
         logger.error(f"Failed to update __init__.py timestamp: {str(e)}")
         return False
+
+import psutil
+import subprocess
+
+def get_obs_executable():
+    """获取OBS可执行文件路径"""
+    import platform
+    system = platform.system().lower()
+    
+    if system == 'windows':
+        # Windows路径
+        default_path = r'C:\Program Files\obs-studio\bin\64bit\obs64.exe'
+    else:
+        # Linux路径
+        default_path = '/usr/bin/obs'
+    
+    return os.environ.get('OBS_PATH', default_path)
+
+def check_obs_process():
+    """检查OBS进程状态"""
+    import platform
+    system = platform.system().lower()
+    
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            proc_name = proc.info['name'].lower() if proc.info['name'] else ''
+            
+            # 根据系统检查进程名
+            if system == 'windows' and proc_name in ['obs.exe', 'obs64.exe']:
+                is_obs = True
+            elif system != 'windows' and proc_name in ['obs', 'obs-studio']:
+                is_obs = True
+            else:
+                is_obs = False
+                
+            if is_obs:
+                cmdline = proc.info['cmdline'] or []
+                # 检查是否为后台模式
+                # Linux下通常使用--startstreaming或--startvirtualcam
+                is_headless = any(flag in cmdline for flag in 
+                    ['--minimize-to-tray', '--startstreaming', '--startvirtualcam'])
+                return {
+                    'running': True,
+                    'headless': is_headless,
+                    'pid': proc.pid
+                }
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+            
+    return {'running': False, 'headless': False, 'pid': None}
+
+@bp.route('/api/obs/status')
+def obs_status():
+    """获取OBS运行状态"""
+    try:
+        status = check_obs_process()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"检查OBS状态时出错: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/obs/start', methods=['POST'])
+def start_obs():
+    """启动OBS"""
+    try:
+        data = request.get_json()
+        headless = data.get('headless', False)
+        
+        # 检查OBS是否已经在运行
+        status = check_obs_process()
+        if status['running']:
+            return jsonify({'error': 'OBS已经在运行中'}), 400
+            
+        # 获取OBS可执行文件路径
+        obs_path = get_obs_executable()
+        if not os.path.exists(obs_path):
+            return jsonify({'error': f'OBS可执行文件未找到: {obs_path}'}), 404
+            
+        # 准备命令行参数
+        cmd = [obs_path]
+        if headless:
+            # 后台模式启动
+            if platform.system().lower() == 'windows':
+                cmd.extend(['--startvirtualcam', '--minimize-to-tray'])
+            else:
+                # Linux下的后台启动参数
+                cmd.extend(['--startvirtualcam'])
+                
+        try:
+            # 根据系统使用不同的启动方式
+            if platform.system().lower() == 'windows':
+                # Windows下的启动方式
+                startupinfo = None
+                if headless:
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    startupinfo.wShowWindow = subprocess.SW_HIDE
+                
+                process = subprocess.Popen(
+                    cmd,
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NO_WINDOW if headless else 0
+                )
+            else:
+                # Linux下的启动方式
+                env = os.environ.copy()
+                if headless:
+                    # 确保有显示服务器
+                    if 'DISPLAY' not in env:
+                        env['DISPLAY'] = ':0'
+                    process = subprocess.Popen(
+                        cmd,
+                        env=env,
+                        start_new_session=True,
+                        stdout=subprocess.PIPE if headless else None,
+                        stderr=subprocess.PIPE if headless else None
+                    )
+                else:
+                    process = subprocess.Popen(cmd, env=env)
+                    
+        except subprocess.CalledProcessError as e:
+            logger.error(f"启动OBS失败: {str(e)}")
+            return jsonify({'error': f'启动失败: {str(e)}'}), 500
+            
+        # 等待进程启动
+        time.sleep(3)
+        status = check_obs_process()
+        if status['running']:
+            return jsonify({'success': True, 'message': '启动成功'})
+        else:
+            return jsonify({'error': '启动失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"启动OBS时出错: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/obs/stop', methods=['POST'])
+def stop_obs():
+    """停止OBS"""
+    try:
+        status = check_obs_process()
+        if not status['running']:
+            return jsonify({'error': 'OBS未在运行'}), 400
+            
+        # 获取OBS进程
+        pid = status['pid']
+        if pid:
+            try:
+                process = psutil.Process(pid)
+                process.terminate()  # 尝试正常终止
+                try:
+                    process.wait(timeout=5)  # 等待进程终止
+                except psutil.TimeoutExpired:
+                    process.kill()  # 如果等待超时，强制终止
+                    
+                return jsonify({'success': True, 'message': 'OBS已停止'})
+            except psutil.NoSuchProcess:
+                return jsonify({'success': True, 'message': 'OBS进程已不存在'})
+        else:
+            return jsonify({'error': '无法获取OBS进程ID'}), 500
+            
+    except Exception as e:
+        logger.error(f"停止OBS时出错: {str(e)}")
+        return jsonify({'error': str(e)}), 500
