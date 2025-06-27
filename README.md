@@ -47,7 +47,6 @@ bk-robot/
 ├── README.md                         # 项目说明文件
 ├── config.py                         # 全局配置
 ├── install_py_venv.sh                # Python虚拟环境安装脚本
-├── logs_clean.sh                     # 日志清理脚本
 ├── obs_start.sh                      # OBS启动脚本
 ├── requirements.txt                  # Python依赖列表
 ├── robot_kill.sh                     # 机器人进程终止脚本
