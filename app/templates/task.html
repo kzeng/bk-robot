@@ -378,7 +378,12 @@
             fetch(`/api/tasks/${taskId}`)
                 .then(response => response.json())
                 .then(task => {
-                    showTaskPanel(task);
+                    // 创建一个新的任务对象，将状态设置为初始状态
+                    const initialTask = {
+                        ...task,
+                        status: 0  // 0 表示准备就绪
+                    };
+                    showTaskPanel(initialTask);
                     fetch(`/api/tasks/${taskId}/run`, { method: 'POST' })
                         .then(() => pollTaskStatus(taskId));
                 });
