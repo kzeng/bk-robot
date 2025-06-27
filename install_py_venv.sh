@@ -52,6 +52,7 @@ pip install \
     python-socketio \
     simple-websocket \
     SQLAlchemy \
+    psutil \
     websocket-client
 
 echo -e "\nInstallation completed successfully!"

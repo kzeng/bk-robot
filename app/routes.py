@@ -1590,7 +1590,7 @@ def check_obs_process():
     import platform
     system = platform.system().lower()
     
-    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'environ']):
         try:
             proc_name = proc.info['name'].lower() if proc.info['name'] else ''
             
@@ -1604,14 +1604,25 @@ def check_obs_process():
                 
             if is_obs:
                 cmdline = proc.info['cmdline'] or []
+                env = proc.info['environ'] or {}
                 # 检查是否为后台模式
-                # Linux下通常使用--startstreaming或--startvirtualcam
-                is_headless = any(flag in cmdline for flag in 
-                    ['--minimize-to-tray', '--startstreaming', '--startvirtualcam'])
+                is_headless = (
+                    any(flag in cmdline for flag in [
+                        '--minimize-to-tray', 
+                        '--startstreaming', 
+                        '--startvirtualcam', 
+                        '--headless',
+                        '--disable-gpu'
+                    ]) or
+                    env.get('OBS_USE_HEADLESS') == '1' or
+                    env.get('QT_QPA_PLATFORM') == 'offscreen'
+                )
                 return {
                     'running': True,
                     'headless': is_headless,
-                    'pid': proc.pid
+                    'pid': proc.pid,
+                    'cmdline': cmdline,
+                    'environ': env  # 添加环境变量信息用于调试
                 }
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
@@ -1650,10 +1661,28 @@ def start_obs():
         if headless:
             # 后台模式启动
             if platform.system().lower() == 'windows':
-                cmd.extend(['--startvirtualcam', '--minimize-to-tray'])
+                cmd.extend([
+                    '--startvirtualcam',
+                    '--minimize-to-tray',
+                    '--headless',
+                    '--disable-shutdown-check',
+                    '--disable-updater',
+                    '--disable-gpu'
+                ])
             else:
                 # Linux下的后台启动参数
-                cmd.extend(['--startvirtualcam'])
+                cmd.extend([
+                    '--startvirtualcam',
+                    '--headless',
+                    '--disable-shutdown-check',
+                    '--disable-updater',
+                    '--disable-gpu'
+                ])
+                
+            # 确保不会启动GUI
+            os.environ['OBS_USE_HEADLESS'] = '1'
+            os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # 强制使用offscreen渲染
+            os.environ['DISABLE_QT_COMPAT'] = '1'  # 禁用Qt兼容模式
                 
         try:
             # 根据系统使用不同的启动方式
@@ -1705,24 +1734,38 @@ def start_obs():
 
 @bp.route('/api/obs/stop', methods=['POST'])
 def stop_obs():
-    """停止OBS"""
+    """停止OBS并确保完全清理"""
     try:
         status = check_obs_process()
         if not status['running']:
-            return jsonify({'error': 'OBS未在运行'}), 400
+            return jsonify({'success': True, 'message': 'OBS未在运行'})
             
         # 获取OBS进程
         pid = status['pid']
         if pid:
             try:
                 process = psutil.Process(pid)
-                process.terminate()  # 尝试正常终止
+                # 终止所有子进程
+                for child in process.children(recursive=True):
+                    try:
+                        child.terminate()
+                    except psutil.NoSuchProcess:
+                        continue
+                
+                # 终止主进程
+                process.terminate()
                 try:
-                    process.wait(timeout=5)  # 等待进程终止
+                    process.wait(timeout=5)
                 except psutil.TimeoutExpired:
-                    process.kill()  # 如果等待超时，强制终止
+                    process.kill()
+                
+                # 额外检查确保进程已终止
+                time.sleep(1)
+                if not psutil.pid_exists(pid):
+                    return jsonify({'success': True, 'message': 'OBS已完全停止'})
+                else:
+                    return jsonify({'error': '未能完全停止OBS'}), 500
                     
-                return jsonify({'success': True, 'message': 'OBS已停止'})
             except psutil.NoSuchProcess:
                 return jsonify({'success': True, 'message': 'OBS进程已不存在'})
         else:

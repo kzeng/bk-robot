@@ -209,11 +209,15 @@
                                 <div class="card-body">
                                     <!-- Control Buttons -->
                                     <div class="row g-2 mb-3">
+                                        <!--
                                         <div class="col-md-4">
                                             <button type="button" class="btn btn-primary w-100 shadow-sm" id="startObsUI">
                                                 <i class="fas fa-desktop me-2"></i>启动 OBS 界面
                                             </button>
                                         </div>
+                                        -->
+                                      
+
                                         <div class="col-md-4">
                                             <button type="button" class="btn btn-success w-100 shadow-sm" id="startObsHeadless">
                                                 <i class="fas fa-server me-2"></i>启动 OBS 服务
@@ -230,6 +234,7 @@
                                     <div class="alert shadow-sm" id="obsStatus" role="alert">
                                         <i class="fas fa-info-circle me-2"></i>
                                         <span id="obsStatusText">正在检查OBS状态...</span>
+                                        <div id="obsModeInfo" class="small mt-1"></div>
                                     </div>
                                 </div>
                             </div>
@@ -296,6 +301,7 @@
 async function checkObsStatus() {
     const statusEl = document.getElementById('obsStatus');
     const statusTextEl = document.getElementById('obsStatusText');
+    const modeInfoEl = document.getElementById('obsModeInfo');
     
     try {
         const response = await fetch('/api/obs/status');
@@ -311,15 +317,30 @@ async function checkObsStatus() {
         if (data.running) {
             statusEl.className = 'alert alert-success';
             statusTextEl.textContent = data.headless ? 
-                'OBS正在后台运行' : 'OBS正在运行(UI模式)';
+                'OBS正在后台运行(无头模式)' : 'OBS正在运行(UI模式)';
+            
+            // Show additional mode info
+            if (data.headless) {
+                modeInfoEl.innerHTML = `
+                    <i class="fas fa-server me-1"></i> 无头模式运行中
+                    <span class="text-muted ms-2">PID: ${data.pid || '未知'}</span>
+                `;
+            } else {
+                modeInfoEl.innerHTML = `
+                    <i class="fas fa-desktop me-1"></i> UI模式运行中
+                    <span class="text-muted ms-2">PID: ${data.pid || '未知'}</span>
+                `;
+            }
         } else {
             statusEl.className = 'alert alert-warning';
             statusTextEl.textContent = 'OBS未运行';
+            modeInfoEl.innerHTML = '';
         }
     } catch (error) {
         console.error('OBS状态检查错误:', error);
         statusEl.className = 'alert alert-danger';
         statusTextEl.textContent = '检查OBS状态时出错: 请确保后端服务正常运行';
+        modeInfoEl.innerHTML = '';
     }
 }
 
@@ -330,43 +351,67 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // OBS控制按钮事件处理
-document.getElementById('startObsUI').addEventListener('click', async () => {
+async function handleObsButtonClick(btnId, apiEndpoint, requestData) {
+    const btn = document.getElementById(btnId);
+    const originalText = btn.innerHTML;
+    const statusEl = document.getElementById('obsStatus');
+    const statusTextEl = document.getElementById('obsStatusText');
+    const modeInfoEl = document.getElementById('obsModeInfo');
+    
+    // 设置加载状态
+    btn.disabled = true;
+    if (btnId !== 'startObsUI') {  // UI模式按钮不显示加载动画
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>处理中...';
+    }
+    statusEl.className = 'alert alert-info';
+    statusTextEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>操作执行中...';
+    modeInfoEl.innerHTML = '';
+    
     try {
-        const response = await fetch('/api/obs/start', {
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ headless: false })
+            body: JSON.stringify(requestData)
         });
-        if (!response.ok) throw new Error('启动失败');
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || '操作失败');
+        }
+        
+        // 显示操作成功提示
+        const result = await response.json();
+        if (result.success !== false) {
+            showToast('success', '操作执行成功');
+        }
+        
+        // 等待1秒后刷新状态
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await checkObsStatus();
     } catch (error) {
-        alert('启动OBS(UI)失败: ' + error.message);
+        showToast('danger', `操作失败: ${error.message}`);
+        await checkObsStatus();  // 即使失败也刷新状态
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
+}
+
+// 绑定按钮事件
+//document.getElementById('startObsUI').addEventListener('click', () => {
+//    handleObsButtonClick('startObsUI', '/api/obs/start', { headless: false });
+//});
+
+document.getElementById('startObsHeadless').addEventListener('click', () => {
+    handleObsButtonClick('startObsHeadless', '/api/obs/start', { headless: true });
 });
 
-document.getElementById('startObsHeadless').addEventListener('click', async () => {
-    try {
-        const response = await fetch('/api/obs/start', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ headless: true })
-        });
-        if (!response.ok) throw new Error('启动失败');
-        await checkObsStatus();
-    } catch (error) {
-        alert('启动OBS(后台)失败: ' + error.message);
-    }
+document.getElementById('stopObs').addEventListener('click', () => {
+    handleObsButtonClick('stopObs', '/api/obs/stop', {});
 });
 
-document.getElementById('stopObs').addEventListener('click', async () => {
-    try {
-        const response = await fetch('/api/obs/stop', { method: 'POST' });
-        if (!response.ok) throw new Error('停止失败');
-        await checkObsStatus();
-    } catch (error) {
-        alert('停止OBS失败: ' + error.message);
-    }
-});
+// 添加定期状态检查
+setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
 
 // 控制相机配置区域启用/禁用状态的函数
 function updateCameraConfigState() {
