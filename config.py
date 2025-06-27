@@ -5,17 +5,10 @@ from loguru import logger
 basedir = os.path.abspath(os.path.dirname(__file__))
 env_path = os.path.join(basedir, '.env')
 
-# 检查 .env 文件
-# logger.debug(f"[Config] .env path: {env_path}")
-# logger.debug(f"[Config] .env exists: {os.path.exists(env_path)}")
-# if os.path.exists(env_path):
-#     with open(env_path, 'r') as f:
-#         logger.debug(f"[Config] .env content:\n{f.read()}")
-
 
 load_dotenv(env_path, override=True)  # 添加 override=True 确保重载
 
-
+#-------------------------------------------------------------------------------------------
 # you  can change these variables in .env file
 
 
