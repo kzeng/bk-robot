@@ -201,7 +201,7 @@ class OBSControl:
                         imageFormat="png",
                         imageFilePath=abs_filepath
                     ))
-                    logger.info(f"截图成功保存至: {abs_filepath}")
+                    logger.info(f"拍照成功保存至: {abs_filepath}")
                     
                     results.append({
                         "camera_id": i,
