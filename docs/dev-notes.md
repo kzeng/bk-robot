@@ -11,8 +11,8 @@ pip config set global.index-url https://repo.huaweicloud.com/repository/pypi/sim
 ## install git
 sudo apt-get install git
 
-git config set global.email "zengkai001@qq.com"
-git config set global.username "zengkai"
+git config --global user.email "zengkai001@qq.com"
+git config --global user.name "zengkai"
 
 
 

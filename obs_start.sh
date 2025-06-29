@@ -9,8 +9,9 @@ is_obs_running() {
 if [ "$(uname)" == "Darwin" ]; then
     obs_command="/Applications/OBS.app/Contents/MacOS/obs --startvirtualcam --minimize-to-tray"
 else
-    obs_command="obs --startvirtualcam --minimize-to-tray"
+    obs_command="/usr/bin/obs --startvirtualcam --minimize-to-tray --disable-shutdown-check --disable-updater --disable-gpu"
 fi
+
 
 # Main monitoring loop
 while true; do

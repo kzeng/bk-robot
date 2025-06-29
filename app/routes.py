@@ -1223,33 +1223,85 @@ def delete_image():
                 'message': 'Filename is required'
             }), 400
         
-        # 获取截图根目录，使用项目根目录下的static目录
-        screenshots_dir = os.path.normpath(os.path.join(current_app.root_path, '..', 'static', 'screenshots'))
+        # 获取截图根目录，使用绝对路径
+        screenshots_dir = os.path.normpath('/home/bk/BOKU-SERVICE-HOME/bk-robot/static/screenshots')
+        logger.info(f"Screenshots base directory (absolute path): {screenshots_dir}")
         
-        # 如果目录不为空，则添加到路径中
-        if directory:
-            file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        # 优先检查日期子目录（如果文件名包含日期）
+        file_path = None
+        year_month_day = None
+        
+        # 尝试从文件名提取日期 (格式: YYYYMMDD)
+        if 'Unknown-' in filename:
+            year_month_day = filename.split('-')[2][:8]  # Extract from Unknown-CameraX-YYYYMMDD_HHMMSS
         else:
-            # 目录为空时，搜索年月日目录
-            # Handle both filename formats:
-            # 1. CameraX-YYYYMMDD_HHMMSS.jpg
-            # 2. Unknown-CameraX-YYYYMMDD_HHMMSS.jpg
-            if 'Unknown-' in filename:
-                year_month_day = filename.split('-')[2][:8]  # Extract from Unknown-CameraX-YYYYMMDD_HHMMSS
+            try:
+                # Handle both formats:
+                # 1. CameraX-YYYYMMDD_HHMMSS.png
+                # 2. M1-s2-c2-YYYYMMDD_HHMMSS.png
+                if '-' in filename and '_' in filename:
+                    # Split on underscore first to get the date part
+                    date_part = filename.split('_')[0]
+                    # Then get the last segment which contains the date
+                    year_month_day = date_part.split('-')[-1][:8]
+                else:
+                    year_month_day = filename.split('_')[1][:8]  # Fallback to original format
+            except IndexError:
+                pass
+        
+        logger.info(f"Extracted date from filename: {year_month_day}")
+
+        # 确保screenshots目录存在
+        if not os.path.exists(screenshots_dir):
+            logger.error(f"Screenshots directory does not exist: {screenshots_dir}")
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'Screenshots directory not found'
+            }), 404
+        
+        # 如果找到日期且目录未指定，优先检查日期子目录
+        if year_month_day and year_month_day.isdigit() and not directory:
+            dated_dir = os.path.join(screenshots_dir, year_month_day)
+            logger.info(f"Checking dated directory: {dated_dir}")
+            if os.path.exists(dated_dir):
+                dated_path = os.path.normpath(os.path.join(dated_dir, filename))
+                logger.info(f"Checking file path: {dated_path}")
+                if os.path.exists(dated_path):
+                    file_path = dated_path
+                    logger.info(f"Found file in dated directory: {file_path}")
+                else:
+                    # Also check root directory as fallback
+                    root_path = os.path.normpath(os.path.join(screenshots_dir, filename))
+                    if os.path.exists(root_path):
+                        file_path = root_path
+                        logger.info(f"Found file in root directory: {file_path}")
+                    else:
+                        logger.warning(f"File not found at path: {dated_path} or {root_path}")
             else:
-                year_month_day = filename.split('_')[1][:8]  # Extract from CameraX-YYYYMMDD_HHMMSS
-            
-            if year_month_day and year_month_day.isdigit():
-                file_path = os.path.normpath(os.path.join(screenshots_dir, year_month_day, filename))
+                # Check root directory if dated directory doesn't exist
+                root_path = os.path.normpath(os.path.join(screenshots_dir, filename))
+                if os.path.exists(root_path):
+                    file_path = root_path
+                    logger.info(f"Found file in root directory: {root_path}")
+                else:
+                    logger.warning(f"Dated directory not found: {dated_dir} and file not in root")
+        
+        # 如果仍未找到文件路径，尝试其他位置
+        if not file_path:
+            if directory:
+                file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
             else:
                 file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
         
         logger.info(f"Trying to delete file: {file_path}")
+        logger.info(f"Full absolute path: {os.path.abspath(file_path)}")
         
         if not os.path.exists(file_path):
+            logger.error(f"File not found at path: {os.path.abspath(file_path)}")
             return jsonify({
                 'status': 'ERROR',
-                'message': f'File not found: {filename} in directory {directory}'
+                'message': f'File not found: {filename} in directory {directory}',
+                'full_path': os.path.abspath(file_path)
             }), 404
         
         # 删除文件
