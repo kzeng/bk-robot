@@ -42,7 +42,9 @@
                 <div class="control-panel">
                     <h5>机器人控制</h5>
                     <div class="mb-3">
+                        <!--
                         <label class="form-label"> <a id="api-help-link" href="#" target="_blank"> 接口文档 >></a></label>
+                        -->
                         <select class="form-select" id="robot-cmd" onchange="updateApiHelpLink()">
                             {% for all_apis in robot_all_apis_options %}
                             <option value="{{ all_apis.cmd }}" data-url="{{ all_apis.url }}">{{ all_apis.title }}</option>

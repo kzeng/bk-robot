@@ -176,47 +176,49 @@ class OBSControl:
                         "message": f"Scene '{scene}' not found in OBS"
                     })
                     continue
-                try:
-                    # 切换到对应的场景
-                    self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
-                    
-                    # 等待场景切换完成
-                    time.sleep(0.5)
-                    
-                    
-                    # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
-                    filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
-                    filepath = os.path.join(base_dir, filename)
-                    
-                    # 确保基础目录存在
-                    os.makedirs(base_dir, exist_ok=True)
-                    logger.info(f"确保目录存在: {base_dir}")
-                    # 使用绝对路径并确保其有效性
-                    abs_filepath = os.path.abspath(filepath)
-                    logger.info(f"尝试保存截图至: {abs_filepath}")
-                    
-                    # Use the source mapped to this scene
-                    self.ws.call(requests.SaveSourceScreenshot(
-                        sourceName=scene_sources[scene],
-                        imageFormat="png",
-                        imageFilePath=abs_filepath
-                    ))
-                    logger.info(f"拍照成功保存至: {abs_filepath}")
-                    
-                    results.append({
-                        "camera_id": i,
-                        "scene": scene,
-                        "status": "OK",
-                        "filename": filename,
-                        "filepath": filepath
-                    })
-                except Exception as e:
-                    results.append({
-                        "camera_id": i,
-                        "scene": scene,
-                        "status": "ERROR",
-                        "message": str(e)
-                    })
+                # try:
+                # 切换到对应的场景
+                self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
+                
+                # 等待场景切换完成
+                time.sleep(0.5)
+                
+                
+                # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
+                filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
+                filepath = os.path.join(base_dir, filename)
+                
+                # 确保基础目录存在
+                os.makedirs(base_dir, exist_ok=True)
+                logger.info(f"确保目录存在: {base_dir}")
+                # 使用绝对路径并确保其有效性
+                abs_filepath = os.path.abspath(filepath)
+                logger.info(f"尝试保存截图至: {abs_filepath}")
+
+                time.sleep(5)
+                
+                # Use the source mapped to this scene
+                self.ws.call(requests.SaveSourceScreenshot(
+                    sourceName=scene_sources[scene],
+                    imageFormat="png",
+                    imageFilePath=abs_filepath
+                ))
+                logger.info(f"拍照成功保存至: {abs_filepath}")
+                
+                results.append({
+                    "camera_id": i,
+                    "scene": scene,
+                    "status": "OK",
+                    "filename": filename,
+                    "filepath": filepath
+                })
+                # except Exception as e:
+                #     results.append({
+                #         "camera_id": i,
+                #         "scene": scene,
+                #         "status": "ERROR",
+                #         "message": str(e)
+                #     })
 
         except Exception as e:
             # 捕获所有异常并记录日志
