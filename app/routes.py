@@ -1435,6 +1435,7 @@ def settings():
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
+        'OBS_FOCUS_TIME': str(current_app.config.get('OBS_FOCUS_TIME', '3')),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),

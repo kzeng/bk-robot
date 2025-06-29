@@ -71,6 +71,7 @@ class Config:
     # My Ubuntu
     OBS_WS_URL = os.environ.get('OBS_WS_URL', 'ws://192.168.0.109:4455')
     OBS_PASSWORD = os.environ.get('OBS_PASSWORD', '123456')
+    OBS_FOCUS_TIME = int(os.environ.get('OBS_FOCUS_TIME', '3'))  # Default focus time in seconds
 
     # FTP Server configuration
     FTP_HOST = os.environ.get('FTP_HOST', 'ftp.example.com')
