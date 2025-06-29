@@ -29,6 +29,8 @@ class OBSControl:
         self.host = ws_parts[0]
         self.port = int(ws_parts[1])
         self.password = app.config['OBS_PASSWORD']
+        # 读取OBS_FOCUS_TIME配置，确保在1-10范围内，默认3
+        self.focus_time = max(1, min(10, int(app.config.get('OBS_FOCUS_TIME', 3))))
     
     def get_connection_params(self):
         """获取连接参数"""
@@ -195,7 +197,7 @@ class OBSControl:
                 abs_filepath = os.path.abspath(filepath)
                 logger.info(f"尝试保存截图至: {abs_filepath}")
 
-                time.sleep(5)
+                time.sleep(self.focus_time)
                 
                 # Use the source mapped to this scene
                 self.ws.call(requests.SaveSourceScreenshot(

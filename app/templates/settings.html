@@ -175,6 +175,10 @@
                                 <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label">对焦时间(1-10秒)</label>
+                                <input type="number" class="form-control" name="OBS_FOCUS_TIME" min="1" max="10" value="{{ env.OBS_FOCUS_TIME or '3' }}" required>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label">拍照模式</label>
                                 <div class="mt-2 d-flex gap-4">
                                     <div class="form-check">
