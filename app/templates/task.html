@@ -97,7 +97,19 @@
                     <form id="taskForm">
                         <div class="mb-3">
                             <label for="marker" class="form-label">标记点</label>
-                            <input type="text" class="form-control" id="marker">
+                            <input type="text" class="form-control" id="marker" 
+                                   placeholder="示例: M1,M2,CD">
+                            <div class="form-text text-muted">
+                                <div class="alert alert-info p-2 mt-2 mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>标记点填写要求：
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        <li>使用英文逗号分隔多个点位</li>
+                                        <li>点位名称必须与地图系统中的点位名称一致</li>
+                                        <li>至少需要输入两个点位</li>
+                                        <li>路线必须以充电点(CD)结束</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="action" class="form-label">操作类型</label>
@@ -134,7 +146,19 @@
                         <input type="hidden" id="editTaskId">
                         <div class="mb-3">
                             <label for="editMarker" class="form-label">标记点</label>
-                            <input type="text" class="form-control" id="editMarker">
+                            <input type="text" class="form-control" id="editMarker"
+                                   placeholder="示例: M1,M2,CD">
+                            <div class="form-text text-muted">
+                                <div class="alert alert-info p-2 mt-2 mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>标记点填写要求：
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        <li>使用英文逗号分隔多个点位</li>
+                                        <li>点位名称必须与地图系统中的点位名称一致</li>
+                                        <li>至少需要输入两个点位</li>
+                                        <li>路线必须以充电点(CD)结束</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="editAction" class="form-label">操作类型</label>
@@ -242,8 +266,41 @@
         }
 
 
+        function validateMarker(marker) {
+            if (!marker) {
+                alert('请输入标记点');
+                return false;
+            }
+
+            // 检查是否包含中文逗号
+            if (marker.includes('，')) {
+                alert('请使用英文逗号(,)分隔点位，不要使用中文逗号(，)');
+                return false;
+            }
+
+            const points = marker.split(',').map(p => p.trim());
+            
+            if (points.length < 2) {
+                alert('至少需要输入两个点位');
+                return false;
+            }
+
+            if (points[points.length - 1] !== 'CD') {
+                alert('路线必须以充电点(CD)结束');
+                return false;
+            }
+
+            return true;
+        }
+
         function createTask() {
             const form = document.getElementById('taskForm');
+            const markerInput = form.querySelector('#marker');
+            
+            if (!validateMarker(markerInput.value)) {
+                return;
+            }
+
             const actionSelect = form.querySelector('#action');
             const descriptionTextarea = form.querySelector('#description');
             
@@ -309,8 +366,14 @@
 
         function saveTask() {
             const taskId = document.getElementById('editTaskId').value;
+            const markerValue = document.getElementById('editMarker').value;
+            
+            if (!validateMarker(markerValue)) {
+                return;
+            }
+
             const taskData = {
-                marker: document.getElementById('editMarker').value,
+                marker: markerValue,
                 action: parseInt(document.getElementById('editAction').value),
                 description: document.getElementById('editDescription').value
             };
