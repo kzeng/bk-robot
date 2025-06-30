@@ -949,14 +949,13 @@ def get_photo_directories():
 
 @bp.route('/api/photos/images', methods=['GET'])
 def get_images_in_directory():
-    """获取指定目录下的图片列表"""
+    """获取指定目录下的图片列表，支持分页和缩略图"""
     try:
         directory = request.args.get('directory', '')
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('page_size', 8))
         screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
-        
-        # 添加调试日志：打印基础目录和请求的目录
-        logger.info(f"Getting images - Base directory: {screenshots_dir}")
-        logger.info(f"Getting images - Requested directory: {directory}")
+        thumbnails_dir = os.path.join(screenshots_dir, 'thumbnails')
         
         # 如果没有指定目录，则返回所有图片
         if not directory:
@@ -966,30 +965,34 @@ def get_images_in_directory():
                     if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                         rel_path = os.path.relpath(root, screenshots_dir)
                         full_path = os.path.join(root, file)
-                        
-                        # 添加调试日志：找到的文件路径
-                        logger.info(f"Found file: {full_path}")
-                        
-                        # 获取相对路径用于构造URL
+                        # 缩略图路径
+                        thumb_path = os.path.join(thumbnails_dir, rel_path, file)
+                        if os.path.exists(thumb_path):
+                            thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{rel_path}/{file}'.replace('\\', '/'))
+                        else:
+                            thumbnail_url = url_for('static', filename=f'screenshots/{rel_path}/{file}'.replace('\\', '/'))
                         if rel_path == '.':
-                            thumbnail_url = url_for('static', filename=f'screenshots/{file}')
                             full_url = url_for('static', filename=f'screenshots/{file}')
                         else:
-                            thumbnail_url = url_for('static', filename=f'screenshots/{rel_path}/{file}')
-                            full_url = url_for('static', filename=f'screenshots/{rel_path}/{file}')
-                        
+                            full_url = url_for('static', filename=f'screenshots/{rel_path}/{file}'.replace('\\', '/'))
                         images.append({
                             'filename': file,
                             'directory': rel_path,
                             'fullUrl': full_url,
                             'thumbnailUrl': thumbnail_url,
-                            'size': os.path.getsize(full_path)
+                            'size': os.path.getsize(full_path),
+                            'timestamp': os.path.getmtime(full_path)
                         })
-            # 按时间倒序排列（最新的在前）
-            images.sort(key=lambda x: -os.path.getmtime(os.path.join(screenshots_dir, x['directory'], x['filename'])))
+            images.sort(key=lambda x: -x['timestamp'])
+            total = len(images)
+            start = (page - 1) * page_size
+            end = start + page_size
+            paged_images = images[start:end]
             return jsonify({
-                'images': images,
-                'count': len(images),
+                'images': paged_images,
+                'count': total,
+                'page': page,
+                'page_size': page_size,
                 'all_images': True
             })
         
@@ -1001,54 +1004,43 @@ def get_images_in_directory():
             return jsonify({
                 'images': [],
                 'count': 0,
-                'directory': directory
+                'directory': directory,
+                'page': page,
+                'page_size': page_size
             })
         
-        # 添加调试日志：列出目录中的所有内容
-        all_items = os.listdir(dir_path)
-        logger.info(f"All items in directory {dir_path}: {all_items}")
-        
-        # 获取指定目录下的图片
         images = []
         for file in os.listdir(dir_path):
             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                 full_path = os.path.join(dir_path, file)
-                
-                # 确保文件确实存在
                 if not os.path.exists(full_path):
-                    logger.warning(f"File does not exist: {full_path}")
                     continue
-                    
-                # 添加调试日志：找到的文件路径
-                logger.info(f"Found file in directory: {full_path}")
-                
-                # 构造正确的URL，修复Windows下反斜杠问题
+                # 缩略图路径
+                thumb_path = os.path.join(thumbnails_dir, directory, file)
+                if os.path.exists(thumb_path):
+                    thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{directory}/{file}'.replace('\\', '/'))
+                else:
+                    thumbnail_url = url_for('static', filename=f'screenshots/{directory}/{file}'.replace('\\', '/'))
                 relative_path = os.path.join('screenshots', directory, file).replace('\\', '/')
                 images.append({
                     'filename': file,
                     'directory': directory,
                     'fullUrl': url_for('static', filename=relative_path),
-                    'thumbnailUrl': url_for('static', filename=relative_path),
+                    'thumbnailUrl': thumbnail_url,
                     'size': os.path.getsize(full_path),
-                    'timestamp': os.path.getmtime(full_path)  # 添加时间戳用于排序
+                    'timestamp': os.path.getmtime(full_path)
                 })
-        
-        # 按时间倒序排列（最新的在前）
         images.sort(key=lambda x: -x['timestamp'])
-        
-        # 在返回数据前过滤，只保留与当前目录匹配的图片
-        logger.info(f"Filtering images for directory: {directory}")
-        filtered_images = [img for img in images if img['directory'] == directory]
-        
-        # 在返回数据前添加验证
-        for image in filtered_images:
-            if 'thumbnailUrl' not in image or 'fullUrl' not in image:
-                logger.warning(f"Image data missing URL fields: {image}")
-        
+        total = len(images)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged_images = images[start:end]
         return jsonify({
-            'images': filtered_images,
-            'count': len(filtered_images),
-            'directory': directory
+            'images': paged_images,
+            'count': total,
+            'directory': directory,
+            'page': page,
+            'page_size': page_size
         })
     except Exception as e:
         logger.error(f"Error getting images in directory: {str(e)}")

@@ -181,93 +181,59 @@
         }
 
         // 加载图片
-        function loadImages() {
-            const endpoint = currentDirectory ? `/api/photos/images?directory=${encodeURIComponent(currentDirectory)}` : '/api/photos/images';
-            
+        function loadImages(page = 1) {
+            const endpoint = currentDirectory ? `/api/photos/images?directory=${encodeURIComponent(currentDirectory)}&page=${page}&page_size=12` : `/api/photos/images?page=${page}&page_size=12`;
             fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Received images data:', data); // 添加调试日志
-                    
                     const imageGrid = document.getElementById('imageGrid');
                     imageGrid.innerHTML = '';
-                    
-                    // 查找分页容器，如果不存在则创建一个
                     let pagination = document.getElementById('pagination');
                     if (!pagination) {
                         pagination = document.createElement('div');
                         pagination.id = 'pagination';
                         imageGrid.parentNode.appendChild(pagination);
                     }
-                    
                     pagination.innerHTML = '';
-
                     if (!data || !data.images || data.images.length === 0) {
                         imageGrid.innerHTML = '<p class="text-muted m-2">该目录下暂无图片</p>';
                         return;
                     }
-
-                    // 存储所有图片数据以便分页使用
                     const allImages = data.images;
-                    const IMAGES_PER_PAGE =16;
-                    const totalPages = Math.ceil(allImages.length / IMAGES_PER_PAGE);
-                    let currentPage = 1;
-                    
+                    const totalPages = Math.ceil(data.count / data.page_size);
+                    let currentPage = data.page;
                     // 显示当前页的图片
-                    function showPage(page) {
-                        currentPage = page;
-                        const start = (page - 1) * IMAGES_PER_PAGE;
-                        const end = start + IMAGES_PER_PAGE;
-                        
-                        // 清空当前显示
-                        imageGrid.innerHTML = '';
-                        
-                        // 显示当前页的图片
-                        for (let i = start; i < Math.min(end, allImages.length); i++) {
-                            const image = allImages[i];
-                            
-                            // 验证图片数据结构
-                            console.log('Processing image:', image);
-                            
-                            const col = document.createElement('div');
-                            // 一行显示5张图片（12/5=2.4，取2）
-                            col.className = 'col-md-2-4 col-sm-3 col-4';
-                            
-                            // 确保使用正确的属性名
-                            col.innerHTML = `
-                                <div class="card img-container">
-                                    <img src="${image.thumbnailUrl || '#'}" class="card-img-top thumbnail" alt="${image.filename || 'Image'}"
-                                         onclick="viewImage('${image.fullUrl || '#'}', '${image.filename ? image.filename.replace(/'/g, "\\'") : ''}')">
-                                    <div class="card-body p-2">
-                                        <p class="card-text text-truncate mb-1" title="${image.filename || ''}">${image.filename || 'Unknown'}</p>
-                                        <small class="text-muted">${image.size ? `${(image.size / 1024).toFixed(1)} KB` : '未知大小'}</small>
-                                        <button class="btn btn-sm btn-danger img-delete-btn" 
-                                                onclick="deleteImage(event, '${currentDirectory}', '${image.filename || ''}')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
+                    for (let i = 0; i < allImages.length; i++) {
+                        const image = allImages[i];
+                        const col = document.createElement('div');
+                        col.className = 'col-md-2-4 col-sm-3 col-4';
+                        col.innerHTML = `
+                            <div class="card img-container">
+                                <img src="${image.thumbnailUrl || '#'}" class="card-img-top thumbnail" alt="${image.filename || 'Image'}" loading="lazy"
+                                     onclick="viewImage('${image.fullUrl || '#'}', '${image.filename ? image.filename.replace(/'/g, "\\'") : ''}')">
+                                <div class="card-body p-2">
+                                    <p class="card-text text-truncate mb-1" title="${image.filename || ''}">${image.filename || 'Unknown'}</p>
+                                    <small class="text-muted">
+                                        ${image.size ? `${(image.size / 1024).toFixed(1)} KB` : '未知大小'}
+                                    </small>
+                                    <button class="btn btn-sm btn-danger img-delete-btn" 
+                                            onclick="deleteImage(event, '${currentDirectory}', '${image.filename || ''}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
-                            `;
-                            
-                            imageGrid.appendChild(col);
-                        }
-                        
-                        // 更新分页控件
-                        updatePagination(page, totalPages);
+                            </div>
+                        `;
+                        imageGrid.appendChild(col);
                     }
-                    
                     // 更新分页控件
+                    updatePagination(currentPage, totalPages);
                     function updatePagination(page, totalPages) {
                         pagination.innerHTML = '';
-                        
-                        if (totalPages <= 1) return; // 如果只有一页，不显示分页控件
-                        
-                        // 创建分页导航元素
+                        if (totalPages <= 1) return;
                         const nav = document.createElement('nav');
                         nav.className = 'pagination-container';
                         const ul = document.createElement('ul');
                         ul.className = 'pagination justify-content-center';
-                        
                         // 上一页按钮
                         const prevLi = document.createElement('li');
                         prevLi.className = 'page-item' + (page === 1 ? ' disabled' : '');
@@ -275,11 +241,10 @@
                         prevLi.addEventListener('click', (e) => {
                             e.preventDefault();
                             if (page > 1) {
-                                showPage(page - 1);
+                                loadImages(page - 1);
                             }
                         });
                         ul.appendChild(prevLi);
-                        
                         // 页码按钮
                         for (let i = 1; i <= totalPages; i++) {
                             const li = document.createElement('li');
@@ -287,11 +252,10 @@
                             li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
                             li.addEventListener('click', (e) => {
                                 e.preventDefault();
-                                showPage(i);
+                                loadImages(i);
                             });
                             ul.appendChild(li);
                         }
-                        
                         // 下一页按钮
                         const nextLi = document.createElement('li');
                         nextLi.className = 'page-item' + (page === totalPages ? ' disabled' : '');
@@ -299,24 +263,17 @@
                         nextLi.addEventListener('click', (e) => {
                             e.preventDefault();
                             if (page < totalPages) {
-                                showPage(page + 1);
+                                loadImages(page + 1);
                             }
                         });
                         ul.appendChild(nextLi);
-                        
-                        // 组装分页控件
                         nav.appendChild(ul);
                         pagination.appendChild(nav);
-                        
-                        // 添加显示当前页/总页数的信息
                         const pageInfo = document.createElement('div');
                         pageInfo.className = 'text-center mt-3';
-                        pageInfo.textContent = `第 ${currentPage} 页（共 ${totalPages} 页） - 共 ${allImages.length} 张图片`;
+                        pageInfo.textContent = `第 ${page} 页（共 ${totalPages} 页） - 共 ${data.count} 张图片`;
                         pagination.appendChild(pageInfo);
                     }
-                    
-                    // 初始化显示第一页
-                    showPage(1);
                 })
                 .catch(error => {
                     console.error('Error fetching images:', error);
