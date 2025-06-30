@@ -182,7 +182,7 @@
 
         // 加载图片
         function loadImages(page = 1) {
-            const endpoint = currentDirectory ? `/api/photos/images?directory=${encodeURIComponent(currentDirectory)}&page=${page}&page_size=12` : `/api/photos/images?page=${page}&page_size=12`;
+            const endpoint = currentDirectory ? `/api/photos/images?directory=${encodeURIComponent(currentDirectory)}&page=${page}&page_size=8` : `/api/photos/images?page=${page}&page_size=8`;
             fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {

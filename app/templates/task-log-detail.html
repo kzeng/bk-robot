@@ -111,17 +111,6 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">
-                <h5>拍摄文件</h5>
-            </div>
-            <div class="card-body">
-                <div id="fileList" class="thumbnail-container">
-                    <!-- Files will be populated here -->
-                </div>
-            </div>
-        </div>
-
     </div>
 {% endblock %}
 
@@ -178,16 +167,6 @@
                         markerPoint.appendChild(markerDot);
                         markerPoint.appendChild(markerLabel);
                         timeline.insertBefore(markerPoint, timeline.querySelector('.marker-line'));
-                    });
-
-                    // Set files
-                    const fileList = document.getElementById('fileList');
-                    log.file_paths.forEach(file => {
-                        const img = document.createElement('img');
-                        img.src = file;
-                        img.className = 'thumbnail';
-                        img.onclick = () => window.open(file, '_blank');
-                        fileList.appendChild(img);
                     });
                 });
         });
