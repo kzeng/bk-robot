@@ -151,7 +151,6 @@ static/screenshots/
 static/video/
 
 # Logs
-app/logs/
-*.log
-*.log.*
-*.zip
+app/logs/*.log
+app/logs/*.log.*
+app/logs/*.zip

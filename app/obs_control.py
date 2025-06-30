@@ -182,10 +182,11 @@ class OBSControl:
                 # 切换到对应的场景
                 self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
                 
-                # 等待场景切换完成
-                time.sleep(0.5)
+                # # 等待场景切换完成 等待场景稳定 (一次性等待足够)
+                # time.sleep(0.5)
+                time.sleep(self.focus_time)
                 
-                
+
                 # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
                 filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
                 filepath = os.path.join(base_dir, filename)
@@ -196,10 +197,8 @@ class OBSControl:
                 # 使用绝对路径并确保其有效性
                 abs_filepath = os.path.abspath(filepath)
                 logger.info(f"尝试保存截图至: {abs_filepath}")
-                
                 logger.info(f"focus_time: {self.focus_time}")
                 
-                time.sleep(self.focus_time)
                 
                 # Use the source mapped to this scene
                 self.ws.call(requests.SaveSourceScreenshot(
