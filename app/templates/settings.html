@@ -188,20 +188,20 @@
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode1">
-                                            OpenCV
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %} disabled>
+                                        <label class="form-check-label text-muted" for="photoMode1">
+                                            OpenCV (禁用)
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode2">
-                                            FFmpeg
+                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %} disabled>
+                                        <label class="form-check-label text-muted" for="photoMode2">
+                                            FFmpeg (禁用)
                                         </label>
                                     </div>
                                 </div>
                                 <small class="form-text text-muted mt-2">
-                                    注意：只有 OpenCV 模式和 FFmpeg 模式启用时，高级相机参数设置才有效。
+                                    注意：当前仅支持 OBS 拍照模式。只有 OpenCV 模式和 FFmpeg 模式启用时，摄像头和高级相机参数设置才有效
                                 </small>
                             </div>
 
