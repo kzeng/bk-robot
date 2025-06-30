@@ -1229,9 +1229,13 @@ def delete_image():
             }), 400
         
         # 获取截图根目录，使用绝对路径
-        screenshots_dir = os.path.normpath('/home/bk/BOKU-SERVICE-HOME/bk-robot/static/screenshots')
-        logger.info(f"Screenshots base directory (absolute path): {screenshots_dir}")
-        
+        # screenshots_dir = os.path.normpath('/home/bk/BOKU-SERVICE-HOME/bk-robot/static/screenshots')
+        # logger.info(f"Screenshots base directory (absolute path): {screenshots_dir}")
+        screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
+        screenshots_dir = os.path.normpath(screenshots_dir)
+        logger.info(f"Screenshots base directory: {screenshots_dir}")
+
+
         # 优先检查日期子目录（如果文件名包含日期）
         file_path = None
         year_month_day = None
