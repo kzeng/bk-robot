@@ -16,9 +16,13 @@ class Config:
     NEED_AUTH = os.environ.get('NEED_AUTH', True) 
     # Set BASEDIR for the application
     BASEDIR = basedir
-    # admin password hashlib.sha1
+    # admin password hashlib.sha1 admin123
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'f865b53623b121fd34ee5426c792e5c33af8c227')
     
+    # super user password hashlib.sha1 su123456
+    SUPER_USER_PASSWORD = os.environ.get('SUPER_USER_PASSWORD', '4148d4c33f1809dc66c039dd44c0db4a7db76325' )
+
+
     # Camera control configuration
     PHOTO_MODE = os.environ.get('PHOTO_MODE')
     # logger.debug(f"[Config] Config class reading PHOTO_MODE directly from environ: {PHOTO_MODE}")

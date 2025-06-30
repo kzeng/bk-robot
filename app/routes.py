@@ -1386,24 +1386,36 @@ def login_required(f):
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if not current_app.config['NEED_AUTH']:
-        return redirect(url_for('main.index'))
-        
+        return redirect(url_for('main.tasks_page'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         if username == 'admin':
             hashed_password = hashlib.sha1(password.encode()).hexdigest()
             if hashed_password == current_app.config['ADMIN_PASSWORD']:
                 session['authenticated'] = True
+                session['role'] = 'admin'
+                session['username'] = username
+                return redirect(url_for('main.tasks_page'))
+
+        elif username == 'su':
+            hashed_password = hashlib.sha1(password.encode()).hexdigest()
+            if hashed_password == current_app.config['SUPER_USER_PASSWORD']:
+                session['authenticated'] = True
+                session['role'] = 'super_user'
+                session['username'] = username
                 return redirect(url_for('main.index'))
-        
+
         flash('用户名或密码错误', 'danger')
     return render_template('login.html')
 
 @bp.route('/logout')
 def logout():
     session.pop('authenticated', None)
+    session.pop('role', None)
+    session.pop('username', None)
     flash('已退出登录', 'info')
     return redirect(url_for('main.login'))
 
