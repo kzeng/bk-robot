@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <div class="container mt-4">
+ 
+    <h3 class="mb-4">点位配置         
+        <button type="button" class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#markerConfigModal">
+              <i class="fas fa-plus me-1"></i> 新增点位
+        </button>
+        <button type="button" class="btn btn-success btn-sm me-2" id="syncMarkersButton">
+              <i class="fas fa-sync me-1"></i> 同步机器人点位
+        </button>
+        <button type="button" class="btn btn-danger btn-sm me-2" id="clearMarkersButton">
+              <i class="fas fa-trash me-1"></i> 清空点位
+        </button>
+        <button type="button" class="btn btn-info btn-sm" id="createTaskButton">
+              <i class="fas fa-tasks me-1"></i> 自动创建盘点任务
+        </button>
+    </h3>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索点位名称或简写...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="bi bi-search"></i> 搜索
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllCheckbox"></th>
+                            <th>ID</th>
+                            <th>点位名称</th>
+                            <th>点位简写</th>
+                            <th>X坐标</th>
+                            <th>Y坐标</th>
+                            <th>宽度</th>
+                            <th>高度</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="markerConfigTable">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="markerConfigModal" tabindex="-1" aria-labelledby="markerConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="markerConfigModalLabel">点位配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="markerConfigForm">
+                    <input type="hidden" id="configId">
+                    <div class="mb-3">
+                        <label for="mid" class="form-label">点位名称</label>
+                        <input type="text" class="form-control" id="mid" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="midShort" class="form-label">点位简写</label>
+                        <input type="text" class="form-control" id="midShort" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="x" class="form-label">X坐标</label>
+                        <input type="number" class="form-control" id="x" value="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="y" class="form-label">Y坐标</label>
+                        <input type="number" class="form-control" id="y" value="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="w" class="form-label">宽度</label>
+                        <input type="number" class="form-control" id="w" value="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="h" class="form-label">高度</label>
+                        <input type="number" class="form-control" id="h" value="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveButton">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/marker-config.js') }}"></script>
+{% endblock %}

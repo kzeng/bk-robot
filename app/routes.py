@@ -2,7 +2,7 @@ from flask import render_template, jsonify, request, Blueprint, current_app, red
 import hashlib
 from functools import wraps
 import json
-from app.models import Task, TaskLog
+from app.models import Task, TaskLog, MarkerConfig
 from app import db
 from datetime import datetime, timezone, timedelta
 import asyncio
@@ -183,6 +183,13 @@ def task_logs_page():
 def photos_page():
     """照片管理页面"""
     return render_template('photos.html')
+
+@bp.route('/marker-config')
+@login_required
+def marker_config_page():
+    """标记点位配置页面"""
+    return render_template('marker_config.html')
+    return render_template('marker_config.html')
 
 # common API for robot control, all commands can be sent through this endpoint
 # api_request should be in the format of "cmd?params"
@@ -717,7 +724,7 @@ def async_run_task(app, task_id):
             #         if stop_result.get('status') == 'OK':
             #             file_paths.extend(stop_result.get('file_paths', []))
             #     except Exception as stop_error:
-            #         logger.error(f"Error stopping recording after failure: {stop_error}")
+            #         logger.error(f"Error stopping recording after failure: stop_error")
         finally:
             try:
                 # return lift to initial position
@@ -1840,3 +1847,174 @@ def stop_obs():
     except Exception as e:
         logger.error(f"停止OBS时出错: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/marker-config', methods=['GET', 'POST'])
+@login_required
+def api_marker_configs():
+    """标记点位配置API"""
+    if request.method == 'GET':
+        search = request.args.get('search', '')
+        query = MarkerConfig.query
+        if search:
+            query = query.filter(
+                (MarkerConfig.mid.ilike(f'%{search}%')) |
+                (MarkerConfig.mid_short.ilike(f'%{search}%'))
+            )
+        configs = query.all()
+        return jsonify([{
+            'id': c.id,
+            'mid': c.mid,
+            'mid_short': c.mid_short,
+            'x': c.x,
+            'y': c.y,
+            'w': c.w,
+            'h': c.h
+        } for c in configs])
+    
+    data = request.json
+    config = MarkerConfig(
+        mid=data['mid'],
+        mid_short=data['mid_short'],
+        x=data['x'],
+        y=data['y'],
+        w=data['w'],
+        h=data['h']
+    )
+    try:
+        db.session.add(config)
+        db.session.commit()
+        return jsonify({
+            'id': config.id,
+            'message': 'Created successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@bp.route('/api/marker-config/<int:id>', methods=['PUT', 'DELETE'])
+@login_required
+def api_marker_config(id):
+    """单个标记点位配置API"""
+    config = MarkerConfig.query.get_or_404(id)
+    
+    if request.method == 'DELETE':
+        try:
+            db.session.delete(config)
+            db.session.commit()
+            return jsonify({'message': 'Deleted successfully'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 400
+    
+    data = request.json
+    try:
+        config.mid = data['mid']
+        config.mid_short = data['mid_short']
+        config.x = data['x']
+        config.y = data['y']
+        config.w = data['w']
+        config.h = data['h']
+        db.session.commit()
+        return jsonify({
+            'id': config.id,
+            'message': 'Updated successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@bp.route('/api/marker-config/clear', methods=['POST'])
+@login_required
+def clear_marker_configs():
+    """清空所有点位配置"""
+    try:
+        num_deleted = db.session.query(MarkerConfig).delete()
+        db.session.commit()
+        return jsonify({
+            'status': 'OK',
+            'message': f'成功删除 {num_deleted} 个点位配置'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'清空点位失败: {str(e)}'
+        }), 500
+
+@bp.route('/api/marker-config/sync', methods=['POST'])
+@login_required
+def sync_marker_configs():
+    """同步机器人点位配置"""
+    try:
+        # Check if we should use mock data
+        # if current_app.config.get('MOCK_MARKER_DATA'):
+        if True:
+            result = {
+                'type': 'response',
+                'command': '/api/markers/query_list',
+                'status': 'OK',
+                'error_message': '',
+                'results': {
+                    'meeting_room1': {
+                        'marker_name': '01020301041',
+                        'pose': {'position': {'x': -8.58, 'y': 6.36}}
+                    },
+                    'meeting_room2': {
+                        'marker_name': '01020301042', 
+                        'pose': {'position': {'x': -8.58, 'y': 6.36}}
+                    }
+                }
+            }
+        else:
+            # Call robot API to get marker list
+            robot_control = current_app.robot_control
+            result = robot_control.send_command("/api/markers/query_list")
+        
+        if result.get('status') != 'OK':
+            return jsonify({
+                'status': 'ERROR',
+                'error_type': result.get('error_type', 'unknown_error'),
+                'message': f'获取机器人点位失败: {result.get("error_message", "未知错误")}'
+            }), 500
+
+        # 清空现有点位
+        db.session.query(MarkerConfig).delete()
+        
+        # 解析并添加新点位
+        markers = result.get('results', {})
+        count = 0
+        for location_name, info in markers.items():
+            marker_name = info.get('marker_name')
+            if marker_name:
+                # 创建简写名称（M1, M2, ...）
+                count += 1
+                mid_short = f'M{count}'
+                
+                config = MarkerConfig(
+                    mid=marker_name,
+                    mid_short=mid_short,
+                    x=0,
+                    y=0,
+                    w=0,
+                    h=0
+                )
+                db.session.add(config)
+        
+        db.session.commit()
+        return jsonify({
+            'status': 'OK',
+            'message': f'成功同步 {count} 个点位',
+            'results': {
+                'count': count,
+                'markers': list(markers.keys())
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'ERROR',
+            'error_type': 'database_error',
+            'message': f'同步点位失败: {str(e)}',
+            'details': 'Failed to update database with marker data'
+        }), 500

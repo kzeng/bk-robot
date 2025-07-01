@@ -115,9 +115,11 @@ class RobotControl:
             logger.error(error_msg)
             self.disconnect()
             return {
-                'status': 'ERROR',
+                'type': 'response',
                 'command': cmd_str,
-                'message': error_msg,
+                'status': 'ERROR',
+                'error_message': error_msg,
+                'error_type': 'connection_timeout',
                 'results': None
             }
         except ConnectionError as e:
@@ -125,9 +127,11 @@ class RobotControl:
             logger.error(error_msg)
             self.disconnect()
             return {
-                'status': 'ERROR',
+                'type': 'response',
                 'command': cmd_str,
-                'message': error_msg,
+                'status': 'ERROR',
+                'error_message': error_msg,
+                'error_type': 'connection_failed',
                 'results': None
             }
         except json.JSONDecodeError as e:
@@ -135,9 +139,11 @@ class RobotControl:
             logger.error(error_msg)
             self.disconnect()
             return {
-                'status': 'ERROR',
+                'type': 'response',
                 'command': cmd_str,
-                'message': error_msg,
+                'status': 'ERROR',
+                'error_message': error_msg,
+                'error_type': 'invalid_response',
                 'results': None
             }
         except Exception as e:
@@ -145,9 +151,11 @@ class RobotControl:
             logger.error(error_msg)
             self.disconnect()
             return {
-                'status': 'ERROR',
+                'type': 'response',
                 'command': cmd_str,
-                'message': error_msg,
+                'status': 'ERROR',
+                'error_message': error_msg,
+                'error_type': 'unexpected_error',
                 'results': None
             }
     

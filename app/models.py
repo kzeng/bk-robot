@@ -5,7 +5,7 @@ class Task(db.Model):
     __tablename__ = 'tasks'
     
     task_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    marker = db.Column(db.String(255), default='')
+    marker = db.Column(db.String(2048), default='')
     action = db.Column(db.Integer, default=0)  # 0: photo, 1: recording
     create_at = db.Column(db.DateTime, default=datetime.utcnow)
     update_at = db.Column(db.DateTime)
@@ -19,7 +19,7 @@ class TaskLog(db.Model):
     
     log_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     task_id = db.Column(db.Integer, db.ForeignKey('tasks.task_id'), nullable=False)
-    marker = db.Column(db.String(255), nullable=False)
+    marker = db.Column(db.String(2048), nullable=False)
     action = db.Column(db.Integer, nullable=False)  # 0: photo, 1: recording
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
@@ -29,3 +29,17 @@ class TaskLog(db.Model):
 
     def __repr__(self):
         return f'<TaskLog {self.log_id}>'
+
+class MarkerConfig(db.Model):
+    __tablename__ = 'marker_config'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    mid = db.Column(db.String(255), unique=True, nullable=False)
+    mid_short = db.Column(db.String(255), unique=True, nullable=False)
+    x = db.Column(db.Integer, default=0)
+    y = db.Column(db.Integer, default=0)
+    w = db.Column(db.Integer, default=0)
+    h = db.Column(db.Integer, default=0)
+
+    def __repr__(self):
+        return f'<MarkerConfig {self.mid}>'

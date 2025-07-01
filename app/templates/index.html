@@ -74,6 +74,22 @@
                     <button class="btn btn-lg btn-warning" onclick="recharge()">
                         前往充电 <i class="fas fa-plug ms-2"></i>
                     </button>
+                    <hr>
+                    <div class="d-flex align-items-center mt-3">
+                        <button class="btn btn-lg btn-dark me-2" onclick="shutdownRobot()">
+                            关机重启 <i class="fas fa-power-off ms-2"></i>
+                        </button>
+                        &nbsp;&nbsp;&nbsp;&nbsp;
+                        <div class="form-check form-switch me-3">
+                            <input class="form-check-input" type="checkbox" id="rebootCheckbox">
+                            <label class="form-check-label" for="rebootCheckbox">重启</label>
+                        </div>
+                        <div class="input-group" style="width: 180px;">
+                            <span class="input-group-text">延时</span>
+                            <input type="number" class="form-control" id="delayInput" min="0" max="14400" value="0">
+                            <span class="input-group-text">分</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -211,6 +227,49 @@
             });
         }
         
+        async function shutdownRobot() {
+            const reboot = document.getElementById('rebootCheckbox').checked;
+            const delay = document.getElementById('delayInput').value;
+            
+            const action = reboot ? '重启' : '关机';
+            const delayMsg = reboot && delay > 0 ? `，延时 ${delay} 分钟后` : '';
+            
+            if (!confirm(`确定要${action}机器人吗？${delayMsg}`)) {
+                return;
+            }
+            
+            let url = '/api/shutdown';
+            if (reboot || delay > 0) {
+                url += `?reboot=${reboot}`;
+                if (reboot && delay > 0) {
+                    url += `&delay=${delay}`;
+                }
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            try {
+                const result = await response.json();
+                updateOperationResult({
+                    ...result,
+                    container: 'opt-info',
+                    command: reboot ? '重启机器人' : '关闭机器人'
+                });
+            } catch (e) {
+                updateOperationResult({
+                    container: 'opt-info',
+                    command: reboot ? '重启机器人' : '关闭机器人',
+                    status: 'OK',
+                    error_message: '命令已发送，但未收到响应'
+                });
+            }
+        }
+
         async function exitEstop() {
            // if (!confirm('确定要退出急停状态吗？')) {
            //     return;

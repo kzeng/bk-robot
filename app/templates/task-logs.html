@@ -17,8 +17,8 @@
                             <th>任务ID</th>
                             <th>开始时间</th>
                             <th>结束时间</th>
-                            <th>状态</th>
                             <th>文件数</th>
+                            <th>状态</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -74,6 +74,7 @@
                             <td>${log.task_id}</td>
                             <td>${log.start_time}</td>
                             <td>${log.end_time}</td>
+                            <td>${log.file_count}</td>
                             <td>
                                 <h3>
                                 <span class="badge rounded-pill ${log.status === 1 ? 'bg-warning' : log.status === 2 ? 'bg-success' : log.status === 3 ? 'bg-primary' : 'bg-danger'}">
@@ -81,7 +82,7 @@
                                 </span>
                                 </h3>
                             </td>
-                            <td>${log.file_count}</td>
+                            
                             <td>
                                 <button class="btn btn-lg btn-primary" onclick="viewLogDetails(${log.log_id})">
                                     详情
