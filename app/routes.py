@@ -1115,33 +1115,57 @@ def upload_directory():
             logger.info(f"模拟上传完成，共处理 {len(uploaded_files)} 个文件")
         else:
             # Real FTP upload with directory structure
+            ftp = None
             try:
-                with FTP() as ftp:
-                    # Connect to FTP server
-                    ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
-                    ftp.login(config['FTP_USER'], config['FTP_PASS'])
-                    logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
+                # Connect to FTP server
+                ftp = FTP()
+                ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
+                ftp.login(config['FTP_USER'], config['FTP_PASS'])
+                logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
-                    # 设置FTP根目录
-                    remote_base = config.get('FTP_BASE_DIR', '/images')
+                # 设置FTP根目录
+                remote_base = config.get('FTP_BASE_DIR', '/images')
+                try:
+                    # 先尝试进入目录
                     ftp.cwd(remote_base)
-                    
-                    # 递归上传文件，保持目录结构
-                    for root, _, files in os.walk(dir_path):
-                        # 计算相对路径
-                        rel_path = os.path.relpath(root, dir_path)
-                        if rel_path != '.':
-                            # 在FTP服务器上创建子目录
-                            for subdir in rel_path.split(os.sep):
+                except Exception as e:
+                    logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
+                    try:
+                        # 创建目录
+                        ftp.mkd(remote_base)
+                        ftp.cwd(remote_base)
+                        logger.info(f"成功创建并进入FTP根目录: {remote_base}")
+                    except Exception as mkdir_error:
+                        logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
+                        return jsonify({
+                            'status': 'ERROR',
+                            'message': f'无法创建FTP根目录: {str(mkdir_error)}',
+                            'uploaded_files': []
+                        }), 500
+                
+                # 递归上传文件，保持目录结构
+                for root, _, files in os.walk(dir_path):
+                    # 计算相对路径
+                    rel_path = os.path.relpath(root, dir_path)
+                    if rel_path != '.':
+                        # 在FTP服务器上创建子目录
+                        current_remote_path = remote_base
+                        for subdir in rel_path.split(os.sep):
+                            try:
+                                # 先尝试进入目录
+                                ftp.cwd(subdir)
+                                current_remote_path = os.path.join(current_remote_path, subdir)
+                            except:
                                 try:
+                                    # 如果目录不存在则创建
+                                    ftp.mkd(subdir)
                                     ftp.cwd(subdir)
-                                except:
-                                    try:
-                                        ftp.mkd(subdir)
-                                        ftp.cwd(subdir)
-                                    except Exception as e:
-                                        logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
-                                        continue
+                                    current_remote_path = os.path.join(current_remote_path, subdir)
+                                except Exception as e:
+                                    logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
+                                    # 返回根目录继续尝试
+                                    ftp.cwd(remote_base)
+                                    continue
                         
                         # 上传当前目录下的所有图片
                         for file in files:
