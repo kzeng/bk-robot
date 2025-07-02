@@ -436,7 +436,7 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    alert(data.message || '删除成功');
+                    alert('删除成功');
                     if (data.success) {
                         selectedDirectory = '';
                         currentDirectory = '';

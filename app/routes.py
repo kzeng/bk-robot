@@ -981,48 +981,8 @@ def get_images_in_directory():
         screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
         thumbnails_dir = os.path.join(screenshots_dir, 'thumbnails')
         
-        # 如果没有指定目录，则返回所有图片
-        if not directory:
-            images = []
-            for root, dirs, files in os.walk(screenshots_dir):
-                for file in files:
-                    if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                        rel_path = os.path.relpath(root, screenshots_dir)
-                        full_path = os.path.join(root, file)
-                        # 缩略图路径
-                        thumb_path = os.path.join(thumbnails_dir, rel_path, file)
-                        if os.path.exists(thumb_path):
-                            thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{rel_path}/{file}'.replace('\\', '/'))
-                        else:
-                            thumbnail_url = url_for('static', filename=f'screenshots/{rel_path}/{file}'.replace('\\', '/'))
-                        if rel_path == '.':
-                            full_url = url_for('static', filename=f'screenshots/{file}')
-                        else:
-                            full_url = url_for('static', filename=f'screenshots/{rel_path}/{file}'.replace('\\', '/'))
-                        images.append({
-                            'filename': file,
-                            'directory': rel_path,
-                            'fullUrl': full_url,
-                            'thumbnailUrl': thumbnail_url,
-                            'size': os.path.getsize(full_path),
-                            'timestamp': os.path.getmtime(full_path)
-                        })
-            images.sort(key=lambda x: -x['timestamp'])
-            total = len(images)
-            start = (page - 1) * page_size
-            end = start + page_size
-            paged_images = images[start:end]
-            return jsonify({
-                'images': paged_images,
-                'count': total,
-                'page': page,
-                'page_size': page_size,
-                'all_images': True
-            })
-        
-        # 添加调试日志：检查目录是否存在
-        dir_path = os.path.join(screenshots_dir, directory)
-        logger.info(f"Checking directory existence: {dir_path}")
+        # 检查目录是否存在
+        dir_path = os.path.join(screenshots_dir, directory) if directory else screenshots_dir
         if not os.path.exists(dir_path):
             logger.info(f"Directory does not exist: {dir_path}")
             return jsonify({
@@ -1032,42 +992,73 @@ def get_images_in_directory():
                 'page': page,
                 'page_size': page_size
             })
-        
+
         images = []
-        for file in os.listdir(dir_path):
-            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                full_path = os.path.join(dir_path, file)
-                if not os.path.exists(full_path):
-                    continue
-                # 缩略图路径
-                thumb_path = os.path.join(thumbnails_dir, directory, file)
-                if os.path.exists(thumb_path):
-                    thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{directory}/{file}'.replace('\\', '/'))
-                else:
-                    thumbnail_url = url_for('static', filename=f'screenshots/{directory}/{file}'.replace('\\', '/'))
-                relative_path = os.path.join('screenshots', directory, file).replace('\\', '/')
-                images.append({
-                    'filename': file,
-                    'directory': directory,
-                    'fullUrl': url_for('static', filename=relative_path),
-                    'thumbnailUrl': thumbnail_url,
-                    'size': os.path.getsize(full_path),
-                    'timestamp': os.path.getmtime(full_path)
-                })
+        processed_files = set()  # 用于跟踪已处理的文件，避免重复
+        
+        # 递归遍历目录及其子目录
+        for root, _, files in os.walk(dir_path):
+            for file in files:
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                    full_path = os.path.join(root, file)
+                    
+                    # 验证文件是否真实存在且未被处理过
+                    if not os.path.isfile(full_path) or full_path in processed_files:
+                        continue
+                        
+                    processed_files.add(full_path)
+                    
+                    try:
+                        # 获取文件状态信息
+                        file_stat = os.stat(full_path)
+                        
+                        # 计算相对路径
+                        rel_path = os.path.relpath(full_path, screenshots_dir)
+                        rel_dir = os.path.relpath(root, screenshots_dir)
+                        
+                        # 确保路径分隔符统一使用正斜杠
+                        web_path = rel_path.replace(os.sep, '/')
+                        
+                        # 构建URL
+                        thumb_path = os.path.join(thumbnails_dir, rel_dir, file)
+                        if os.path.exists(thumb_path):
+                            thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{web_path}')
+                        else:
+                            thumbnail_url = url_for('static', filename=f'screenshots/{web_path}')
+                            
+                        images.append({
+                            'filename': file,
+                            'directory': rel_dir,
+                            'fullUrl': url_for('static', filename=f'screenshots/{web_path}'),
+                            'thumbnailUrl': thumbnail_url,
+                            'size': file_stat.st_size,
+                            'timestamp': file_stat.st_mtime,
+                            'date': datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                        })
+                    except (OSError, ValueError) as e:
+                        logger.error(f"Error processing file {full_path}: {str(e)}")
+                        continue
+
+        # 按时间戳排序
         images.sort(key=lambda x: -x['timestamp'])
+        
+        # 分页处理
         total = len(images)
         start = (page - 1) * page_size
         end = start + page_size
         paged_images = images[start:end]
+
         return jsonify({
             'images': paged_images,
             'count': total,
             'directory': directory,
             'page': page,
-            'page_size': page_size
+            'page_size': page_size,
+            'all_images': not directory  # 标记是否是获取所有图片
         })
+
     except Exception as e:
-        logger.error(f"Error getting images in directory: {str(e)}")
+        logger.error(f"Error getting images in directory: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'ERROR',
             'message': f'Failed to get images: {str(e)}'
@@ -1450,7 +1441,7 @@ def settings():
         'CAMERA_JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
         'PHOTO_MODE': str(current_app.config.get('PHOTO_MODE', '0')),
-        
+
         # 高级相机参数
         'CAMERA_BRIGHTNESS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('brightness', '16')),
         'CAMERA_CONTRAST': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('contrast', '40')),
@@ -1466,7 +1457,7 @@ def settings():
         'CAMERA_FOCUS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('focus_absolute', '200')),
         'CAMERA_BACKLIGHT': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('backlight_comp', '0')),
         'CAMERA_POWERLINE_FREQ': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('power_line_freq', '1')),
-        
+
         # 其他配置
         'ROBOT_IP': str(current_app.config['ROBOT_IP']),
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
@@ -1999,6 +1990,7 @@ def sync_marker_configs():
         # 清空现有点位
         db.session.query(MarkerConfig).delete()
         
+               
         # 解析并添加新点位
         markers = result.get('results', {})
         count = 0
@@ -2086,7 +2078,7 @@ def crop_images():
         
         # 遍历目录中的所有图片文件
         for filename in os.listdir(dir_path):
-            if not filename.endswith(('.png', '.jpg', '.jpeg')):
+            if not filename.endswith(('.png', '.jpg', '.jpeg')) or 'Unknown' in filename:
                 continue
 
             # 解析文件名获取marker ID
