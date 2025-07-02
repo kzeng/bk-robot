@@ -175,8 +175,8 @@
                                 <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">对焦时间(1-10秒)</label>
-                                <input type="number" class="form-control" name="OBS_FOCUS_TIME" min="1" max="10" value="{{ env.OBS_FOCUS_TIME or '3' }}" required>
+                                <label class="form-label">对焦时间(0-10秒)</label>
+                                <input type="number" class="form-control" name="OBS_FOCUS_TIME" min="0" max="10" step="0.1" value="{{ env.OBS_FOCUS_TIME or '1' }}" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">拍照模式</label>
@@ -357,7 +357,7 @@ async function checkObsStatus() {
 
 // 页面加载时检查状态和初始化相机配置状态
 document.addEventListener('DOMContentLoaded', () => {
-    // checkObsStatus();
+    checkObsStatus();
     updateCameraConfigState(); // 初始化相机配置的启用/禁用状态
 });
 
@@ -422,7 +422,7 @@ document.getElementById('stopObs').addEventListener('click', () => {
 });
 
 // 添加定期状态检查
-// setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
+setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
 
 // 控制相机配置区域启用/禁用状态的函数
 function updateCameraConfigState() {

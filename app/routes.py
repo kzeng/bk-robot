@@ -537,6 +537,12 @@ def async_run_task(app, task_id):
                 marker_map.get(m, m) if m != 'CD' else m
                 for m in marker_list
             ]
+        # 处理 CD 的位置
+        #check CD in marker_list， make sure CD is always last
+        if 'CD' in marker_list:
+            marker_list.remove('CD')
+            marker_list.append('CD')    
+
 
         logger.info(f"Final marker list for task {task_id}: {marker_list}")
 
@@ -1477,7 +1483,7 @@ def settings():
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
         'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
         'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
-        'OBS_FOCUS_TIME': str(current_app.config.get('OBS_FOCUS_TIME', '3')),
+        'OBS_FOCUS_TIME': str(float(current_app.config.get('OBS_FOCUS_TIME', 1.0))),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),

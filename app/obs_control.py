@@ -29,8 +29,8 @@ class OBSControl:
         self.host = ws_parts[0]
         self.port = int(ws_parts[1])
         self.password = app.config['OBS_PASSWORD']
-        # 读取OBS_FOCUS_TIME配置，确保在1-10范围内，默认3
-        self.focus_time = int(app.config['OBS_FOCUS_TIME'])
+        # 读取OBS_FOCUS_TIME配置，确保在0-10范围内，默认1.0秒
+        self.focus_time = float(app.config['OBS_FOCUS_TIME'])
     
     def get_connection_params(self):
         """获取连接参数"""
