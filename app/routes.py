@@ -1090,17 +1090,21 @@ def upload_directory():
         config = current_app.config
         uploaded_files = []
         
-        if config['FTP_MOCK_MODE']:
+        if config.get('FTP_MOCK_MODE', False):
             # Mock mode - just simulate upload
             logger.info(f"模拟FTP上传(保留目录结构): {directory}")
             for root, _, files in os.walk(dir_path):
                 for file in files:
                     if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                        # 计算相对路径，保持目录结构
                         rel_path = os.path.relpath(root, dir_path)
                         uploaded_files.append({
                             'file': file,
-                            'directory': rel_path if rel_path != '.' else ''
+                            'directory': rel_path if rel_path != '.' else '',
+                            'status': 'success',
+                            'message': 'Simulated upload successful'
                         })
+            logger.info(f"模拟上传完成，共处理 {len(uploaded_files)} 个文件")
         else:
             # Real FTP upload with directory structure
             try:
@@ -1110,52 +1114,62 @@ def upload_directory():
                     ftp.login(config['FTP_USER'], config['FTP_PASS'])
                     logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
-                    # Recursively upload files preserving directory structure
+                    # 设置FTP根目录
+                    remote_base = config.get('FTP_BASE_DIR', '/images')
+                    ftp.cwd(remote_base)
+                    
+                    # 递归上传文件，保持目录结构
                     for root, _, files in os.walk(dir_path):
+                        # 计算相对路径
+                        rel_path = os.path.relpath(root, dir_path)
+                        if rel_path != '.':
+                            # 在FTP服务器上创建子目录
+                            for subdir in rel_path.split(os.sep):
+                                try:
+                                    ftp.cwd(subdir)
+                                except:
+                                    try:
+                                        ftp.mkd(subdir)
+                                        ftp.cwd(subdir)
+                                    except Exception as e:
+                                        logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
+                                        continue
+                        
+                        # 上传当前目录下的所有图片
                         for file in files:
                             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                                file_path = os.path.join(root, file)
-                                rel_path = os.path.relpath(root, dir_path)
-                                
+                                local_file = os.path.join(root, file)
                                 try:
-                                    # Create full remote directory path including the root directory
-                                    full_remote_dir = os.path.join(directory, rel_path).replace('\\', '/') if rel_path != '.' else directory
-                                    
-                                    # Create all directories in the path
-                                    path_parts = full_remote_dir.split('/')
-                                    current_path = ''
-                                    for part in path_parts:
-                                        current_path = os.path.join(current_path, part).replace('\\', '/')
-                                        try:
-                                            ftp.mkd(current_path)
-                                        except ftplib.error_perm as e:
-                                            if not str(e).startswith('550'):  # Ignore "directory already exists" errors
-                                                raise
-                                    
-                                    # Upload file with full path
-                                    remote_path = os.path.join(full_remote_dir, file).replace('\\', '/')
-                                    with open(file_path, 'rb') as f:
-                                        ftp.storbinary(f'STOR {remote_path}', f)
-                                    
+                                    with open(local_file, 'rb') as fp:
+                                        ftp.storbinary(f'STOR {file}', fp)
                                     uploaded_files.append({
                                         'file': file,
                                         'directory': rel_path if rel_path != '.' else '',
-                                        'status': 'success'
+                                        'status': 'success',
+                                        'message': 'Upload successful'
                                     })
-                                    logger.info(f"已上传文件: {remote_path}")
-                                except Exception as file_error:
-                                    logger.error(f"上传文件失败 {file}: {str(file_error)}")
+                                    logger.info(f"成功上传: {local_file}")
+                                except Exception as e:
+                                    error_msg = f"上传失败: {str(e)}"
+                                    logger.error(f"{error_msg} - {local_file}")
                                     uploaded_files.append({
                                         'file': file,
                                         'directory': rel_path if rel_path != '.' else '',
                                         'status': 'failed',
-                                        'error': str(file_error)
+                                        'error': error_msg
                                     })
-            except ftplib.all_errors as ftp_error:
+                        
+                        # 返回上级目录，为下一个子目录做准备
+                        if rel_path != '.':
+                            for _ in rel_path.split(os.sep):
+                                ftp.cwd('..')
+                    
+            except Exception as ftp_error:
                 logger.error(f"FTP connection error: {str(ftp_error)}")
                 return jsonify({
                     'status': 'ERROR',
-                    'message': f'FTP connection failed: {str(ftp_error)}'
+                    'message': f'FTP连接失败: {str(ftp_error)}',
+                    'uploaded_files': uploaded_files
                 }), 500
         
         return jsonify({
