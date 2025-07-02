@@ -541,6 +541,8 @@ def async_run_task(app, task_id):
         #check CD in marker_list， make sure CD is always last
         if 'CD' in marker_list:
             marker_list.remove('CD')
+            marker_list.append('CD')
+        else:
             marker_list.append('CD')    
 
 
@@ -2018,9 +2020,12 @@ def sync_marker_configs():
             marker_name = info.get('marker_name')
             if marker_name:
                 # 创建简写名称（M1, M2, ...）
-                count += 1
-                mid_short = f'M{count}'
-                
+                if marker_name != 'CD':
+                    count += 1
+                    mid_short = f'M{count}'
+                else:
+                    mid_short = 'CD'
+                    
                 config = MarkerConfig(
                     mid=marker_name,
                     mid_short=mid_short,
@@ -2034,9 +2039,9 @@ def sync_marker_configs():
         db.session.commit()
         return jsonify({
             'status': 'OK',
-            'message': f'成功同步 {count} 个点位',
+            'message': f'成功同步 {count+1} 个点位',
             'results': {
-                'count': count,
+                'count': count+1,
                 'markers': list(markers.keys())
             }
         })
