@@ -127,7 +127,10 @@ class OBSControl:
         # 使用日期作为文件夹名
         date_str = datetime.now().strftime("%Y%m%d")
         # 获取当前时间戳
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 使用当前时间的总秒数作为 timestamp
+        timestamp = str(int(time.time()))
+
         base_dir = os.path.join("static", "screenshots", date_str)
         os.makedirs(base_dir, exist_ok=True)
 

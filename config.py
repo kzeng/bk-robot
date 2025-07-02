@@ -93,6 +93,8 @@ class Config:
     LIFT_BAUD_RATE = int(os.environ.get('LIFT_BAUD_RATE', '115200'))
 
     LIFT_WAIT_TIME = int(os.environ.get('LIFT_WAIT_TIME', '15'))  # Time to wait after sending lift command
+    LIFT_HEIGHT = os.environ.get('LIFT_HEIGHT', 'L2')
+
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'instance/tasks.db'))

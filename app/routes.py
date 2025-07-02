@@ -2,6 +2,7 @@ from flask import render_template, jsonify, request, Blueprint, current_app, red
 import hashlib
 from functools import wraps
 import json
+import shutil
 from app.models import Task, TaskLog, MarkerConfig
 from app import db
 from datetime import datetime, timezone, timedelta
@@ -19,7 +20,7 @@ import subprocess
 from .lift_control import Lift
 from dotenv import load_dotenv, set_key
 from loguru import logger
-
+import os
 
 TASK_STATUS_READY        = 0
 TASK_STATUS_INPROGRESS   = 1
@@ -524,6 +525,21 @@ def async_run_task(app, task_id):
             
         marker_list = task.marker.split(',') if task.marker else []
         marker_list = [marker.strip() for marker in marker_list if marker.strip()]
+
+        logger.info(f"Running task {task_id} with SHORT markers: {marker_list}")
+
+        # 替换 marker_list 中的简写点位mid_short（如 M1, M2）为实际全称点位mid（如： 01020301041，01020301042），CD 保持不变
+        if marker_list:
+            # 查询所有 marker_config，构建简写到全称的映射
+            marker_map = {c.mid_short: c.mid for c in MarkerConfig.query.all()}
+            # 替换 marker_list
+            marker_list = [
+                marker_map.get(m, m) if m != 'CD' else m
+                for m in marker_list
+            ]
+
+        logger.info(f"Final marker list for task {task_id}: {marker_list}")
+
         if not marker_list:
             # 获取最新的任务日志并更新状态
             task_log = TaskLog.query.filter_by(task_id=task_id)\
@@ -543,10 +559,11 @@ def async_run_task(app, task_id):
                                .first()
         
         try:
-            # move lift to position two before starting the task
+            # move lift to configured height position before starting the task
             if app.lift:
-                logger.info("Lift moving to position 2...")
-                app.lift.move_to_position_two()
+                logger.info("Moving lift to configured height position...")
+                if not move_lift_to_configured_height():
+                    raise Exception("Failed to move lift to configured height")
                 time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # wait for lift to reach position
             else:
                 logger.error("Lift control not initialized, please check")
@@ -1463,6 +1480,7 @@ def settings():
         'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
         'LIFT_PORT': str(current_app.config.get('LIFT_PORT', '')),
         'LIFT_WAIT_TIME': int(current_app.config.get('LIFT_WAIT_TIME', '15')),
+        'LIFT_HEIGHT': str(current_app.config.get('LIFT_HEIGHT', 'L2')),
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1949,7 +1967,7 @@ def sync_marker_configs():
     try:
         # Check if we should use mock data
         # if current_app.config.get('MOCK_MARKER_DATA'):
-        if True:
+        if False:
             result = {
                 'type': 'response',
                 'command': '/api/markers/query_list',
@@ -2018,3 +2036,184 @@ def sync_marker_configs():
             'message': f'同步点位失败: {str(e)}',
             'details': 'Failed to update database with marker data'
         }), 500
+
+def move_lift_to_configured_height():
+    """Move the lift to the configured height position"""
+    try:
+        lift_height = os.getenv('LIFT_HEIGHT', 'L2')  # Default to L2 if not set
+        
+        if current_app.lift:
+            if lift_height == 'L3':
+                current_app.lift.move_to_position_three()
+                logger.info("Moving lift to position three (L3)")
+            else:  # Default to L2
+                current_app.lift.move_to_position_two()
+                logger.info("Moving lift to position two (L2)")
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error moving lift: {str(e)}")
+        return False
+
+@bp.route('/api/photos/crop', methods=['POST'])
+def crop_images():
+    try:
+        logger.info("开始处理裁剪请求")
+        data = request.get_json()
+        directory = data.get('directory')
+        if not directory:
+            logger.warning("目录参数为空")
+            return jsonify({
+                'success': False,
+                'message': '目录参数不能为空',
+                'processed_files': []
+            })
+
+        # 确保目录存在
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
+        dir_path = os.path.join(screenshots_dir, directory)
+        logger.info(f"检查目录路径: {dir_path}")
+        
+        if not os.path.exists(dir_path):
+            logger.error(f"目录不存在: {dir_path}")
+            return jsonify({
+                'success': False,
+                'message': f'目录 {directory} 不存在，完整路径: {dir_path}',
+                'processed_files': []
+            })
+
+        processed_files = []
+        
+        # 遍历目录中的所有图片文件
+        for filename in os.listdir(dir_path):
+            if not filename.endswith(('.png', '.jpg', '.jpeg')):
+                continue
+
+            # 解析文件名获取marker ID
+            try:
+                marker_id = filename.split('-')[0]  # 获取第一个划线前的部分作为marker ID
+                
+                # 查询marker_config表获取裁剪参数
+                marker_config = MarkerConfig.query.filter_by(mid=marker_id).first()
+                
+                if not marker_config:
+                    processed_files.append({
+                        'file': filename,
+                        'status': 'failed',
+                        'error': f'找不到对应的marker配置: {marker_id}'
+                    })
+                    continue
+
+                # 图片完整路径
+                img_path = os.path.join(dir_path, filename)
+                
+                try:
+                    from PIL import Image
+                    logger.info(f"开始处理图片: {img_path}")
+                    img = Image.open(img_path)
+
+                    # 如果x,y,w,h都为0，则跳过裁剪但仍然保存新文件
+                    if marker_config.x == 0 and marker_config.y == 0 and \
+                       marker_config.w == 0 and marker_config.h == 0:
+                        logger.info(f"配置参数全为0，跳过裁剪: {marker_id}")
+                        new_img = img
+                    else:
+                        # 执行裁剪
+                        logger.info(f"裁剪参数: x={marker_config.x}, y={marker_config.y}, w={marker_config.w}, h={marker_config.h}")
+                        new_img = img.crop((
+                            marker_config.x,  # 左
+                            marker_config.y,  # 上
+                            marker_config.x + marker_config.w,  # 右
+                            marker_config.y + marker_config.h   # 下
+                        ))
+
+                    # 生成新的文件名
+                    base_name = os.path.splitext(filename)[0]
+                    ext = os.path.splitext(filename)[1]
+                    new_filename = f"{base_name}-crop{ext}"
+                    new_path = os.path.join(dir_path, new_filename)
+
+                    # 保存新图片
+                    logger.info(f"保存裁剪后的图片: {new_path}")
+                    new_img.save(new_path)
+                    logger.info(f"成功保存裁剪后的图片: {new_path}")
+
+                    # 准备处理结果
+                    result = {
+                        'file': filename,
+                        'status': 'success',
+                        'new_file': new_filename
+                    }
+
+                    # 如果是裁剪后的文件，进行分类移动
+                    if new_filename.endswith('-crop.png'):
+                        try:
+                            # 解析文件名各部分
+                            parts = base_name.split('-')  # 不包含-crop.png部分
+                            if len(parts) >= 4:
+                                first_part = parts[0]  # 例如：01020301041
+                                second_part = parts[1]  # 例如：s1
+                                time_part = parts[3]    # 例如：1751422638
+                                
+                                # 构建 FOLDER1：01 + 前10位 + 第二个字段第2个字符补0
+                                if len(first_part) >= 10 and len(second_part) >= 2:
+                                    prefix_10 = first_part[:10]  # 取前10位
+                                    second_char = second_part[1]  # 取第二个字符
+                                    folder1 = f"01{prefix_10}{second_char.zfill(2)}"  # 补0确保两位
+                                    
+                                    # 构建文件名：第一个字段的最后一位
+                                    if len(first_part) > 0:
+                                        new_filename_final = f"{first_part[-1]}.png"
+                                        
+                                        # 构建新的目录结构：pic/[FOLDER1]/book/[TIME]/[FILENAME].png
+                                        new_dir = os.path.join(screenshots_dir, 'pic', folder1, 'book', time_part)
+                                        new_file_path = os.path.join(new_dir, new_filename_final)
+                                        
+                                        # 创建目录（如果不存在）
+                                        os.makedirs(new_dir, exist_ok=True)
+                                        
+                                        # 移动文件
+                                        logger.info(f"移动文件到新位置: {new_file_path}")
+                                        shutil.move(new_path, new_file_path)
+                                        logger.info(f"成功移动文件到: {new_file_path}")
+                                        
+                                        # 更新处理状态
+                                        result['moved_to'] = os.path.relpath(new_file_path, screenshots_dir)
+                        except Exception as e:
+                            logger.error(f"移动文件时出错: {str(e)}", exc_info=True)
+                            result['move_error'] = str(e)
+                    
+                    processed_files.append(result)
+                except Exception as e:
+                    logger.error(f"处理图片时出错: {str(e)}", exc_info=True)
+                    processed_files.append({
+                        'file': filename,
+                        'status': 'failed',
+                        'error': str(e)
+                    })
+
+            except Exception as e:
+                processed_files.append({
+                    'file': filename,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+
+        # 统计处理结果
+        success_count = len([f for f in processed_files if f['status'] == 'success'])
+        fail_count = len([f for f in processed_files if f['status'] == 'failed'])
+
+        logger.info(f"裁剪处理完成: {success_count} 成功, {fail_count} 失败")
+        return jsonify({
+            'success': True,
+            'message': f'处理完成: {success_count} 成功, {fail_count} 失败',
+            'processed_files': processed_files
+        })
+
+    except Exception as e:
+        logger.error(f"裁剪过程发生错误: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'处理过程中发生错误: {str(e)}',
+            'processed_files': []
+        }), 500  # 添加500状态码表示服务器错误

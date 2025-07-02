@@ -282,6 +282,13 @@
                                 <label class="form-label">串口号</label>
                                 <input type="text" class="form-control" name="LIFT_PORT" value="{{ env.LIFT_PORT }}" required>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">升降柱高度</label>
+                                <select class="form-select" name="LIFT_HEIGHT">
+                                    <option value="L2" {% if env.LIFT_HEIGHT == 'L2' %}selected{% endif %}>半程高度（二号位）</option>
+                                    <option value="L3" {% if env.LIFT_HEIGHT == 'L3' %}selected{% endif %}>全程高度（三号位）</option>
+                                </select>
+                            </div>
                         </div>
 
 
@@ -350,7 +357,7 @@ async function checkObsStatus() {
 
 // 页面加载时检查状态和初始化相机配置状态
 document.addEventListener('DOMContentLoaded', () => {
-    checkObsStatus();
+    // checkObsStatus();
     updateCameraConfigState(); // 初始化相机配置的启用/禁用状态
 });
 
@@ -415,7 +422,7 @@ document.getElementById('stopObs').addEventListener('click', () => {
 });
 
 // 添加定期状态检查
-setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
+// setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
 
 // 控制相机配置区域启用/禁用状态的函数
 function updateCameraConfigState() {
