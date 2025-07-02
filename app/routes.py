@@ -1124,7 +1124,7 @@ def upload_directory():
                 logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
                 # 设置FTP根目录
-                remote_base = config.get('FTP_BASE_DIR', '/images')
+                remote_base = config.get('FTP_BASE_DIR', '/pic')
                 try:
                     # 先尝试进入目录
                     ftp.cwd(remote_base)
@@ -1206,7 +1206,7 @@ def upload_directory():
         
         return jsonify({
             'status': 'OK',
-            'message': f'Successfully uploaded {len(uploaded_files)} files from {directory}',
+            'message': f'成功上传 {len(uploaded_files)} 个文件到 {directory}',
             'directory': directory,
             'uploaded_files': uploaded_files
         })

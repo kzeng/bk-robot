@@ -377,32 +377,32 @@
                     });
                     
                     // 添加目录统计
-                    html += '<div class="mt-3"><h6>目录统计:</h6><ul class="list-group">';
-                    for (const [dir, stats] of Object.entries(dirStats)) {
-                        const successClass = stats.failed > 0 ? 'text-warning' : 'text-success';
-                        html += `
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                ${dir || '根目录'}
-                                <span class="badge ${successClass}">
-                                    ${stats.success}成功 ${stats.failed > 0 ? stats.failed + '失败' : ''}
-                                </span>
-                            </li>`;
-                    }
-                    html += '</ul></div>';
+                    // html += '<div class="mt-3"><h6>目录统计:</h6><ul class="list-group">';
+                    // for (const [dir, stats] of Object.entries(dirStats)) {
+                    //     const successClass = stats.failed > 0 ? 'text-warning' : 'text-success';
+                    //     html += `
+                    //         <li class="list-group-item d-flex justify-content-between align-items-center">
+                    //             ${dir || '根目录'}
+                    //             <span class="badge ${successClass}">
+                    //                 ${stats.success}成功 ${stats.failed > 0 ? stats.failed + '失败' : ''}
+                    //             </span>
+                    //         </li>`;
+                    // }
+                    // html += '</ul></div>';
                     
-                    // 添加失败详情(如果有)
-                    const failedFiles = data.uploaded_files.filter(f => f.status === 'failed');
-                    if (failedFiles.length > 0) {
-                        html += '<div class="mt-3"><h6>失败文件:</h6><ul class="list-group">';
-                        failedFiles.forEach(file => {
-                            html += `
-                                <li class="list-group-item">
-                                    <div>${file.directory ? file.directory + '/' : ''}${file.file}</div>
-                                    <small class="text-danger">${file.error}</small>
-                                </li>`;
-                        });
-                        html += '</ul></div>';
-                    }
+                    // // 添加失败详情(如果有)
+                    // const failedFiles = data.uploaded_files.filter(f => f.status === 'failed');
+                    // if (failedFiles.length > 0) {
+                    //     html += '<div class="mt-3"><h6>失败文件:</h6><ul class="list-group">';
+                    //     failedFiles.forEach(file => {
+                    //         html += `
+                    //             <li class="list-group-item">
+                    //                 <div>${file.directory ? file.directory + '/' : ''}${file.file}</div>
+                    //                 <small class="text-danger">${file.error}</small>
+                    //             </li>`;
+                    //     });
+                    //     html += '</ul></div>';
+                    // }
                     
                     resultBody.innerHTML = html;
                     loadingModal.hide();
