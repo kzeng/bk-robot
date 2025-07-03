@@ -6,9 +6,11 @@
 
     <div class="container mt-4">
         <h3 class="mb-4">盘点任务管理         
+            {% if session.role == 'super_user' %}
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTaskModal">
                 <i class="fas fa-plus me-1"></i>新任务 
             </button>
+            {% endif %}     
         </h3>
     
         <!-- Enhanced Task Status Panel -->
@@ -57,7 +59,7 @@
                             <th>ID</th>
                             <th width="30%">标记点</th>
                             <th>操作类型</th>
-                            <th>描述</th>
+                            <!-- <th>描述</th> -->
                             <th>创建时间</th>
                             <th>操作</th>
                         </tr>
@@ -201,6 +203,7 @@
         let currentPage = 1;
         const pageSize = 5;
         
+         // <td>${task.description}</td>
         function loadTasks() {
             fetch(`/api/tasks?page=${currentPage}&size=${pageSize}`)
                 .then(response => response.json())
@@ -215,11 +218,14 @@
                             <td>${task.task_id}</td>
                             <td class="marker-cell">${task.marker}</td>
                             <td>${getActionText(task.action)}</td>
-                            <td>${task.description}</td>
+                           
                             <td>${task.create_at}</td>
                             <td>
-                         
-                                <button class="btn btn-lg btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
+                                {% if session.role == 'super_user' %}
+                                    <button class="btn btn-lg btn-primary" onclick="editTask(${task.task_id})">编辑</button>
+                                    <button class="btn btn-lg btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
+                                {% endif %}                                
+                                
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <button class="btn btn-lg btn-success" onclick="runTask(${task.task_id})">执行 <i class="fa fa-paper-plane" aria-hidden="true"></i>
 </button>
@@ -424,23 +430,81 @@
         }
 
         // 在runTask等需要弹出当前任务状态面板的地方调用 showTaskPanel(task)
+        // function pollTaskStatus(taskId) {
+        //     const interval = setInterval(() => {
+        //         fetch(`/api/tasks/${taskId}`)
+        //             .then(response => response.json())
+        //             .then(task => {
+        //                 if (task.status && task.status !== 1) { // 1=进行中
+        //                     clearInterval(interval);
+        //                     updateTaskStatus(task);
+        //                 }
+        //             });
+        //     }, 1000);
+        // }
+
+        // function updateTaskStatus(task) {
+        //     document.getElementById('taskStatus').innerHTML = 
+        //         `<span>${getStatusText(task.status)}</span>`;
+        // }
+
+
         function pollTaskStatus(taskId) {
+            let attempts = 0;
+            const maxAttempts = 60; // 最多等待60秒
+            
             const interval = setInterval(() => {
+                attempts++;
+                
                 fetch(`/api/tasks/${taskId}`)
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
                     .then(task => {
+                        // 更新当前状态显示
+                        updateTaskStatus(task);
+                        
+                        // 检查是否需要停止轮询
                         if (task.status && task.status !== 1) { // 1=进行中
                             clearInterval(interval);
-                            updateTaskStatus(task);
+                            console.log('Task completed with status:', task.status);
                         }
+                    })
+                    .catch(error => {
+                        console.error('Error polling task status:', error);
+                        clearInterval(interval);
+                        // 显示错误状态
+                        document.getElementById('taskStatus').innerHTML = 
+                            `<span class="text-danger">状态更新失败</span>`;
                     });
+                    
+                // 超时处理
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    document.getElementById('taskStatus').innerHTML = 
+                        `<span class="text-warning">状态更新超时</span>`;
+                }
             }, 1000);
         }
 
         function updateTaskStatus(task) {
-            document.getElementById('taskStatus').innerHTML = 
-                `<span>${getStatusText(task.status)}</span>`;
+            const statusElement = document.getElementById('taskStatus');
+            const statusText = getStatusText(task.status);
+            
+            // 根据不同状态显示不同样式
+            let statusClass = 'text-primary';
+            if (task.status === 2) statusClass = 'text-success'; // 完成
+            if (task.status === 3) statusClass = 'text-warning'; // 部分完成
+            if (task.status === 4) statusClass = 'text-danger';  // 失败
+
+            statusElement.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
         }
+
+
+
 
         function runTask(taskId) {
             fetch(`/api/tasks/${taskId}`)
