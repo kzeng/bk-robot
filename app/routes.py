@@ -113,11 +113,11 @@ robot_all_apis_options = [
             "url": "#",
             "cmd": "/api/map/get_current_map"
         },
-        # {
-        #     "title": "15.关机重启接口",
-        #     "url": "#",
-        #     "cmd": "/api/shutdown"
-        # },
+        {
+            "title": "15.关机重启接口",
+            "url": "#",
+            "cmd": "/api/shutdown"
+        },
         # {
         #     "title": "17.设置灯带接口",
         #     "url": "#",

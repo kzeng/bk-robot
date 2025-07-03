@@ -68,13 +68,20 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 id="currentDirectory">当前目录：全部图片</h5>
                     <div>
-                        <button id="cropAndUploadBtn" class="btn btn-primary me-2">
-                            <i class="bi bi-lightning-charge-fill me-1"></i>一键裁剪+分类 
+              
+                        <button id="oneClickUploadBtn" class="btn btn-info me-2">
+                            <i class="bi bi-upload me-1"></i>一键上传
                         </button>
-                        <button id="uploadSelectedBtn" class="btn btn-success me-2">
-                            上传选中目录 <i class="fa fa-cloud-upload" aria-hidden="true"></i>
 
-                        </button>
+                        {% if session.role == 'super_user' %}
+                            <button id="cropAndUploadBtn" class="btn btn-primary me-2">
+                            <i class="bi bi-lightning-charge-fill me-1"></i>一键裁剪+分类 
+                            </button>
+                            <button id="uploadSelectedBtn" class="btn btn-success me-2">
+                            上传选中目录 <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                            </button>
+                        {% endif %}
+                    
                         <button id="deleteSelectedBtn" class="btn btn-danger me-2">
                             删除选中目录
                         </button>
@@ -597,6 +604,64 @@
             }
         }
 
+        // 一键上传功能（裁剪+上传）
+        function oneClickUpload() {
+            if (!selectedDirectory) {
+                alert('请先选择一个目录');
+                return;
+            }
+
+            if (confirm(`确定要对目录 "${selectedDirectory}" 执行一键上传操作吗？(包含裁剪和上传)`)) {
+                const loadingModal = new bootstrap.Modal(document.getElementById('croppingProgressModal'));
+                loadingModal.show();
+
+                fetch('/api/photos/crop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ directory: selectedDirectory })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadingModal.hide();
+                    
+                    if (data.success) {
+                        // 自动上传生成的pic目录
+                        const picDirectory = 'pic'; // 假设裁剪后生成pic目录
+                        selectedDirectory = picDirectory;
+                        
+                        const uploadModal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
+                        uploadModal.show();
+                        
+                        fetch('/api/photos/upload', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ directory: picDirectory })
+                        })
+                        .then(response => response.json())
+                        .then(uploadData => {
+                            uploadModal.hide();
+                            alert(`一键上传完成: ${uploadData.message}`);
+                            loadImages();
+                        })
+                        .catch(uploadError => {
+                            uploadModal.hide();
+                            alert('上传过程中发生错误: ' + uploadError.message);
+                        });
+                    } else {
+                        alert('裁剪失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    loadingModal.hide();
+                    alert('裁剪过程中发生错误: ' + error.message);
+                });
+            }
+        }
+
         // 页面初始化
         function init() {
             loadDirectories();
@@ -604,6 +669,7 @@
             
             // 绑定按钮事件
             document.getElementById('cropAndUploadBtn').addEventListener('click', cropImages);
+            document.getElementById('oneClickUploadBtn').addEventListener('click', oneClickUpload);
             document.getElementById('uploadSelectedBtn').addEventListener('click', uploadSelectedDirectory);
             document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedDirectory);
             document.getElementById('clearAllBtn').addEventListener('click', clearAllPhotos);
