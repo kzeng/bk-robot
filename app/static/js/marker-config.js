@@ -1,5 +1,34 @@
+let selectedMarkersOrder = [];
+
+function updateSelectedMarkersDisplay() {
+    // 确保CD在最后
+    const cdIndex = selectedMarkersOrder.indexOf('CD');
+    if (cdIndex > -1) {
+        selectedMarkersOrder.splice(cdIndex, 1);
+        selectedMarkersOrder.push('CD');
+    }
+    
+    document.getElementById('selectedMarkersList').textContent = 
+        selectedMarkersOrder.join(',') || '无';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadMarkerConfigs();
+
+    // 监听checkbox变化
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('marker-checkbox')) {
+            const marker = e.target.dataset.markerShort;
+            if (e.target.checked) {
+                if (!selectedMarkersOrder.includes(marker)) {
+                    selectedMarkersOrder.push(marker);
+                }
+            } else {
+                selectedMarkersOrder = selectedMarkersOrder.filter(m => m !== marker);
+            }
+            updateSelectedMarkersDisplay();
+        }
+    });
 
     // 同步点位按钮点击事件
     document.getElementById('syncMarkersButton').addEventListener('click', function() {
@@ -65,23 +94,33 @@ document.getElementById('selectAllCheckbox').addEventListener('change', function
     const checkboxes = document.querySelectorAll('.marker-checkbox');
     checkboxes.forEach(checkbox => {
         checkbox.checked = this.checked;
+        const marker = checkbox.dataset.markerShort;
+        if (this.checked) {
+            if (!selectedMarkersOrder.includes(marker)) {
+                selectedMarkersOrder.push(marker);
+            }
+        } else {
+            selectedMarkersOrder = [];
+        }
     });
+    updateSelectedMarkersDisplay();
 });
 
 // Create task button handler
 document.getElementById('createTaskButton').addEventListener('click', function() {
-    const selectedMarkers = [];
-    document.querySelectorAll('.marker-checkbox:checked').forEach(checkbox => {
-        selectedMarkers.push(checkbox.dataset.markerShort);
-    });
-
-    if (selectedMarkers.length < 2) {
+    if (selectedMarkersOrder.length < 2) {
         alert('请至少选择两个点位');
         return;
     }
 
+    // 确保CD在最后，如果没有则添加
+    if (!selectedMarkersOrder.includes('CD')) {
+        selectedMarkersOrder.push('CD');
+        updateSelectedMarkersDisplay();
+    }
+
     const taskData = {
-        marker: selectedMarkers.join(','),
+        marker: selectedMarkersOrder.join(','),
         action: 0,
         description: ''
     };
