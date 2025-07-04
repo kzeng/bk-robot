@@ -358,10 +358,28 @@ class OBSControl:
                 "results": []
             }
 
+        # # 检查结果
+        # success_count = sum(1 for r in results if r["status"] == "OK")
+        # status = "OK" if success_count == 6 else "PARTIAL" if success_count > 0 else "ERROR"
+
         # 检查结果
-        success_count = sum(1 for r in results if r["status"] == "OK")
-        status = "OK" if success_count == 6 else "PARTIAL" if success_count > 0 else "ERROR"
-        
+        # 计算成功拍摄的照片数量
+        success_count = 0
+        for result in results:
+            if result["status"] == "OK":
+                success_count += 1
+
+        # 根据成功数量确定状态
+        if success_count == 6:
+            # 所有6个摄像头都成功拍照
+            status = "OK"
+        elif success_count > 0:
+            # 部分摄像头拍照成功（1-5个）
+            status = "PARTIAL"
+        else:
+            # 没有任何摄像头拍照成功（success_count = 0）
+            status = "ERROR"
+
         return {
             "status": status,
             "timestamp": timestamp,
