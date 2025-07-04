@@ -90,35 +90,199 @@ class OBSControl:
             self.connected = False
             return {"status": "ERROR", "message": f"Failed to connect to OBS: {str(e)}"}
 
-    def take_photo_all_cameras(self, position_info):
-        """Capture screenshots from all configured OBS cameras
+
+
+    # def take_photo_all_cameras(self, position_info):
+    #     """Capture screenshots from all configured OBS cameras
         
-        Handles the full workflow:
-        1. Creates dated directory for screenshots
-        2. Connects to OBS WebSocket if not already connected
-        3. Gets list of available scenes/sources
-        4. For each camera scene:
-           - Switches to the scene
-           - Captures screenshot
-           - Saves with standardized filename format
-           - Records result status
+    #     Handles the full workflow:
+    #     1. Creates dated directory for screenshots
+    #     2. Connects to OBS WebSocket if not already connected
+    #     3. Gets list of available scenes/sources
+    #     4. For each camera scene:
+    #        - Switches to the scene
+    #        - Captures screenshot
+    #        - Saves with standardized filename format
+    #        - Records result status
+        
+    #     Args:
+    #         position_info (str): Marker name/position identifier to include in filenames
+            
+    #     Returns:
+    #         dict: {
+    #             "status": "OK"|"ERROR",
+    #             "timestamp": str,  # Capture timestamp
+    #             "position": str,    # Position info
+    #             "results": [        # List of capture results per camera
+    #                 {
+    #                     "camera_id": int,
+    #                     "scene": str,
+    #                     "status": "OK"|"ERROR",
+    #                     "filename": str,  # Only if OK
+    #                     "filepath": str,   # Only if OK 
+    #                     "message": str     # Only if ERROR
+    #                 }
+    #             ]
+    #         }
+    #     """
+    #     results = []
+    #     # 使用日期作为文件夹名
+    #     date_str = datetime.now().strftime("%Y%m%d")
+    #     # 获取当前时间戳
+    #     # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #     # 使用当前时间的总秒数作为 timestamp
+    #     timestamp = str(int(time.time()))
+
+    #     base_dir = os.path.join("static", "screenshots", date_str)
+    #     os.makedirs(base_dir, exist_ok=True)
+
+    #     if not position_info:
+    #         position_info = 'Unknown'
+
+    #     try:
+    #         # 如果不是模拟模式，先连接到OBS
+    #         if not self.simulation_mode:
+    #             connect_result = self.connect()
+    #             if connect_result["status"] != "OK":
+    #                 raise RuntimeError(connect_result["message"])
+    #             logger.info(f"OBS connection successful.")
+
+    #             # Check if the directory exists
+    #             if not os.path.exists(base_dir):
+    #                 os.makedirs(base_dir)
+    #                 logger.info(f"Created directory: {base_dir}")
+    #             else:
+    #                 logger.info(f"Directory exists: {base_dir}")
+
+    #             # 获取可用场景列表
+    #             scenes = self.ws.call(requests.GetSceneList())
+    #             scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
+    #             logger.debug(f"Available scenes: {scene_names}")
+
+    #             # powered by LAO-ZENG
+    #             scene_sources = {}
+
+    #             for scene_name in scene_names:
+    #                 scene_items = self.ws.call(requests.GetSceneItemList(sceneName=scene_name)).getSceneItems()
+    #                 if scene_items:
+    #                     # Extract name of the first source (lowest index = bottom layer in OBS)
+    #                     first_source_name = scene_items[0]['sourceName'].strip().replace(' ', '')
+    #                     scene_sources[scene_name] = first_source_name
+    #                     logger.info(f"First source in scene '{first_source_name}': {first_source_name}")
+    #                 else:
+    #                     logger.warning("No sources found in the current scene! so use scene name as source")
+    #                     scene_sources[scene_name] = scene_name
+        
+
+    #         for i, scene in enumerate(self.camera_scenes, 1):
+    #             if scene not in scene_names:
+    #                 results.append({
+    #                     "camera_id": i,
+    #                     "scene": scene,
+    #                     "status": "ERROR",
+    #                     "message": f"Scene '{scene}' not found in OBS"
+    #                 })
+    #                 continue
+    #             # try:
+    #             # 切换到对应的场景
+    #             self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
+                
+    #             # # 等待场景切换完成 等待场景稳定 (一次性等待足够)
+    #             # time.sleep(0.5)
+    #             time.sleep(self.focus_time)
+                
+
+    #             # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
+    #             filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
+    #             filepath = os.path.join(base_dir, filename)
+                
+    #             # 确保基础目录存在
+    #             os.makedirs(base_dir, exist_ok=True)
+    #             logger.info(f"确保目录存在: {base_dir}")
+    #             # 使用绝对路径并确保其有效性
+    #             abs_filepath = os.path.abspath(filepath)
+    #             logger.info(f"尝试保存截图至: {abs_filepath}")
+    #             logger.info(f"focus_time: {self.focus_time}")
+                
+                
+    #             # Use the source mapped to this scene
+    #             self.ws.call(requests.SaveSourceScreenshot(
+    #                 sourceName=scene_sources[scene],
+    #                 imageFormat="png",
+    #                 imageFilePath=abs_filepath
+    #             ))
+    #             logger.info(f"拍照成功保存至: {abs_filepath}")
+                
+    #             results.append({
+    #                 "camera_id": i,
+    #                 "scene": scene,
+    #                 "status": "OK",
+    #                 "filename": filename,
+    #                 "filepath": filepath
+    #             })
+    #             # except Exception as e:
+    #             #     results.append({
+    #             #         "camera_id": i,
+    #             #         "scene": scene,
+    #             #         "status": "ERROR",
+    #             #         "message": str(e)
+    #             #     })
+
+    #     except Exception as e:
+    #         # 捕获所有异常并记录日志
+    #         logger.error(f"Error in take_photo_all_cameras: {str(e)}")
+    #         return {
+    #             "status": "ERROR",
+    #             "message": str(e),
+    #             "timestamp": timestamp,
+    #             "position": position_info,
+    #             "results": []
+    #         }
+
+    #     return {
+    #         "status": "OK",
+    #         "timestamp": timestamp,
+    #         "position": position_info,
+    #         "results": results
+    #     }
+
+
+
+
+
+
+    # 主要修改说明：
+
+    # 1. 使用单一场景 "s1"，不再进行场景切换
+    # 2. 直接遍历 6 个摄像头 (c1-c6)
+    # 3. 文件命名格式改为：`点位-摄像头-场景-时间戳.png`
+    # 4. 保持了原有的错误处理和日志记录机制
+    # 5. 保持了返回结果的数据结构格式不变
+
+    # 使用前请确保在 OBS 中：
+    # 1. 创建了名为 "s1" 的场景
+    # 2. 在该场景中添加了 6 个摄像头源，命名为 "c1" 到 "c6"
+    # 3. 所有摄像头源都正确配置和工作
+
+
+    def take_photo_all_cameras(self, position_info):
+        """
+        在单一场景下拍摄所有摄像头的照片
         
         Args:
-            position_info (str): Marker name/position identifier to include in filenames
+            position_info (str): 点位信息，用于文件命名
             
         Returns:
             dict: {
                 "status": "OK"|"ERROR",
-                "timestamp": str,  # Capture timestamp
-                "position": str,    # Position info
-                "results": [        # List of capture results per camera
+                "timestamp": str,
+                "position": str,
+                "results": [
                     {
                         "camera_id": int,
-                        "scene": str,
                         "status": "OK"|"ERROR",
-                        "filename": str,  # Only if OK
-                        "filepath": str,   # Only if OK 
-                        "message": str     # Only if ERROR
+                        "filename": str,
+                        "filepath": str
                     }
                 ]
             }
@@ -126,9 +290,7 @@ class OBSControl:
         results = []
         # 使用日期作为文件夹名
         date_str = datetime.now().strftime("%Y%m%d")
-        # 获取当前时间戳
-        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # 使用当前时间的总秒数作为 timestamp
+        # 使用时间戳
         timestamp = str(int(time.time()))
 
         base_dir = os.path.join("static", "screenshots", date_str)
@@ -145,89 +307,50 @@ class OBSControl:
                     raise RuntimeError(connect_result["message"])
                 logger.info(f"OBS connection successful.")
 
-                # Check if the directory exists
-                if not os.path.exists(base_dir):
-                    os.makedirs(base_dir)
-                    logger.info(f"Created directory: {base_dir}")
-                else:
-                    logger.info(f"Directory exists: {base_dir}")
-
-                # 获取可用场景列表
-                scenes = self.ws.call(requests.GetSceneList())
-                scene_names = [scene['sceneName'] for scene in scenes.getScenes()]
-                logger.debug(f"Available scenes: {scene_names}")
-
-                # powered by LAO-ZENG
-                scene_sources = {}
-
-                for scene_name in scene_names:
-                    scene_items = self.ws.call(requests.GetSceneItemList(sceneName=scene_name)).getSceneItems()
-                    if scene_items:
-                        # Extract name of the first source (lowest index = bottom layer in OBS)
-                        first_source_name = scene_items[0]['sourceName'].strip().replace(' ', '')
-                        scene_sources[scene_name] = first_source_name
-                        logger.info(f"First source in scene '{first_source_name}': {first_source_name}")
-                    else:
-                        logger.warning("No sources found in the current scene! so use scene name as source")
-                        scene_sources[scene_name] = scene_name
-        
-
-            for i, scene in enumerate(self.camera_scenes, 1):
-                if scene not in scene_names:
-                    results.append({
-                        "camera_id": i,
-                        "scene": scene,
-                        "status": "ERROR",
-                        "message": f"Scene '{scene}' not found in OBS"
-                    })
-                    continue
-                # try:
-                # 切换到对应的场景
-                self.ws.call(requests.SetCurrentProgramScene(sceneName=scene))
+                # 单一场景名称
+                scene_name = "s1"
                 
-                # # 等待场景切换完成 等待场景稳定 (一次性等待足够)
-                # time.sleep(0.5)
+                # 等待场景稳定
                 time.sleep(self.focus_time)
-                
 
-                # 拍摄截图 - 文件名格式: {marker名称}-{场景名称}-{摄像头名称}-{时间戳}.jpg
-                filename = f"{position_info}-{scene}-{scene_sources[scene]}-{timestamp}.png"
-                filepath = os.path.join(base_dir, filename)
-                
-                # 确保基础目录存在
-                os.makedirs(base_dir, exist_ok=True)
-                logger.info(f"确保目录存在: {base_dir}")
-                # 使用绝对路径并确保其有效性
-                abs_filepath = os.path.abspath(filepath)
-                logger.info(f"尝试保存截图至: {abs_filepath}")
-                logger.info(f"focus_time: {self.focus_time}")
-                
-                
-                # Use the source mapped to this scene
-                self.ws.call(requests.SaveSourceScreenshot(
-                    sourceName=scene_sources[scene],
-                    imageFormat="png",
-                    imageFilePath=abs_filepath
-                ))
-                logger.info(f"拍照成功保存至: {abs_filepath}")
-                
-                results.append({
-                    "camera_id": i,
-                    "scene": scene,
-                    "status": "OK",
-                    "filename": filename,
-                    "filepath": filepath
-                })
-                # except Exception as e:
-                #     results.append({
-                #         "camera_id": i,
-                #         "scene": scene,
-                #         "status": "ERROR",
-                #         "message": str(e)
-                #     })
+                # 拍摄6个摄像头的照片
+                for i in range(1, 7):
+                    camera_name = f"c{i}"
+                    
+                    # 构建文件名：点位-摄像头-场景-时间戳.png
+                    filename = f"{position_info}-{camera_name}-{scene_name}-{timestamp}.png"
+                    filepath = os.path.join(base_dir, filename)
+                    
+                    try:
+                        # 使用绝对路径
+                        abs_filepath = os.path.abspath(filepath)
+                        logger.info(f"尝试保存截图至: {abs_filepath}")
+                        
+                        # 拍摄照片
+                        self.ws.call(requests.SaveSourceScreenshot(
+                            sourceName=camera_name,
+                            imageFormat="png",
+                            imageFilePath=abs_filepath
+                        ))
+                        
+                        logger.info(f"拍照成功保存至: {abs_filepath}")
+                        
+                        results.append({
+                            "camera_id": i,
+                            "status": "OK",
+                            "filename": filename,
+                            "filepath": filepath
+                        })
+                        
+                    except Exception as e:
+                        logger.error(f"Error capturing photo for camera {camera_name}: {str(e)}")
+                        results.append({
+                            "camera_id": i,
+                            "status": "ERROR",
+                            "message": str(e)
+                        })
 
         except Exception as e:
-            # 捕获所有异常并记录日志
             logger.error(f"Error in take_photo_all_cameras: {str(e)}")
             return {
                 "status": "ERROR",
@@ -237,14 +360,16 @@ class OBSControl:
                 "results": []
             }
 
+        # 检查结果
+        success_count = sum(1 for r in results if r["status"] == "OK")
+        status = "OK" if success_count == 6 else "PARTIAL" if success_count > 0 else "ERROR"
+        
         return {
-            "status": "OK",
+            "status": status,
             "timestamp": timestamp,
             "position": position_info,
             "results": results
         }
-
-
 
 
     def start_recording(self, marker_names=None):
