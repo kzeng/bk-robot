@@ -287,7 +287,7 @@ class OBSControl:
         """
         results = []
         # 使用日期作为文件夹名
-        date_str = datetime.now().strftime("%Y%m%d")
+        date_str = datetime.now().strftime("%Y%m%d_%H%M")
         # 使用时间戳
         timestamp = str(int(time.time()))
 
