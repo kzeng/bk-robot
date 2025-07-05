@@ -8,8 +8,20 @@ function updateSelectedMarkersDisplay() {
         selectedMarkersOrder.push('CD');
     }
     
-    document.getElementById('selectedMarkersList').textContent = 
-        selectedMarkersOrder.join(',') || '无';
+    const container = document.getElementById('selectedMarkersList');
+    container.innerHTML = '';
+    
+    if (selectedMarkersOrder.length === 0) {
+        container.textContent = '无';
+        return;
+    }
+    
+    selectedMarkersOrder.forEach(marker => {
+        const badge = document.createElement('span');
+        badge.className = 'marker-badge';
+        badge.textContent = marker;
+        container.appendChild(badge);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {

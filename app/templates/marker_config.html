@@ -1,5 +1,26 @@
 {% extends "base.html" %}
 
+{% block styles %}
+    <style>
+        .marker-badge {
+            display: inline-block;
+            background-color: #1976d2;
+            color: white;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+        .marker-badge:hover {
+            background-color: #1565c0;
+            transform: translateY(-1px);
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
 
   <div class="container mt-4">
