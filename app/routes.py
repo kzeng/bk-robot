@@ -1487,6 +1487,7 @@ def settings():
         'CAMERA_JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
         'PHOTO_MODE': str(current_app.config.get('PHOTO_MODE', '0')),
+        'CAMERA_URLS': '',
 
         # 高级相机参数
         'CAMERA_BRIGHTNESS': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('brightness', '16')),
@@ -1534,7 +1535,11 @@ def settings():
         load_dotenv(env_path)
         for key in env_vars.keys():
             if os.environ.get(key):
-                env_vars[key] = os.environ.get(key)
+                if key == 'CAMERA_URLS':
+                    # 将逗号分隔的URLs转换为换行分隔
+                    env_vars[key] = os.environ.get(key).replace(',', '\n')
+                else:
+                    env_vars[key] = os.environ.get(key)
     
     return render_template('settings.html', env=env_vars)
 

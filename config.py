@@ -34,8 +34,8 @@ class Config:
     # Camera configuration
     CAMERA_CONFIG = {
         'resolution': {
-            'width': int(os.environ.get('CAMERA_WIDTH', '1920')),
-            'height': int(os.environ.get('CAMERA_HEIGHT', '1080'))
+            'width': int(os.environ.get('CAMERA_WIDTH', '2560')),
+            'height': int(os.environ.get('CAMERA_HEIGHT', '1440'))
         },
         'fps': int(os.environ.get('CAMERA_FPS', '30')),
         'jpeg_quality': int(os.environ.get('CAMERA_JPEG_QUALITY', '100')),

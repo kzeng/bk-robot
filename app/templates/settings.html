@@ -10,145 +10,8 @@
         <div class="card-body">
             <form id="settingsForm">
                 <div class="row">
-                    <!-- 左侧板块 -->
-                    <div class="col-md-6">
-                        <!-- 摄像头配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-camera me-2"></i>摄像头配置</h5>
-                            <!-- Basic Parameters -->
-                            <div class="mb-3">
-                                <label class="form-label">分辨率-宽度</label>
-                                <input type="number" class="form-control" name="CAMERA_WIDTH" value="{{ env.CAMERA_WIDTH }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">分辨率-高度</label>
-                                <input type="number" class="form-control" name="CAMERA_HEIGHT" value="{{ env.CAMERA_HEIGHT }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">帧率(FPS)</label>
-                                <input type="number" class="form-control" name="CAMERA_FPS" value="{{ env.CAMERA_FPS }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">JPEG质量(1-100)</label>
-                                <input type="number" class="form-control" name="CAMERA_JPEG_QUALITY" min="1" max="100" value="{{ env.CAMERA_JPEG_QUALITY }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">缓冲区大小</label>
-                                <input type="number" class="form-control" name="CAMERA_BUFFER_SIZE" value="{{ env.CAMERA_BUFFER_SIZE }}" required>
-                            </div>
-                            
-                            
-                            <!-- Advanced Camera Parameters -->
-                            <h6 class="mt-4 mb-3">高级相机参数</h6>
-
-                            <!-- Image Parameters -->
-                            <div class="card mb-3" style="background-color: #e3f2fd;">
-                                <div class="card-header" style="background-color: #bbdefb;">图像参数</div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <label class="form-label">亮度</label>
-                                            <input type="number" class="form-control" name="CAMERA_BRIGHTNESS" value="{{ env.CAMERA_BRIGHTNESS }}" min="0" max="255">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">对比度</label>
-                                            <input type="number" class="form-control" name="CAMERA_CONTRAST" value="{{ env.CAMERA_CONTRAST }}" min="0" max="255">
-                                        </div>
-                                    </div>
-                                    <div class="row mt-2">
-                                        <div class="col-md-6">
-                                            <label class="form-label">饱和度</label>
-                                            <input type="number" class="form-control" name="CAMERA_SATURATION" value="{{ env.CAMERA_SATURATION }}" min="0" max="255">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">锐度</label>
-                                            <input type="number" class="form-control" name="CAMERA_SHARPNESS" value="{{ env.CAMERA_SHARPNESS }}" min="0" max="100">
-                                        </div>
-                                    </div>
-                                    <div class="row mt-2">
-                                        <div class="col-md-6">
-                                            <label class="form-label">伽马值</label>
-                                            <input type="number" class="form-control" name="CAMERA_GAMMA" value="{{ env.CAMERA_GAMMA }}" min="0" max="500">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Exposure Parameters -->
-                            <div class="card mb-3" style="background-color: #e3f2fd;">
-                                <div class="card-header" style="background-color: #bbdefb;">曝光参数</div>
-                                <div class="card-body">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="CAMERA_AUTO_EXPOSURE" value="1" 
-                                               {% if env.CAMERA_AUTO_EXPOSURE == '1' %}checked{% endif %}>
-                                        <label class="form-check-label">自动曝光</label>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <label class="form-label">曝光时间</label>
-                                            <input type="number" class="form-control" name="CAMERA_EXPOSURE_TIME" value="{{ env.CAMERA_EXPOSURE_TIME }}">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">增益</label>
-                                            <input type="number" class="form-control" name="CAMERA_GAIN" value="{{ env.CAMERA_GAIN }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- White Balance Parameters -->
-                            <div class="card mb-3" style="background-color: #e3f2fd;">
-                                <div class="card-header" style="background-color: #bbdefb;">白平衡参数</div>
-                                <div class="card-body">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="CAMERA_WB_AUTO" value="1"
-                                               {% if env.CAMERA_WB_AUTO == '1' %}checked{% endif %}>
-                                        <label class="form-check-label">自动白平衡</label>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <label class="form-label">色温</label>
-                                            <input type="number" class="form-control" name="CAMERA_WB_TEMP" value="{{ env.CAMERA_WB_TEMP }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Other Parameters -->
-                            <div class="card mb-3" style="background-color: #e3f2fd;">
-                                <div class="card-header" style="background-color: #bbdefb;">其他参数</div>
-                                <div class="card-body">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="CAMERA_FOCUS_AUTO" value="1"
-                                               {% if env.CAMERA_FOCUS_AUTO == '1' %}checked{% endif %}>
-                                        <label class="form-check-label">自动对焦</label>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <label class="form-label">焦距</label>
-                                            <input type="number" class="form-control" name="CAMERA_FOCUS" value="{{ env.CAMERA_FOCUS }}">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">背光补偿</label>
-                                            <input type="number" class="form-control" name="CAMERA_BACKLIGHT" value="{{ env.CAMERA_BACKLIGHT }}" min="0" max="1">
-                                        </div>
-                                    </div>
-                                    <div class="row mt-2">
-                                        <div class="col-md-6">
-                                            <label class="form-label">电源频率</label>
-                                            <select class="form-select" name="CAMERA_POWERLINE_FREQ">
-                                                <option value="1" {% if env.CAMERA_POWERLINE_FREQ == '1' %}selected{% endif %}>50Hz</option>
-                                                <option value="2" {% if env.CAMERA_POWERLINE_FREQ == '2' %}selected{% endif %}>60Hz</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-           
-                    </div>
-                    <!-- 右侧板块 -->
-                    <div class="col-md-6">
+                    <!-- 只保留右侧板块 -->
+                    <div class="col-md-12">
                         <!-- 机器人配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-robot me-2"></i>机器人配置</h5>
@@ -163,86 +26,53 @@
                         </div>
 
                         <br><br>
-                        <!-- OBS配置 -->
+                        <!-- 拍照模式（只保留OpenCV） -->
                         <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>OBS配置</h5>
-                            <div class="mb-3">
-                                <label class="form-label">WebSocket URL</label>
-                                <input type="text" class="form-control" name="OBS_WS_URL" value="{{ env.OBS_WS_URL }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">密码</label>
-                                <input type="password" class="form-control" name="OBS_PASSWORD" value="{{ env.OBS_PASSWORD }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">对焦时间(0-10秒)</label>
-                                <input type="number" class="form-control" name="OBS_FOCUS_TIME" min="0" max="10" step="0.1" value="{{ env.OBS_FOCUS_TIME or '1' }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">拍照模式</label>
-                                <div class="mt-2 d-flex gap-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" {% if env.PHOTO_MODE == '0' %}checked{% endif %}>
-                                        <label class="form-check-label" for="photoMode0">
-                                            OBS
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" {% if env.PHOTO_MODE == '1' %}checked{% endif %} disabled>
-                                        <label class="form-check-label text-muted" for="photoMode1">
-                                            OpenCV (禁用)
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" {% if env.PHOTO_MODE == '2' %}checked{% endif %} disabled>
-                                        <label class="form-check-label text-muted" for="photoMode2">
-                                            FFmpeg (禁用)
-                                        </label>
-                                    </div>
+                            <h5 class="border-bottom pb-2"><i class="fas fa-camera me-2"></i>拍照模式</h5>
+                            <div class="mt-2 d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" value="1" id="photoMode1" checked>
+                                    <label class="form-check-label" for="photoMode1">
+                                        OpenCV
+                                    </label>
                                 </div>
-                                <small class="form-text text-muted mt-2">
-                                    注意：当前仅支持 OBS 拍照模式。只有 OpenCV 模式和 FFmpeg 模式启用时，摄像头和高级相机参数设置才有效
-                                </small>
-                            </div>
-
-                            <!-- OBS Control Panel -->
-                            <div class="card mt-3 border">
-                                <div class="card-header bg-light">
-                                    <i class="fas fa-desktop me-2"></i>OBS 控制面板
+                                <div class="form-check d-none">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" value="0" id="photoMode0" disabled>
+                                    <label class="form-check-label text-muted" for="photoMode0">
+                                        OBS (禁用)
+                                    </label>
                                 </div>
-                                <div class="card-body">
-                                    <!-- Control Buttons -->
-                                    <div class="row g-2 mb-3">
-                                        <!--
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-primary w-100 shadow-sm" id="startObsUI">
-                                                <i class="fas fa-desktop me-2"></i>启动 OBS 界面
-                                            </button>
-                                        </div>
-                                        -->
-                                      
-
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-success w-100 shadow-sm" id="startObsHeadless">
-                                                <i class="fas fa-server me-2"></i>启动 OBS 服务
-                                            </button>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <button type="button" class="btn btn-danger w-100 shadow-sm" id="stopObs">
-                                                <i class="fas fa-trash me-2"></i>退出 OBS
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Status Display -->
-                                    <div class="alert shadow-sm" id="obsStatus" role="alert">
-                                        <i class="fas fa-info-circle me-2"></i>
-                                        <span id="obsStatusText">正在检查OBS状态...</span>
-                                        <div id="obsModeInfo" class="small mt-1"></div>
-                                    </div>
+                                <div class="form-check d-none">
+                                    <input class="form-check-input" type="radio" name="PHOTO_MODE" value="2" id="photoMode2" disabled>
+                                    <label class="form-check-label text-muted" for="photoMode2">
+                                        FFmpeg (禁用)
+                                    </label>
                                 </div>
                             </div>
+                            <small class="form-text text-muted mt-2">
+                                当前仅支持 OpenCV 拍照模式，摄像头参数设置已隐藏。
+                            </small>
                         </div>
+
+                        <input type="hidden" name="CAMERA_WIDTH" value="1920">
+                        <input type="hidden" name="CAMERA_HEIGHT" value="1080">
+                        <input type="hidden" name="CAMERA_FPS" value="25">
+                        <input type="hidden" name="CAMERA_JPEG_QUALITY" value="80">
+                        <input type="hidden" name="CAMERA_BUFFER_SIZE" value="10">
+                        <input type="hidden" name="CAMERA_BRIGHTNESS" value="16">
+                        <input type="hidden" name="CAMERA_CONTRAST" value="40">
+                        <input type="hidden" name="CAMERA_SATURATION" value="80">
+                        <input type="hidden" name="CAMERA_SHARPNESS" value="6">
+                        <input type="hidden" name="CAMERA_GAMMA" value="120">
+                        <input type="hidden" name="CAMERA_AUTO_EXPOSURE" value="1">
+                        <input type="hidden" name="CAMERA_EXPOSURE_TIME" value="80">
+                        <input type="hidden" name="CAMERA_GAIN" value="20">
+                        <input type="hidden" name="CAMERA_WB_AUTO" value="0">
+                        <input type="hidden" name="CAMERA_WB_TEMP" value="5000">
+                        <input type="hidden" name="CAMERA_FOCUS_AUTO" value="0">
+                        <input type="hidden" name="CAMERA_FOCUS" value="200">
+                        <input type="hidden" name="CAMERA_BACKLIGHT" value="0">
+                        <input type="hidden" name="CAMERA_POWERLINE_FREQ" value="1">
 
                         <br><br>
                         <!-- FTP配置 -->
@@ -252,8 +82,6 @@
                                 <label class="form-label">FTP服务器</label>
                                 <input type="text" class="form-control" name="FTP_HOST" value="{{ env.FTP_HOST }}" required>
                             </div>
-
-                           
                             <div class="mb-3">
                                 <label class="form-label">FTP端口</label>
                                 <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" required>
@@ -274,7 +102,7 @@
                             </div>
                         </div>
 
-                         <br><br>
+                        <br><br>
                         <!-- 升降柱配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-arrow-up me-2"></i>升降柱配置</h5>
@@ -291,8 +119,17 @@
                             </div>
                         </div>
 
+                        <!-- OBS相关字段（始终隐藏） -->
+                        <input type="hidden" name="OBS_WS_URL" value="ws://127.0.0.1:4455">
+                        <input type="hidden" name="OBS_PASSWORD" value="">
+                        <input type="hidden" name="OBS_FOCUS_TIME" value="1">
 
-
+                        <!-- 摄像头URL列表 -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>摄像头URL列表</h5>
+                            <textarea class="form-control" name="CAMERA_URLS" rows="6" placeholder="每行一个摄像头RTSP地址">{{ env.CAMERA_URLS or '' }}</textarea>
+                            <small class="form-text text-muted">如需添加更多摄像头，请每行填写一个RTSP地址。</small>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-4 d-flex justify-content-end">
@@ -308,280 +145,15 @@
 
 {% block scripts %}
 <script>
-// OBS Control Functions
-async function checkObsStatus() {
-    const statusEl = document.getElementById('obsStatus');
-    const statusTextEl = document.getElementById('obsStatusText');
-    const modeInfoEl = document.getElementById('obsModeInfo');
-    
-    try {
-        const response = await fetch('/api/obs/status');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("服务器返回了非JSON格式的数据");
-        }
-        
-        const data = await response.json();
-        if (data.running) {
-            statusEl.className = 'alert alert-success';
-            statusTextEl.textContent = data.headless ? 
-                'OBS正在后台运行(无头模式)' : 'OBS正在运行(UI模式)';
-            
-            // Show additional mode info
-            if (data.headless) {
-                modeInfoEl.innerHTML = `
-                    <i class="fas fa-server me-1"></i> 无头模式运行中
-                    <span class="text-muted ms-2">PID: ${data.pid || '未知'}</span>
-                `;
-            } else {
-                modeInfoEl.innerHTML = `
-                    <i class="fas fa-desktop me-1"></i> UI模式运行中
-                    <span class="text-muted ms-2">PID: ${data.pid || '未知'}</span>
-                `;
-            }
-        } else {
-            statusEl.className = 'alert alert-warning';
-            statusTextEl.textContent = 'OBS未运行';
-            modeInfoEl.innerHTML = '';
-        }
-    } catch (error) {
-        console.error('OBS状态检查错误:', error);
-        statusEl.className = 'alert alert-danger';
-        statusTextEl.textContent = '检查OBS状态时出错: 请确保后端服务正常运行';
-        modeInfoEl.innerHTML = '';
-    }
-}
+// 只保留表单提交相关JS
 
-// 页面加载时检查状态和初始化相机配置状态
-document.addEventListener('DOMContentLoaded', () => {
-    checkObsStatus();
-    updateCameraConfigState(); // 初始化相机配置的启用/禁用状态
-});
-
-// OBS控制按钮事件处理
-async function handleObsButtonClick(btnId, apiEndpoint, requestData) {
-    const btn = document.getElementById(btnId);
-    const originalText = btn.innerHTML;
-    const statusEl = document.getElementById('obsStatus');
-    const statusTextEl = document.getElementById('obsStatusText');
-    const modeInfoEl = document.getElementById('obsModeInfo');
-    
-    // 设置加载状态
-    btn.disabled = true;
-    if (btnId !== 'startObsUI') {  // UI模式按钮不显示加载动画
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>处理中...';
-    }
-    statusEl.className = 'alert alert-info';
-    statusTextEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>操作执行中...';
-    modeInfoEl.innerHTML = '';
-    
-    try {
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(requestData)
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || '操作失败');
-        }
-        
-        // 显示操作成功提示
-        const result = await response.json();
-        if (result.success !== false) {
-            showToast('success', '操作执行成功');
-        }
-        
-        // 等待1秒后刷新状态
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await checkObsStatus();
-    } catch (error) {
-        showToast('danger', `操作失败: ${error.message}`);
-        await checkObsStatus();  // 即使失败也刷新状态
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-// 绑定按钮事件
-// document.getElementById('startObsUI').addEventListener('click', () => {
-//    handleObsButtonClick('startObsUI', '/api/obs/start', { headless: false });
-//});
-
-document.getElementById('startObsHeadless').addEventListener('click', () => {
-    handleObsButtonClick('startObsHeadless', '/api/obs/start', { headless: true });
-});
-
-document.getElementById('stopObs').addEventListener('click', () => {
-    handleObsButtonClick('stopObs', '/api/obs/stop', {});
-});
-
-// 添加定期状态检查
-setInterval(checkObsStatus, 30000);  // 每30秒自动检查一次状态
-
-// 控制相机配置区域启用/禁用状态的函数
-function updateCameraConfigState() {
-    // 获取所有拍照模式单选按钮
-    const photoModes = document.getElementsByName('PHOTO_MODE');
-    let selectedMode;
-    
-    // 获取当前选中的模式
-    for (const mode of photoModes) {
-        if (mode.checked) {
-            selectedMode = mode.value;
-            break;
-        }
-    }
-    
-    // 获取需要控制的输入元素
-    const cameraInputs = document.querySelectorAll(`
-        input[name="CAMERA_WIDTH"],
-        input[name="CAMERA_HEIGHT"],
-        input[name="CAMERA_FPS"],
-        input[name="CAMERA_JPEG_QUALITY"],
-        input[name="CAMERA_BUFFER_SIZE"],
-        input[name="CAMERA_BRIGHTNESS"],
-        input[name="CAMERA_CONTRAST"],
-        input[name="CAMERA_SATURATION"],
-        input[name="CAMERA_SHARPNESS"],
-        input[name="CAMERA_GAMMA"],
-        input[name="CAMERA_AUTO_EXPOSURE"],
-        input[name="CAMERA_EXPOSURE_TIME"],
-        input[name="CAMERA_GAIN"],
-        input[name="CAMERA_WB_AUTO"],
-        input[name="CAMERA_WB_TEMP"],
-        input[name="CAMERA_FOCUS_AUTO"],
-        input[name="CAMERA_FOCUS"],
-        input[name="CAMERA_BACKLIGHT"],
-        input[name="CAMERA_POWERLINE_FREQ"]
-    `);
-    
-    // 根据模式设置输入框和下拉框状态
-    const isEnabled = selectedMode === '1' || selectedMode === '2'; // OpenCV或FFmpeg模式
-    
-    // 处理所有相机相关的输入框
-    cameraInputs.forEach(input => {
-        const parentCard = input.closest('.card');
-        // 添加或移除视觉反馈
-        if (!isEnabled) {
-            // 使用 readonly 而不是 disabled，确保值能被提交
-            input.readOnly = true;
-            input.classList.add('bg-light', 'text-muted');
-            input.style.opacity = '0.7';
-            input.style.cursor = 'not-allowed';
-            input.title = "在OBS模式下此选项无需配置";
-            
-            // 相关label变灰
-            const label = input.previousElementSibling;
-            if (label && label.classList.contains('form-label')) {
-                label.classList.add('text-muted');
-            }
-            
-            // 特殊处理复选框
-            if (input.type === 'checkbox') {
-                input.disabled = true; // 复选框使用disabled，因为readonly对它无效
-                const checkLabel = input.nextElementSibling;
-                if (checkLabel) {
-                    checkLabel.classList.add('text-muted');
-                }
-            }
-            
-            // 给卡片添加禁用效果
-            if (parentCard) {
-                parentCard.style.opacity = '0.85';
-            }
-        } else {
-            input.readOnly = false;
-            if (input.type === 'checkbox') {
-                input.disabled = false;
-            }
-            input.classList.remove('bg-light', 'text-muted');
-            input.style.opacity = '';
-            input.style.cursor = '';
-            input.removeAttribute('title');
-            
-            // 恢复label颜色
-            const label = input.previousElementSibling;
-            if (label && label.classList.contains('form-label')) {
-                label.classList.remove('text-muted');
-            }
-            
-            // 恢复复选框label颜色
-            if (input.type === 'checkbox') {
-                const checkLabel = input.nextElementSibling;
-                if (checkLabel) {
-                    checkLabel.classList.remove('text-muted');
-                }
-            }
-            
-            // 恢复卡片效果
-            if (parentCard) {
-                parentCard.style.opacity = '';
-            }
-        }
-    });
-    
-    // 处理下拉框（如电源频率选择器）
-    const cameraSelects = document.querySelectorAll('select[name="CAMERA_POWERLINE_FREQ"]');
-    cameraSelects.forEach(select => {
-        // 使用 readonly 效果，但保持表单提交功能
-        if (!isEnabled) {
-            // 由于select不支持readonly，我们保存当前值并禁用它
-            select.setAttribute('data-original-value', select.value);
-            select.classList.add('bg-light', 'text-muted');
-            select.style.opacity = '0.7';
-            select.style.cursor = 'not-allowed';
-            select.title = "在OBS模式下此选项无需配置";
-            
-            // 相关label变灰
-            const label = select.previousElementSibling;
-            if (label && label.classList.contains('form-label')) {
-                label.classList.add('text-muted');
-            }
-            
-            // 为select添加事件，防止值被改变
-            select.addEventListener('change', function(e) {
-                this.value = this.getAttribute('data-original-value');
-            });
-        } else {
-            select.removeAttribute('data-original-value');
-            select.classList.remove('bg-light', 'text-muted');
-            select.style.opacity = '';
-            select.style.cursor = '';
-            select.removeAttribute('title');
-            
-            // 移除change事件监听器
-            const newSelect = select.cloneNode(true);
-            select.parentNode.replaceChild(newSelect, select);
-            
-            // 恢复label颜色
-            const label = newSelect.previousElementSibling;
-            if (label && label.classList.contains('form-label')) {
-                label.classList.remove('text-muted');
-            }
-        }
-    });
-}
-
-// 监听拍照模式变化
-document.querySelectorAll('input[name="PHOTO_MODE"]').forEach(radio => {
-    radio.addEventListener('change', updateCameraConfigState);
-});
-
-// 设置表单处理
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     const settings = {};
-    // 处理所有复选框字段，包括高级相机参数
+    // 处理所有复选框字段
     const checkboxFields = [
-        'FTP_MOCK_MODE',
-        'CAMERA_AUTO_EXPOSURE', 'CAMERA_WB_AUTO', 'CAMERA_FOCUS_AUTO'
+        'FTP_MOCK_MODE'
     ];
     for (let field of checkboxFields) {
         settings[field] = formData.has(field) ? '1' : '0';

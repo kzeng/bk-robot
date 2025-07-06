@@ -506,7 +506,7 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    alert(data.message || '已清空所有图片');
+                    alert('已清空所有图片');
                     if (data.success) {
                         selectedDirectory = '';
                         currentDirectory = '';

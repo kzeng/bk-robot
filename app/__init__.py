@@ -1,4 +1,4 @@
-# Last config update: 2025-07-02 17:37:12
+# Last config update: 2025-07-06 22:21:22
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -72,6 +72,14 @@ def create_app(test_config=None):
         logger.info("[create_app] Using OpenCV for camera control")
         opencv_control = OpenCVControl()
         opencv_control.init_app(app)
+        # Load camera URLs from environment
+        camera_urls = os.environ.get('CAMERA_URLS', '').split(',')
+        camera_urls = [url.strip() for url in camera_urls if url.strip()]
+        if camera_urls:
+            opencv_control.set_camera_urls(camera_urls)
+            logger.info(f"Configured {len(camera_urls)} camera URLs")
+        else:
+            logger.warning("No camera URLs configured in CAMERA_URLS environment variable")
         app.opencv_control = opencv_control
         app.camera_control = opencv_control
     elif photo_mode == '2':
