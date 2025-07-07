@@ -1606,22 +1606,27 @@ def update_settings():
         # 重新加载环境变量以立即生效
         load_dotenv(env_path, override=True)
         
-        # 更新 __init__.py 时间戳以触发 Flask 重载
-        if update_init_timestamp():
-            logger.info("Settings and timestamp updated successfully")
-            return jsonify({
-                'status': 'OK', 
-                'message': '设置已保存，系统正在重新加载...',
-                'reload': True
-            })
-        else:
-            logger.warning("Settings saved but reload trigger failed")
-            return jsonify({
-                'status': 'OK', 
-                'message': '设置已保存，但自动重载失败，请手动重启应用',
-                'reload': False
-            })
-        
+        # # 更新 __init__.py 时间戳以触发 Flask 重载
+        # if update_init_timestamp():
+        #     logger.info("Settings and timestamp updated successfully")
+        #     return jsonify({
+        #         'status': 'OK', 
+        #         'message': '设置已保存，系统正在重新加载...',
+        #         'reload': True
+        #     })
+        # else:
+        #     logger.warning("Settings saved but reload trigger failed")
+        #     return jsonify({
+        #         'status': 'OK', 
+        #         'message': '设置已保存，但自动重载失败，请手动重启应用',
+        #         'reload': False
+        #     })
+
+        return jsonify({
+            "status": "OK",
+            "message": "Settings updated successfully"
+        }), 200
+
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")
         return jsonify({'status': 'ERROR', 'message': str(e)}), 500

@@ -25,7 +25,7 @@
                             </div>
                         </div>
 
-                        <br><br>
+                        <br>
                         <!-- 拍照模式（只保留OpenCV） -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-camera me-2"></i>拍照模式</h5>
@@ -54,8 +54,19 @@
                             </small>
                         </div>
 
-                        <input type="hidden" name="CAMERA_WIDTH" value="1920">
-                        <input type="hidden" name="CAMERA_HEIGHT" value="1080">
+                        <!-- 摄像头URL列表 -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>摄像头URL列表</h5>
+                            <small class="form-text text-muted mt-2">
+                             如：rtsp://admin@192.168.1.10:554/user=admin&password=&channel=1&stream=0.sdp?
+                            </small>
+                            
+                            <textarea class="form-control" name="CAMERA_URLS" rows="6" placeholder="每行一个摄像头RTSP地址 如：">{{ env.CAMERA_URLS or '' }}</textarea>
+                            <small class="form-text text-muted">如需添加更多摄像头，请每行填写一个RTSP地址。</small>
+                        </div>
+
+                        <input type="hidden" name="CAMERA_WIDTH" value="2880">
+                        <input type="hidden" name="CAMERA_HEIGHT" value="1620">
                         <input type="hidden" name="CAMERA_FPS" value="25">
                         <input type="hidden" name="CAMERA_JPEG_QUALITY" value="80">
                         <input type="hidden" name="CAMERA_BUFFER_SIZE" value="10">
@@ -74,7 +85,7 @@
                         <input type="hidden" name="CAMERA_BACKLIGHT" value="0">
                         <input type="hidden" name="CAMERA_POWERLINE_FREQ" value="1">
 
-                        <br><br>
+                        <br>
                         <!-- FTP配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-server me-2"></i>FTP配置</h5>
@@ -102,7 +113,7 @@
                             </div>
                         </div>
 
-                        <br><br>
+                        <br>
                         <!-- 升降柱配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-arrow-up me-2"></i>升降柱配置</h5>
@@ -124,12 +135,7 @@
                         <input type="hidden" name="OBS_PASSWORD" value="">
                         <input type="hidden" name="OBS_FOCUS_TIME" value="1">
 
-                        <!-- 摄像头URL列表 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>摄像头URL列表</h5>
-                            <textarea class="form-control" name="CAMERA_URLS" rows="6" placeholder="每行一个摄像头RTSP地址">{{ env.CAMERA_URLS or '' }}</textarea>
-                            <small class="form-text text-muted">如需添加更多摄像头，请每行填写一个RTSP地址。</small>
-                        </div>
+
                     </div>
                 </div>
                 <div class="mt-4 d-flex justify-content-end">

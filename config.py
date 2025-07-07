@@ -30,12 +30,12 @@ class Config:
     if PHOTO_MODE is None:
         PHOTO_MODE = '0'
     # logger.debug(f"[Config] Config class final PHOTO_MODE={PHOTO_MODE}")
-    
+
     # Camera configuration
     CAMERA_CONFIG = {
         'resolution': {
-            'width': int(os.environ.get('CAMERA_WIDTH', '2560')),
-            'height': int(os.environ.get('CAMERA_HEIGHT', '1440'))
+            'width': int(os.environ.get('CAMERA_WIDTH', '2880')),
+            'height': int(os.environ.get('CAMERA_HEIGHT', '1620'))
         },
         'fps': int(os.environ.get('CAMERA_FPS', '30')),
         'jpeg_quality': int(os.environ.get('CAMERA_JPEG_QUALITY', '100')),

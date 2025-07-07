@@ -20,8 +20,8 @@ class OpenCVControl:
         self.app = app
         self.config = app.config.get('CAMERA_CONFIG', {
             'resolution': {
-                'width': int(os.environ.get('CAMERA_WIDTH', 1920)),
-                'height': int(os.environ.get('CAMERA_HEIGHT', 1080))
+                'width': int(os.environ.get('CAMERA_WIDTH', 2880)),
+                'height': int(os.environ.get('CAMERA_HEIGHT', 1620))
             }
         })
         
