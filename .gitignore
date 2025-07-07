@@ -131,7 +131,7 @@ cython_debug/
 #*.sqlite
 
 # Log files
-*.log
+#*.log
 
 # IDE files
 .idea/
