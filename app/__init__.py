@@ -72,9 +72,12 @@ def create_app(test_config=None):
         logger.info("[create_app] Using OpenCV for camera control")
         opencv_control = OpenCVControl()
         opencv_control.init_app(app)
-        # Load camera URLs from environment
-        camera_urls = os.environ.get('CAMERA_URLS', '').split(',')
-        camera_urls = [url.strip() for url in camera_urls if url.strip()]
+        # Load camera URLs from environment - handle both newline and comma separated
+        urls_str = os.environ.get('CAMERA_URLS', '')
+        # First split by newlines, then split each line by commas
+        camera_urls = []
+        for line in urls_str.splitlines():
+            camera_urls.extend([url.strip() for url in line.split(',') if url.strip()])
         if camera_urls:
             opencv_control.set_camera_urls(camera_urls)
             logger.info(f"Configured {len(camera_urls)} camera URLs")
