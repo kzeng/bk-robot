@@ -110,6 +110,19 @@ class OpenCVControl:
                     abs_filepath = os.path.abspath(filepath)
                     self._log('debug', f"Saving frame to: {abs_filepath}")
 
+
+                    # # 保存为 PNG，压缩级别 9
+                    # cv2.imwrite('output_compressed.png', frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+                    # 压缩级别选择：
+                    # 如果优先考虑文件大小，选择较高的值（如 6-9）。
+                    # 如果优先考虑保存速度，选择较低的值（如 0-3）。
+                    # 默认值为 3，平衡了速度和文件大小。
+
+
+                    # # 保存为 JPEG，质量 90
+                    # cv2.imwrite('output_compressed.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+
                     # Save as PNG with highest quality (no compression)
                     if not cv2.imwrite(abs_filepath, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0]):
                         raise RuntimeError(f"Failed to save image for camera {i}")
