@@ -2,6 +2,117 @@
 
 {% block styles %}
     <style>
+        /* 设置页面容器样式 */
+        .container.mt-4 {
+            height: calc(100vh - 180px);
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 100px; /* 为footer预留空间 */
+        }
+
+        /* 表格容器样式 */
+        .table-container-wrapper {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .table-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            border-radius: 8px;
+        }
+
+        /* 自定义滚动条 */
+        .table-container::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: var(--tech-secondary);
+            border-radius: 6px;
+            border: 3px solid #f1f1f1;
+        }
+
+        /* 表格头部固定 */
+        .table-container table thead th {
+            position: sticky;
+            top: 0;
+            background: var(--tech-secondary);
+            color: white;
+            z-index: 1;
+            padding: 15px 10px;
+        }
+
+        /* 增大checkbox尺寸的样式 */
+        input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            margin: 8px;
+            cursor: pointer;
+            position: relative;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background: #fff;
+            border: 2px solid var(--tech-primary);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: var(--tech-primary);
+            border-color: var(--tech-primary);
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* 增大可点击区域 */
+        th:first-child, td:first-child {
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* 优化表格行高度和悬停效果 */
+        .table td, .table th {
+            padding: 1rem;
+            vertical-align: middle;
+        }
+
+        .table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(0,0,0,0.02);
+        }
+
+        /* 操作按钮样式优化 */
+        .table .btn {
+            margin: 0 3px;
+        }
+
         .marker-badge {
             display: inline-block;
             background-color: #1976d2;
@@ -14,17 +125,39 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
         }
+        
         .marker-badge:hover {
             background-color: #1565c0;
             transform: translateY(-1px);
+        }
+
+        /* 卡片样式优化 */
+        .card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+
+        /* 选中点位容器样式优化 */
+        .selected-markers-container {
+            margin-bottom: 1rem !important;
+            background-color: #f8f9fa !important;
+            border-left: 4px solid var(--tech-primary) !important;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-
-  <div class="container mt-4">
- 
+<div class="container mt-4">
     <h3 class="mb-4">点位配置         
         <button type="button" class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#markerConfigModal">
               <i class="fas fa-plus me-1"></i> 新增点位
@@ -42,12 +175,11 @@
 
     <div class="card">
         <div class="card-body">
-            <div class="selected-markers-container mb-3 p-3 rounded shadow-sm" 
-                 style="background-color: #fff8e1; border-left: 4px solid #1976d2; transition: all 0.3s ease;">
+            <div class="selected-markers-container mb-3 p-3 rounded shadow-sm">
                 <span class="fw-bold">当前选中点位: </span>
-                <span id="selectedMarkersList" class="text-primary fw-medium" 
-                      style="word-break: break-word; transition: all 0.3s ease;">无</span>
+                <span id="selectedMarkersList" class="text-primary fw-medium">无</span>
             </div>
+            
             <div class="row mb-3">
                 <div class="col-md-6">
                     <div class="input-group">
@@ -59,25 +191,27 @@
                 </div>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAllCheckbox"></th>
-                            <th>ID</th>
-                            <th>点位名称</th>
-                            <th>点位简写</th>
-                            <th>X坐标</th>
-                            <th>Y坐标</th>
-                            <th>宽度</th>
-                            <th>高度</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="markerConfigTable">
-                        <!-- Data will be loaded here -->
-                    </tbody>
-                </table>
+            <div class="table-container-wrapper">
+                <div class="table-container">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox"></th>
+                                <th>ID</th>
+                                <th>点位名称</th>
+                                <th>点位简写</th>
+                                <th>X坐标</th>
+                                <th>Y坐标</th>
+                                <th>宽度</th>
+                                <th>高度</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="markerConfigTable">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

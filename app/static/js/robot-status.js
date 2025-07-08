@@ -71,14 +71,32 @@ function updateRobotStatus() {
 function toggleStatusPolling() {
     statusPollingEnabled = !statusPollingEnabled;
     const toggleButton = document.getElementById('togglePolling');
+    
+    // 添加触摸反馈动画类
+    toggleButton.classList.add('btn-pressed');
+    setTimeout(() => toggleButton.classList.remove('btn-pressed'), 200);
+    
     const icon = statusPollingEnabled ? 'bi-eye-fill' : 'bi-eye-slash-fill';
     const text = statusPollingEnabled ? '停止状态更新' : '开始状态更新';
-    toggleButton.innerHTML = `<i class="bi ${icon} me-1"></i>${text}`;
-    toggleButton.className = `btn btn-sm ${statusPollingEnabled ? 'btn-danger' : 'btn-success'}`;
+    toggleButton.innerHTML = `<i class="bi ${icon} me-2"></i>${text}`;
+    
+    // 使用新的科技感配色
+    toggleButton.className = `btn btn-sm ${
+        statusPollingEnabled 
+            ? 'btn-danger'
+            : 'btn-success'
+    } shadow-sm`;
     
     if (statusPollingEnabled) {
         updateRobotStatus();
         pollingInterval = setInterval(updateRobotStatus, 1000);
+        
+        // 添加状态更新的视觉反馈
+        const badges = document.querySelectorAll('.badge');
+        badges.forEach(badge => {
+            badge.style.transition = 'transform 0.3s ease';
+            badge.addEventListener('transitionend', () => badge.style.transform = '');
+        });
     } else {
         clearInterval(pollingInterval);
     }

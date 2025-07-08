@@ -9,41 +9,117 @@
     <link href="{{ url_for('static', filename='res/bootstrap-icons.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ url_for('static', filename='res/bookgoal.ico') }}" type="image/x-icon">
     <style>
+        :root {
+            --tech-primary: #00a8ff;
+            --tech-secondary: #192a56;
+            --tech-success: #2ecc71;
+            --tech-danger: #e74c3c;
+            --tech-warning: #f1c40f;
+            --tech-info: #3498db;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-size: 16px;
+        }
+
         .footer {
-            border-top: 1px solid rgba(0,0,0,0.1);
+            border-top: 1px solid rgba(255,255,255,0.1);
             position: fixed;
-            bottom: -10px;
+            bottom: 0;
             width: 100%;
             z-index: 1000;
-            /* background-color: #212529; */
-            background-color: #eee;
+            background: linear-gradient(135deg, var(--tech-secondary), #1a1a2e);
             opacity: 1;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            padding: 8px 0;
         }
+
         main {
-            padding-bottom: 120px; /* Initial value, will be updated by JS */
+            padding-bottom: 120px;
         }        
+
         .badge {
-            line-height: 1.2;
+            line-height: 1.5;
             font-weight: normal;
             min-width: 140px;
             white-space: normal;
+            font-size: 1rem;
+            padding: 8px 12px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
         }        
+
         .table-status th {
             font-weight: normal;
-            color: #666;
-            padding-bottom: 0.1rem;
+            color: rgba(255,255,255,0.7);
+            padding-bottom: 0.3rem;
         }
+
         .table-status td {
-            padding-top: 0.1rem;
+            padding-top: 0.3rem;
         }
+
         .status-title {
             font-weight: bold;
-            color: #333;
-            font-size: 12px;
+            color: rgba(255,255,255,0.9);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         .py-4 {
-        padding-top: 0rem !important;
-        padding-bottom: 1.5rem !important;
+            padding-top: 0rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            font-size: 1rem;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+
+        .btn-sm {
+            padding: 8px 20px;
+            font-size: 0.95rem;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--tech-secondary), #1a1a2e) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .nav-link {
+            font-size: 1.1rem;
+            padding: 0.8rem 1rem !important;
+        }
+
+        /* 状态标签的科技感配色 */
+        .bg-info {
+            background-color: var(--tech-info) !important;
+        }
+        
+        .bg-success {
+            background-color: var(--tech-success) !important;
+        }
+        
+        .bg-danger {
+            background-color: var(--tech-danger) !important;
+        }
+        
+        .bg-warning {
+            background-color: var(--tech-warning) !important;
         }
     </style>
     {% block styles %}{% endblock %}
