@@ -37,7 +37,37 @@
 
         main {
             padding-bottom: 120px;
+            background: linear-gradient(135deg, rgba(240,248,255,0.7) 60%, rgba(0,168,255,0.10) 100%);
+            border-radius: 18px;
+            box-shadow: 0 4px 24px 0 rgba(0, 168, 255, 0.08), 0 1.5px 8px 0 rgba(25,42,86,0.08);
+            position: relative;
+            overflow: hidden;
         }        
+
+        /* AI微光点缀 */
+        main::before, main::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.18;
+        }
+        main::before {
+            width: 180px;
+            height: 180px;
+            left: -60px;
+            top: -60px;
+            background: radial-gradient(circle, #00a8ff 0%, transparent 80%);
+            filter: blur(2px);
+        }
+        main::after {
+            width: 120px;
+            height: 120px;
+            right: -40px;
+            bottom: -40px;
+            background: radial-gradient(circle, #2ecc71 0%, transparent 80%);
+            filter: blur(2px);
+        }
 
         .badge {
             line-height: 1.5;
@@ -201,10 +231,6 @@
     {% endblock %}
     <main class="container py-4 flex-grow-1">
         {% block content %}{% endblock %}
-        <br>
-        <br>
-        <br>
-        <br>
     </main>
   
     {% block footer %}
