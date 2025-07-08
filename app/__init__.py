@@ -4,6 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
 import os
+import subprocess
+from datetime import datetime
 from .robot_control import RobotControl
 from .obs_control import OBSControl
 from .opencv_control import OpenCVControl
@@ -11,6 +13,12 @@ from .ffmpeg_control import FFmpegControl
 from .lift_control import Lift
 from config import Config
 from app.utils.logger import configured_logger as logger
+
+def get_git_revision():
+    try:
+        return subprocess.check_output(['git', 'rev-parse', '--short=4', 'HEAD']).decode('ascii').strip()
+    except:
+        return 'dev0'
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -33,6 +41,13 @@ def create_app(test_config=None):
             'sqlite:///' + os.path.join(app.instance_path, 'tasks.db'),
         SQLALCHEMY_TRACK_MODIFICATIONS=False
     )
+
+    @app.context_processor
+    def inject_globals():
+        return {
+            'current_year': datetime.now().year,
+            'git_version': get_git_revision()
+        }
 
     if test_config is None:
         # Load configuration directly from Config class to ensure all settings are available
@@ -109,7 +124,7 @@ def create_app(test_config=None):
         logger.error(f"Failed to initialize lift: {str(e)}")
         app.lift = None
 
-    # register blueprints
+    # 注册蓝图和其他初始化代码
     from . import routes
     app.register_blueprint(routes.bp)
 
