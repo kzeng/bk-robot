@@ -74,14 +74,14 @@
                         </button>
 
                         {% if session.role == 'super_user' %}
-                            <button id="cropAndUploadBtn" class="btn btn-primary me-2">
-                            <i class="bi bi-lightning-charge-fill me-1"></i>裁剪&分类 
-                            </button>
-                            <button id="uploadSelectedBtn" class="btn btn-success me-2">
-                            上传目录 <i class="fa fa-cloud-upload" aria-hidden="true"></i>
-                            </button>
+                        <button id="cropAndUploadBtn" class="btn btn-primary me-2">
+                        <i class="bi bi-lightning-charge-fill me-1"></i>裁剪&分类 
+                        </button>
+                        <button id="uploadSelectedBtn" class="btn btn-success me-2">
+                        上传目录 <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                        </button>
                         {% endif %}
-                    
+        
                         <button id="deleteSelectedBtn" class="btn btn-danger me-2">
                             删除目录
                         </button>
@@ -505,7 +505,7 @@
                     method: 'POST'
                 })
                 .then(response => response.json())
-                .then data => {
+                .then(data => {
                     alert('已清空所有图片');
                     if (data.success) {
                         selectedDirectory = '';
@@ -667,13 +667,18 @@
             loadDirectories();
             loadImages();
             
-            // 绑定按钮事件
-            document.getElementById('cropAndUploadBtn').addEventListener('click', cropImages);
-            document.getElementById('oneClickUploadBtn').addEventListener('click', oneClickUpload);
-            document.getElementById('uploadSelectedBtn').addEventListener('click', uploadSelectedDirectory);
-            document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedDirectory);
-            document.getElementById('clearAllBtn').addEventListener('click', clearAllPhotos);
-            document.getElementById('refreshBtn').addEventListener('click', () => {
+        // 安全绑定按钮事件
+        const bindButton = (id, handler) => {
+            const btn = document.getElementById(id);
+            if (btn) btn.addEventListener('click', handler);
+        };
+        
+        bindButton('cropAndUploadBtn', cropImages);
+        bindButton('oneClickUploadBtn', oneClickUpload);
+        bindButton('uploadSelectedBtn', uploadSelectedDirectory);
+        bindButton('deleteSelectedBtn', deleteSelectedDirectory);
+        bindButton('clearAllBtn', clearAllPhotos);
+        bindButton('refreshBtn', () => {
                 selectedDirectory = '';
                 currentDirectory = '';
                 document.getElementById('currentDirectory').textContent = '当前目录：全部图片';
