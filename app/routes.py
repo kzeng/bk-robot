@@ -21,6 +21,8 @@ from .lift_control import Lift
 from dotenv import load_dotenv, set_key
 from loguru import logger
 import os
+from flask import stream_with_context, Response
+import cv2
 
 TASK_STATUS_READY        = 0
 TASK_STATUS_INPROGRESS   = 1
@@ -2268,3 +2270,146 @@ def crop_images():
             'message': f'处理过程中发生错误: {str(e)}',
             'processed_files': []
         }), 500  # 添加500状态码表示服务器错误
+
+@bp.route('/ipcams')
+@login_required
+def ipcams():
+    """网络摄像头仪表盘页面，支持多行和逗号分隔的 CAMERA_URLS"""
+    # 获取摄像头URL配置
+    # camera_urls_raw = current_app.config.get('CAMERA_URLS', '')
+    cameras = []
+    urls_str = os.environ.get('CAMERA_URLS', '')
+    # First split by newlines, then split each line by commas
+    camera_urls = []
+    for line in urls_str.splitlines():
+        # camera_urls.extend([url.strip() for url in line.split(',') if url.strip()])
+        print(line)
+        # rtsp://admin@192.168.10.21:554/user=admin&password=&channel=1&stream=0.sdp?
+        cameras.append({
+            'name': f'{ line.split("@")[1].split(":")[0] }',
+            'url': line
+        })
+
+    return render_template('ipcams.html', cameras=cameras)
+
+
+# ----------- 优化：全局复用RTSP连接，降低帧率 -----------
+import threading
+import queue
+
+# 全局摄像头流管理
+camera_streams = {}
+camera_queues = {}
+camera_threads = {}
+FRAME_QUEUE_SIZE = 2
+TARGET_FPS = 5  # 目标帧率，可根据需要调整
+
+def camera_stream_worker(cam_id, rtsp_url):
+    import cv2, time
+    cap = cv2.VideoCapture(rtsp_url)
+    q = camera_queues[cam_id]
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            time.sleep(1)
+            continue
+        # 降帧
+        time.sleep(1.0 / TARGET_FPS)
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if ret:
+            if q.full():
+                try: q.get_nowait()
+                except: pass
+            q.put(buffer.tobytes())
+
+
+
+@bp.route('/video_feed/<int:cam_id>')
+def video_feed(cam_id):
+    cameras = []
+    urls_str = os.environ.get('CAMERA_URLS', '')
+    for line in urls_str.splitlines():
+        cameras.append(line.strip())
+
+    if cam_id < 1 or cam_id > len(cameras):
+        return "Invalid camera id", 404
+
+    rtsp_url = cameras[cam_id - 1]
+
+    print(f"RTSP URL: {rtsp_url}")
+    # 初始化队列和线程
+    if cam_id not in camera_queues or camera_queues[cam_id] is None:
+        camera_queues[cam_id] = queue.Queue(maxsize=FRAME_QUEUE_SIZE)
+    if cam_id not in camera_threads or camera_threads[cam_id] is None or not camera_threads[cam_id].is_alive():
+        t = threading.Thread(target=camera_stream_worker, args=(cam_id, rtsp_url), daemon=True)
+        camera_threads[cam_id] = t
+        t.start()
+
+    def generate():
+        placeholder_path = os.path.join(current_app.root_path, 'static', 'res', 'placeholder.png')
+        while True:
+            try:
+                # 检查 camera_queues[cam_id] 是否为 None
+                if cam_id not in camera_queues or camera_queues[cam_id] is None:
+                    logger.warning(f"Camera queue for cam_id {cam_id} is None. Stopping video feed.")
+                    break  # 优雅地退出生成器
+
+                # 从队列中获取帧
+                frame = camera_queues[cam_id].get(timeout=2)
+                yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            except queue.Empty:
+                # 如果队列为空，返回占位图
+                logger.warning(f"Frame queue for cam_id {cam_id} is empty. Returning placeholder image.")
+                with open(placeholder_path, 'rb') as f:
+                    yield (b'--frame\r\n'
+                        b'Content-Type: image/jpeg\r\n\r\n' + f.read() + b'\r\n')
+            except Exception as e:
+                # 捕获其他异常并记录日志
+                logger.error(f"Error in video feed generator for cam_id {cam_id}: {str(e)}")
+                with open(placeholder_path, 'rb') as f:
+                    yield (b'--frame\r\n'
+                        b'Content-Type: image/jpeg\r\n\r\n' + f.read() + b'\r\n')
+                break  # 遇到异常时退出生成器
+
+    return Response(stream_with_context(generate()), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# @bp.route('/release_all_cameras', methods=['POST'])
+# def release_all_cameras():
+#     """释放所有摄像头资源"""
+#     for cam_id in list(camera_threads.keys()):
+#         # 停止线程
+#         camera_threads[cam_id] = None
+#         # 清空队列
+#         if cam_id in camera_queues:
+#             camera_queues[cam_id] = None
+#         # 释放摄像头连接
+#         if cam_id in camera_streams:
+#             camera_streams[cam_id].release()
+#             camera_streams.pop(cam_id, None)
+#     return jsonify({'status': 'success', 'message': 'All camera resources released'})
+
+
+camera_active = True  # 全局标志位
+
+@bp.route('/release_all_cameras', methods=['POST'])
+def release_all_cameras():
+    """释放所有摄像头资源"""
+    global camera_active
+    camera_active = False  # 通知生成器停止工作
+    try:
+        for cam_id in list(camera_threads.keys()):
+            # 停止线程
+            camera_threads[cam_id] = None
+            # 清空队列
+            if cam_id in camera_queues:
+                camera_queues[cam_id] = None
+            # 释放摄像头连接
+            if cam_id in camera_streams:
+                camera_streams[cam_id].release()
+                camera_streams.pop(cam_id, None)
+        return jsonify({'status': 'success', 'message': 'All camera resources released'})
+    except Exception as e:
+        logger.error(f"Error releasing camera resources: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Failed to release camera resources: {str(e)}'}), 500
