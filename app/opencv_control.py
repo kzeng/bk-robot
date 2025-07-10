@@ -124,7 +124,7 @@ class OpenCVControl:
 
 
                     # Save as PNG with highest quality (no compression)
-                    if not cv2.imwrite(abs_filepath, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0]):
+                    if not cv2.imwrite(abs_filepath, frame, [cv2.IMWRITE_PNG_COMPRESSION, 3]):
                         raise RuntimeError(f"Failed to save image for camera {i}")
                     self._log('debug', f"Successfully saved image for camera {i}")
 
