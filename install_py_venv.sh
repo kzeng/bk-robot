@@ -53,6 +53,8 @@ pip install \
     simple-websocket \
     SQLAlchemy \
     psutil \
+    playsound \
+    requests \
     websocket-client
 
 echo -e "\nInstallation completed successfully!"
