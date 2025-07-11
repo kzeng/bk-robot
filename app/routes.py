@@ -1682,6 +1682,32 @@ def robot_status():
     
     return jsonify(response)
 
+
+@bp.route('/api/move/cancel', methods=['POST'])
+def move_cancel():
+    """取消机器人当前移动任务API"""
+    try:
+        robot_control = current_app.robot_control
+        result = robot_control.cancel_move()
+        
+        if result.get("status") == "OK":
+            return jsonify({
+                "status": "OK",
+                "message": "Move cancelled successfully"
+            })
+        else:
+            return jsonify({
+                "status": "ERROR",
+                "message": result.get("error_message", "Failed to cancel move")
+            }), 500
+    except Exception as e:
+        return jsonify({
+            "status": "ERROR",
+            "message": str(e)
+        }), 500
+    
+
+
 def update_init_timestamp():
     """更新 __init__.py 的时间戳注释以触发 Flask 重载"""
     try:

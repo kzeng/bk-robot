@@ -126,8 +126,18 @@ def trigger_recharge():
     else:
         print("Failed to trigger recharge.")
 
+def terminate_current_task():
+    """Terminate the robot's current task."""
+    response = requests.post("http://127.0.0.1:5000/api/move/cancel")
+    if response.status_code == 200:
+        print("Current task terminated successfully.")
+    else:
+        print("Failed to terminate the current task.")
+
 def monitor_power():
     """Monitor the robot's power level periodically."""
+    recharge_triggered = False  # Flag to track if recharge has been triggered
+
     while True:
         status = get_robot_status()
         if status:
@@ -135,13 +145,19 @@ def monitor_power():
             power_percent = status.get("power_percent", 100)
 
             if charge_state:  # If not charging
-                if power_percent < P1:
-                    print(f"Power below {P1}%. Triggering recharge.")
+                if power_percent < P1 and not recharge_triggered:
+                    print(f"Power below {P1}%. Terminating task and triggering recharge.")
+                    terminate_current_task()  # Terminate the current task
                     play_audio_alert("alert2.mp3")
+                    time.sleep(1)
                     trigger_recharge()
+                    recharge_triggered = True  # Set flag to prevent repeated triggering
                 elif power_percent < P2:
                     print(f"Power below {P2}%. Playing alert.")
                     play_audio_alert("alert1.mp3")
+            else:
+                # Reset the flag if the robot is charging
+                recharge_triggered = False
 
         time.sleep(CHECK_INTERVAL)  # Wait for the check interval before the next check
 
