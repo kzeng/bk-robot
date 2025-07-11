@@ -87,12 +87,33 @@
 # # 如果脚本依赖网络，请确保 After=network.target 保证网络服务已启动。
 # # 完成以上步骤后，脚本将在系统启动时自动运行。
 
+# 安装依赖
+# pip install pydub
+# sudo apt install ffmpeg  # Linux
 
+# from pydub import AudioSegment
+# from pydub.playback import play
+# song = AudioSegment.from_mp3("alert2.mp3")
+# play(song)
+
+
+# pip install python-vlc
+# import vlc
+# player = vlc.MediaPlayer("sound.mp3")
+# player.play()
+# 等待播放完成
+# import time
+# time.sleep(10)  # 根据音频长度调整
 
 import time
 import requests
 import os
 from playsound import playsound
+
+
+# from pydub import AudioSegment
+# from pydub.playback import play
+
 
 P1 = 20
 P2 = 30
@@ -117,6 +138,14 @@ def play_audio_alert(file_name):
     playsound(full_path)
     time.sleep(2)
     playsound(full_path)
+
+    # song = AudioSegment.from_mp3(full_path)
+    # play(song)
+    # time.sleep(2)
+    # play(song)
+    # time.sleep(2)
+    # play(song)
+
 
 def trigger_recharge():
     """Trigger the robot to start recharging."""

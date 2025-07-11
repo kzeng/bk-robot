@@ -1,0 +1,13 @@
+[Unit]
+Description=Robot Power Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=bk
+WorkingDirectory=/home/bk/BOKU-SERVICE-HOME/bk-robot/scripts
+ExecStart=/home/bk/BOKU-SERVICE-HOME/bk-robot/venv/bin/python /home/bk/BOKU-SERVICE-HOME/bk-robot/scripts/robot_power_monitor.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
