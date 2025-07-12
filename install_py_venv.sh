@@ -53,7 +53,7 @@ pip install \
     simple-websocket \
     SQLAlchemy \
     psutil \
-    playsound \
+    python-vlc \
     requests \
     websocket-client
 

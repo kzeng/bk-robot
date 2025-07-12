@@ -98,7 +98,7 @@
 
 
 # pip install python-vlc
-# import vlc
+import vlc
 # player = vlc.MediaPlayer("sound.mp3")
 # player.play()
 # 等待播放完成
@@ -108,7 +108,6 @@
 import time
 import requests
 import os
-from playsound import playsound
 
 
 # from pydub import AudioSegment
@@ -133,18 +132,10 @@ def play_audio_alert(file_name):
     current_dir = os.getcwd()
     full_path = os.path.join(current_dir, file_name)
     print(full_path)  
-    playsound(full_path)
-    time.sleep(2)
-    playsound(full_path)
-    time.sleep(2)
-    playsound(full_path)
-
-    # song = AudioSegment.from_mp3(full_path)
-    # play(song)
-    # time.sleep(2)
-    # play(song)
-    # time.sleep(2)
-    # play(song)
+    for i in range(3):    
+        player = vlc.MediaPlayer(full_path)
+        player.play()
+        time.sleep(8)
 
 
 def trigger_recharge():
