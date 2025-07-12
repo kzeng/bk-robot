@@ -67,15 +67,17 @@ bk-robot/
 │   ├── static/                       # 静态资源
 │   ├── templates/                    # 前端模板
 │   └── utils/                        # 工具函数
-├── docs/                             # 项目文档
+├── docs/                              # 项目文档
 │   ├── BK-ROBOT-API.md               # API文档
 │   ├── dev-notes.md                  # 开发笔记
 │   └── issues.md                     # 问题记录
-├── instance/                         # 运行时实例数据
+├── instance/                          # 运行时实例数据
 │   └── tasks.db                      # 任务数据库
-├── scripts/                          # 辅助脚本目录
+├── scripts/                           # 辅助脚本目录
 │   ├── cams_info.sh                  # 摄像头信息查询脚本
 │   ├── cams_test.py                  # 摄像头测试脚本（Python）
+│   ├── robot_power_monitor.py        # 机器人电量监控脚本
+│   ├── robot_power_monitor.service   # 机器人电量监控服务
 │   ├── check_uvc_cam.sh              # 检查UVC摄像头脚本
 │   ├── disable_auto_upgrade.sh       # 禁用系统自动升级脚本
 │   ├── hold_current_kernel.sh        # 锁定当前内核版本脚本
@@ -85,6 +87,6 @@ bk-robot/
 │   ├── keyring_manager.sh            # 密钥环管理脚本
 │   ├── logs_clean.sh                 # 日志清理脚本
 │   └── robot_start.sh                # 机器人系统自启动脚本
-└── static/                           # 全局静态资源
+└── static/                            # 全局静态资源
 
 ```
