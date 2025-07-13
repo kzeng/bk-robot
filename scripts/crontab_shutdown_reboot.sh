@@ -16,6 +16,6 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Send shutdown command with specified delay
-/usr/bin/curl -X POST http://127.0.0.1:5000/api/robot/cmd  -H "Content-Type: application/json" -d '{"cmd": "/api/shutdown", "params": "reboot=true&delay=720"}'
+/usr/bin/curl -s -X POST http://127.0.0.1:5000/api/robot/cmd  -H "Content-Type: application/json" -d '{"cmd": "/api/shutdown", "params": "reboot=true&delay=720"}'
 
 
