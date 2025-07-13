@@ -56,7 +56,7 @@ class OpenCVControl:
 
         results = []
         timestamp = str(int(time.time()))
-        date_str = datetime.now().strftime("%Y%m%d_%H%M")
+        date_str = datetime.now().strftime("%Y%m%d")
         base_dir = os.path.join("static", "screenshots", date_str)
         os.makedirs(base_dir, exist_ok=True)
 

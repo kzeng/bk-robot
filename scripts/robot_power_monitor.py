@@ -156,28 +156,39 @@ def terminate_current_task():
 
 def monitor_power():
     """Monitor the robot's power level periodically."""
-    recharge_triggered = False  # Flag to track if recharge has been triggered
 
     while True:
         status = get_robot_status()
+        print("Current robot raw status:", status)
+      
         if status:
-            charge_state = not status.get("charge_state", True)  # Convert to 'not charging' logic
+            charge_state =  status.get("charge_state", True)  # Convert to 'not charging' logic
             power_percent = status.get("power_percent", 100)
 
-            if charge_state:  # If not charging
-                if power_percent < P1 and not recharge_triggered:
-                    print(f"Power below {P1}%. Terminating task and triggering recharge.")
+            print(('-------------------------------------'))
+            print("Checking power level...")
+            print("Charge state:",  charge_state)
+            print("Power percent:", power_percent)
+            print(('-------------------------------------'))
+
+
+            if not charge_state:  # If not charging
+                if power_percent < P1:
+                    print(f"Power below {P1}%. Terminating current task.")
                     terminate_current_task()  # Terminate the current task
+
+                    print(f"Power below {P1}%. Playing alert.")
                     play_audio_alert("alert2.mp3")
                     time.sleep(1)
+
+                    print(f"Power below {P1}%. Triggering recharge...")
                     trigger_recharge()
-                    recharge_triggered = True  # Set flag to prevent repeated triggering
                 elif power_percent < P2:
                     print(f"Power below {P2}%. Playing alert.")
                     play_audio_alert("alert1.mp3")
             else:
                 # Reset the flag if the robot is charging
-                recharge_triggered = False
+                print("Robot is charging status.")
 
         time.sleep(CHECK_INTERVAL)  # Wait for the check interval before the next check
 
