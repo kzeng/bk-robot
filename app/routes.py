@@ -587,11 +587,10 @@ def async_run_task(app, task_id):
                     target_marker = marker_list[current_marker_index]
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
 
-                    # Check if next marker is CD and lift needs to be lowered
-                    if current_marker_index == len(marker_list) - 2:  # Second last marker (before CD)
+                    logger.info(f"Want to move target {target_marker}")
+                    if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
                         app.lift.move_to_position_one()
-                        # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
 
 
                     # Try moving up to 3 times
@@ -670,8 +669,15 @@ def async_run_task(app, task_id):
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
                             retry_count += 1
                             
+                    # # Check if next marker is CD and lift needs to be lowered
+                    # if current_marker_index == len(marker_list) - 2:  # Second last marker (before CD)
+                    #     logger.info("Next marker is CD, moving lift to position one...")
+                    #     app.lift.move_to_position_one()
+                    #     # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
+
                     if not move_success:
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
+             
 
             elif task.action == 1:  # 录像
                 pass
