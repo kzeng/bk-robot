@@ -587,6 +587,13 @@ def async_run_task(app, task_id):
                     target_marker = marker_list[current_marker_index]
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
 
+                    # Check if next marker is CD and lift needs to be lowered
+                    if current_marker_index == len(marker_list) - 2:  # Second last marker (before CD)
+                        logger.info("Next marker is CD, moving lift to position one...")
+                        app.lift.move_to_position_one()
+                        # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
+
+
                     # Try moving up to 3 times
                     max_retries = 3
                     retry_count = 0
@@ -753,27 +760,13 @@ def async_run_task(app, task_id):
             #     except Exception as stop_error:
             #         logger.error(f"Error stopping recording after failure: stop_error")
         finally:
-            try:
-                # return lift to initial position
-                if app.lift:
-                    logger.info("Task completed, moving lift to position one (initial position)...")
-                    app.lift.move_to_position_one()
-         
-                if task_log:
-                    task_log.status = status
-                    task_log.end_time = datetime.now()
-                    task_log.file_count = len(file_paths)
-                    task_log.file_paths = json.dumps(file_paths)
-                    db.session.commit()
-                    logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
-            except Exception as e:
-                logger.error(f"Failed to update task log or control lift: {str(e)}")
-                # make sure to handle lift errors gracefully
-                try:
-                    if app.lift:
-                        app.lift.move_to_position_one()
-                except Exception as lift_error:
-                    logger.error(f"Failed to lower lift in error handler: {lift_error}")
+            if task_log:
+                task_log.status = status
+                task_log.end_time = datetime.now()
+                task_log.file_count = len(file_paths)
+                task_log.file_paths = json.dumps(file_paths)
+                db.session.commit()
+                logger.info(f"Task log updated - Status: {status}, Files: {len(file_paths)}")
 
 
 @bp.route('/api/tasks/<int:task_id>', methods=['DELETE'])
