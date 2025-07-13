@@ -26,14 +26,12 @@
                                 <tr>
                                     <td class="text-muted " style="width: 80px">任务ID</td>
                                     <td><span id="taskId" class="badge bg-dark fs-6">-</span></td>
-                                </tr>
-                                <tr>
+                          
                                     <td class="text-muted ">操作类型</td>
                                     <td><span id="action" class="badge bg-info fs-6">-</span></td>
-                                </tr>
-                                <tr>
+                         
                                     <td class="text-muted ">描述</td>
-                                    <td><span id="description" class="fs-5">-</span></td>
+                                    <td><span id="description" class="badge bg-success fs-6">-</span></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -57,9 +55,9 @@
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th width="35%">标记点</th>
+                            <th width="30%">标记点</th>
                             <th>操作类型</th>
-                            <!-- <th>描述</th> -->
+                            <th>描述</th>
                             <th>创建时间</th>
                             <th>操作</th>
                         </tr>
@@ -218,8 +216,9 @@
                             <td>${task.task_id}</td>
                             <td class="marker-cell">${task.marker}</td>
                             <td>${getActionText(task.action)}</td>
-                           
-                            <td>${task.create_at}</td>
+                            <td>${task.description}</td>
+                            <td>${task.create_at ? task.create_at.slice(0,10) : ''}</td>
+             
                             <td>
                                 {% if session.role == 'super_user' %}
                                     <button class="btn btn-lg btn-primary" onclick="editTask(${task.task_id})">编辑</button>

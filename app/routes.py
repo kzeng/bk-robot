@@ -761,7 +761,8 @@ def async_run_task(app, task_id):
             #         logger.error(f"Error stopping recording after failure: stop_error")
         finally:
             if task_log:
-                task_log.status = status
+                # task_log.status = status
+                task_log.status = TASK_STATUS_COMPLETED  #2 force to completed
                 task_log.end_time = datetime.now()
                 task_log.file_count = len(file_paths)
                 task_log.file_paths = json.dumps(file_paths)
@@ -858,11 +859,13 @@ def task_log_detail_page(log_id):
 def get_task_log_detail(log_id):
     """获取单个任务日志详情"""
     log = TaskLog.query.get_or_404(log_id)
+    task = Task.query.get(log.task_id)
     return jsonify({
         'log_id': log.log_id,
         'task_id': log.task_id,
         'marker': log.marker,
         'action': log.action,
+        'description': task.description if task else '',
         'start_time': log.start_time.strftime("%Y-%m-%d %H:%M:%S"),
         'end_time': log.end_time.strftime("%Y-%m-%d %H:%M:%S"),
         'status': log.status,

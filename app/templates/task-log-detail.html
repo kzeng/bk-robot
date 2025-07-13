@@ -47,6 +47,12 @@
         .marker-dot.active {
             background-color: #007bff;
         }
+        .marker-dot.cd {
+            background-color: #28a745; /* 绿色 */
+        }
+        .marker-dot.regular {
+            background-color: #007bff; /* 蓝色 */
+        }
         .marker-line {
             position: absolute;
             top: 5px;
@@ -80,6 +86,11 @@
                         <div class="mb-3">
                             <strong>标记点:</strong> <span id="marker"></span>
                         </div>
+
+                        <div class="mb-3">
+                        <strong>状态:</strong> 
+                        <span id="statusBadge" class="badge"></span>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -91,12 +102,21 @@
                         <div class="mb-3">
                             <strong>结束时间:</strong> <span id="endTime"></span>
                         </div>
+
+                        <div class="mb-3">
+                         <strong>描述:</strong> <span id="description" class="badge bg-success fs-6"></span>
+                        </div>
                     </div>
+
+   
                 </div>
-                <div class="mb-3">
+                <!--          
+                       <div class="mb-3">
                     <strong>状态:</strong> 
                     <span id="statusBadge" class="badge"></span>
                 </div>
+                -->
+          
             </div>
         </div>
 
@@ -126,6 +146,8 @@
                     // Set basic info
                     document.getElementById('logId').textContent = log.log_id;
                     document.getElementById('taskId').textContent = log.task_id;
+                    document.getElementById('description').textContent = log.description || '';
+
                     document.getElementById('marker').textContent = log.marker;
                     document.getElementById('action').textContent = 
                         log.action === 0 ? '拍照' : '录像';
@@ -159,6 +181,15 @@
                         
                         const markerDot = document.createElement('div');
                         markerDot.className = 'marker-dot';
+                        
+                        // 判断是否是最后一个点位(CD)
+                        if(index === markers.length - 1) {
+                            markerDot.classList.add('cd'); // CD点位绿色
+                        } else {
+                            markerDot.classList.add('regular'); // 其他点位蓝色
+                        }
+                        
+                        // 保留第一个点位的active状态
                         if(index === 0) markerDot.classList.add('active');
                         
                         const markerLabel = document.createElement('div');
