@@ -450,8 +450,8 @@ def create_task():
 def get_task(task_id):
     """获取单个盘点任务，增加返回最新执行状态status"""
     task = Task.query.get_or_404(task_id)
-    # 获取最新的任务日志
-    task_log = TaskLog.query.filter_by(task_id=task_id).order_by(TaskLog.start_time.desc()).first()
+    # 获取最新的任务日志（按 end_time 和 start_time 排序，确保拿到最新的）
+    task_log = TaskLog.query.filter_by(task_id=task_id).order_by(TaskLog.end_time.desc(), TaskLog.start_time.desc()).first()
     status = task_log.status if task_log else None
     return jsonify({
         'task_id': task.task_id,
