@@ -2441,3 +2441,41 @@ def release_all_cameras():
     except Exception as e:
         logger.error(f"Error releasing camera resources: {str(e)}")
         return jsonify({'status': 'error', 'message': f'Failed to release camera resources: {str(e)}'}), 500
+
+
+
+
+@bp.route('/crontab')
+@login_required
+def crontab():
+    return render_template('crontab.html')
+
+
+@bp.route('/api/crontab/list', methods=['GET'])
+def list_crontab():
+    """List all crontab entries."""
+    try:
+        result = subprocess.run(['crontab', '-l'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            return jsonify({"error": result.stderr.strip()}), 400
+        return jsonify({"crontab": result.stdout.strip().split('\n')})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/api/crontab/save', methods=['POST'])
+def save_crontab():
+    """Save the updated crontab content."""
+    data = request.json
+    if not data or 'content' not in data:
+        return jsonify({"error": "Missing 'content' in request body"}), 400
+
+    print(f"Received crontab content: {data['content']}")
+    try:
+        # Write the new crontab content
+        result = subprocess.run(['crontab', '-'], input=data['content'], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            return jsonify({"error": result.stderr.strip()}), 400
+        return jsonify({"message": "Crontab saved successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
