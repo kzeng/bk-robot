@@ -128,4 +128,9 @@ def create_app(test_config=None):
     from . import routes
     app.register_blueprint(routes.bp)
 
+
+    from . import routes1
+    app.register_blueprint(routes1.bp1)
+
+
     return app

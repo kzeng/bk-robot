@@ -211,11 +211,11 @@
                     <a class="nav-link {% if active_page == 'main.task_logs_page' %}active{% endif %}" href="{{ url_for('main.task_logs_page') }}">
                         <i class="fas fa-clipboard-list me-1"></i> 任务日志
                     </a>
-                    <a class="nav-link {% if active_page == 'main.photos_page' %}active{% endif %}" href="{{ url_for('main.photos_page') }}">
+                    <a class="nav-link {% if active_page == 'routes1.photos_page' %}active{% endif %}" href="{{ url_for('routes1.photos_page') }}">
                         <i class="fas fa-database me-1"></i> 数据管理
                     </a>
                     {% if session.role == 'super_user' %}
-                    <a class="nav-link {% if active_page == 'main.marker_config_page' %}active{% endif %}" href="{{ url_for('main.marker_config_page') }}">
+                    <a class="nav-link {% if active_page == 'routes1.marker_config_page' %}active{% endif %}" href="{{ url_for('routes1.marker_config_page') }}">
                         <i class="fas fa-map-marker-alt me-1"></i> 点位配置
                     </a>
                     <a class="nav-link {% if active_page == 'main.settings' %}active{% endif %}" href="{{ url_for('main.settings') }}">
@@ -229,9 +229,6 @@
                     <a class="nav-link {% if active_page == 'main.logout' %}active{% endif %}" href="{{ url_for('main.logout') }}">
                          <i class="fas fa-sign-out-alt me-1"></i>退出 &nbsp;&nbsp;  <i class="fas fa-user me-1"></i> {{ session.username.upper() }}
                     </a>
-
-
-    
 
             
                     {% endif %}
