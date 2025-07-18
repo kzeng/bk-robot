@@ -396,8 +396,8 @@ def create_task():
     """创建新盘点任务"""
     try:
         # Log request headers and raw data
-        logger.info(f"Request headers: {dict(request.headers)}")
-        logger.info(f"Content-Type: {request.content_type}")
+        # logger.info(f"Request headers: {dict(request.headers)}")
+        # logger.info(f"Content-Type: {request.content_type}")
         logger.info(f"Raw request data: {request.data}")
         
         try:
