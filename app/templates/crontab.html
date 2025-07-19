@@ -69,7 +69,11 @@
     }
 
     async function submitCrontab() {
-        const crontabContent = document.getElementById('crontab-list').value;
+        let crontabContent = document.getElementById('crontab-list').value;
+        // Ensure content ends with newline
+        if (crontabContent && !crontabContent.endsWith('\n')) {
+            crontabContent += '\n';
+        }
         if (!validateCrontab(crontabContent)) {
             alert('计划任务格式不正确，请检查后再提交');
             return;
@@ -91,13 +95,15 @@
 
     function validateCrontab(content) {
         const lines = content.split('\n');
-        const crontabRegex = /^((\*|\d+)(\/\d+)?\s+){4}(\*|\d+)(\/\d+)?\s+.+$/;
+        const timeBasedRegex = /^((\*|\d+)(\/\d+)?\s+){4}(\*|\d+)(\/\d+)?\s+.+$/;
+        const specialStringRegex = /^@(reboot|yearly|annually|monthly|weekly|daily|hourly)\s+.+$/;
+        
         for (const line of lines) {
             if (line.trim() === '' || line.startsWith('#')) {
                 continue; // Allow empty lines and comments
             }
-            if (!crontabRegex.test(line)) {
-                alert(`计划任务格式错误：${line}`);
+            if (!timeBasedRegex.test(line) && !specialStringRegex.test(line)) {
+                alert(`计划任务格式错误：${line}\n\n正确格式可以是：\n1. 时间格式: * * * * * command\n2. 特殊字符串: @reboot command`);
                 return false;
             }
         }
