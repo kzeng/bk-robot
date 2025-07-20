@@ -388,13 +388,18 @@ def delete_image():
                 'message': 'Filename is required'
             }), 400
         
-        # 获取截图根目录，使用绝对路径
-        # screenshots_dir = os.path.normpath('/home/bk/BOKU-SERVICE-HOME/bk-robot/static/screenshots')
-        # logger.info(f"Screenshots base directory (absolute path): {screenshots_dir}")
-        screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
+        # 获取截图根目录
+        screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         screenshots_dir = os.path.normpath(screenshots_dir)
         logger.info(f"Screenshots base directory: {screenshots_dir}")
 
+        # 确保screenshots目录存在
+        if not os.path.exists(screenshots_dir):
+            logger.error(f"Screenshots directory does not exist: {screenshots_dir}")
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'Screenshots directory not found at: {screenshots_dir}'
+            }), 404
 
         # 优先检查日期子目录（如果文件名包含日期）
         file_path = None
@@ -455,23 +460,62 @@ def delete_image():
                 else:
                     logger.warning(f"Dated directory not found: {dated_dir} and file not in root")
         
-        # 如果仍未找到文件路径，尝试其他位置
-        if not file_path:
-            if directory:
-                file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        # 构造最终文件路径
+        if directory:
+            # 如果指定了目录，直接使用该目录
+            file_path = os.path.normpath(os.path.join(screenshots_dir, directory, filename))
+        else:
+            # 如果没有指定目录，尝试从文件名提取日期目录
+            # 文件名格式: YYYYMMDDXXXX-... or Unknown-...-YYYYMMDD...
+            date_str = None
+            if filename.startswith('20') and len(filename) >= 8:  # Starts with year
+                date_str = filename[:8]  # YYYYMMDD
+            elif 'Unknown-' in filename:  # Unknown-s1-c1-L2-YYYYMMDD_...
+                parts = filename.split('-')
+                if len(parts) >= 3:
+                    date_part = parts[2]
+                    if len(date_part) >= 8 and date_part[:4].isdigit():
+                        date_str = date_part[:8]  # YYYYMMDD
+            
+            # 检查日期目录是否存在
+            if date_str:
+                date_dir = os.path.join(screenshots_dir, date_str)
+                if os.path.exists(date_dir):
+                    file_path = os.path.normpath(os.path.join(date_dir, filename))
+                    logger.info(f"Found file in dated directory: {file_path}")
+                else:
+                    file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
             else:
                 file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
         
-        logger.info(f"Trying to delete file: {file_path}")
-        logger.info(f"Full absolute path: {os.path.abspath(file_path)}")
+        logger.info(f"Final file path to delete: {file_path}")
+        logger.info(f"Absolute path: {os.path.abspath(file_path)}")
         
-        if not os.path.exists(file_path):
-            logger.error(f"File not found at path: {os.path.abspath(file_path)}")
+        # 验证路径是否在screenshots目录下（安全检查）
+        if not os.path.abspath(file_path).startswith(os.path.abspath(screenshots_dir)):
+            logger.error(f"Invalid file path outside screenshots directory: {file_path}")
             return jsonify({
                 'status': 'ERROR',
-                'message': f'File not found: {filename} in directory {directory}',
-                'full_path': os.path.abspath(file_path)
-            }), 404
+                'message': 'Invalid file path - cannot delete files outside screenshots directory'
+            }), 403
+        
+        if not os.path.exists(file_path):
+            logger.info(f"File not found at primary path, searching recursively...")
+            found = False
+            for root, _, files in os.walk(screenshots_dir):
+                if filename in files:
+                    file_path = os.path.join(root, filename)
+                    logger.info(f"Found file at: {file_path}")
+                    found = True
+                    break
+            
+            if not found:
+                logger.error(f"File not found at path: {os.path.abspath(file_path)}")
+                return jsonify({
+                    'status': 'ERROR',
+                    'message': f'File not found: {filename} in directory {directory}',
+                    'full_path': os.path.abspath(file_path)
+                }), 404
         
         # 删除文件
         logger.info(f"Deleting file: {file_path}")
@@ -722,7 +766,8 @@ def sync_marker_configs():
             marker_name = info.get('marker_name')
             if marker_name:
                 # 创建简写名称（M1, M2, ...）
-                if marker_name != 'CD':
+                # if marker_name != 'CD':
+                if marker_name.strip().replace(' ', '').upper() != 'CD':
                     count += 1
                     mid_short = f'M{count}'
                 else:
@@ -918,5 +963,3 @@ def crop_images():
             'message': f'处理过程中发生错误: {str(e)}',
             'processed_files': []
         }), 500  # 添加500状态码表示服务器错误
-
-

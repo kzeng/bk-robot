@@ -437,6 +437,10 @@ def create_task():
 @bp.route('/tasks/<int:task_id>', methods=['GET'])
 def get_task(task_id):
     """获取单个盘点任务，增加返回最新执行状态status"""
+
+    # Refresh session to ensure we get latest data
+    db.session.expire_all()
+    
     task = Task.query.get_or_404(task_id)
     # 获取最新的任务日志（按 end_time 和 start_time 排序，确保拿到最新的）
     task_log = TaskLog.query.filter_by(task_id=task_id).order_by(TaskLog.end_time.desc(), TaskLog.start_time.desc()).first()
@@ -734,7 +738,9 @@ def async_run_task(app, task_id):
                 raise Exception(f"Unknown action type: {task.action}")
             
             if status == 1:
-                status = 2
+                # status = 2
+                task_log.status = TASK_STATUS_COMPLETED 
+                db.session.commit()  # Commit the failure status immediately
         except Exception as e:
             status = 4
             logger.error(f"Error executing task {task_id}: {str(e)}")
