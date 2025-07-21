@@ -182,6 +182,7 @@ function loadMarkerConfigs() {
                         <button class="btn btn-sm btn-primary" onclick="editMarkerConfig(${JSON.stringify(config).replace(/"/g, '&quot;')})">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        &nbsp;&nbsp;&nbsp;
                         <button class="btn btn-sm btn-danger" onclick="deleteMarkerConfig(${config.id})">
                             <i class="bi bi-trash"></i>
                         </button>

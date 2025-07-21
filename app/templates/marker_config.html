@@ -1,10 +1,12 @@
-{% extends "base.html" %}
+{% extends "base1.html" %}
 
 {% block styles %}
     <style>
         /* 设置页面容器样式 */
         .container.mt-4 {
-            height: calc(100vh - 180px);
+            
+            height: calc(100vh - 0px);
+
             display: flex;
             flex-direction: column;
             padding-bottom: 100px; /* 为footer预留空间 */
@@ -32,7 +34,7 @@
 
         /* 自定义滚动条 */
         .table-container::-webkit-scrollbar {
-            width: 12px;
+            width: 18px;
         }
 
         .table-container::-webkit-scrollbar-track {
@@ -53,7 +55,7 @@
             background: var(--tech-secondary);
             color: white;
             z-index: 1;
-            padding: 15px 10px;
+            padding: 8px 6px;
         }
 
         /* 增大checkbox尺寸的样式 */
@@ -96,8 +98,12 @@
 
         /* 优化表格行高度和悬停效果 */
         .table td, .table th {
-            padding: 1rem;
+            padding: 0.5rem;
             vertical-align: middle;
+        }
+
+        #markerConfigTable td, #markerConfigTable th {
+            padding: 0.4rem;
         }
 
         .table tbody tr {
@@ -108,10 +114,6 @@
             background-color: rgba(0,0,0,0.02);
         }
 
-        /* 操作按钮样式优化 */
-        .table .btn {
-            margin: 0 3px;
-        }
 
         .marker-badge {
             display: inline-block;
@@ -168,27 +170,22 @@
         <button type="button" class="btn btn-danger btn-sm me-2" id="clearMarkersButton">
               <i class="fas fa-trash me-1"></i> 清空点位
         </button>
-        <button type="button" class="btn btn-info btn-sm" id="createTaskButton">
+        <button type="button" class="btn btn-info btn-sm me-2" id="createTaskButton">
               <i class="fas fa-tasks me-1"></i> 创建盘点任务
         </button>
+        <div class="input-group" style="width: 240px; display: inline-flex; margin-left: 0.5rem">
+            <input type="text" class="form-control" id="searchInput" placeholder="搜索点位名称或简写...">
+            <button class="btn btn-primary" type="button" id="searchButton" title="搜索">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
     </h3>
 
     <div class="card">
         <div class="card-body">
-            <div class="selected-markers-container mb-3 p-3 rounded shadow-sm">
+            <div class="selected-markers-container mb-3 p-2 rounded shadow-sm">
                 <span class="fw-bold">当前选中点位: </span>
                 <span id="selectedMarkersList" class="text-primary fw-medium">无</span>
-            </div>
-            
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="searchInput" placeholder="搜索点位名称或简写...">
-                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
-                            <i class="bi bi-search"></i> 搜索
-                        </button>
-                    </div>
-                </div>
             </div>
 
             <div class="table-container-wrapper">
