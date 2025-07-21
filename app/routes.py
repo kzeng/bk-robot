@@ -625,28 +625,32 @@ def async_run_task(app, task_id):
                                 if move_status == 'succeeded' and actual_marker == target_marker:
                                     logger.info(f"Robot successfully reached marker {target_marker}")
 
-                                    # take photos at the target marker
-                                    logger.info(f"Taking photos at marker {target_marker}")
-                                    time.sleep(1)  # Give some time for the robot to stabilize at the marker
-                                    
-                                    photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
-                                    logger.debug(f"Raw photo result: {photo_result}")
-
-                                    if photo_result.get('status') == 'OK':
-                                        # 从 results 中提取所有成功的文件路径
-                                        new_files = [r['filepath'] for r in photo_result.get('results', []) 
-                                                    if r.get('status') == 'OK' and 'filepath' in r]
+                                    # if target_marker is CD, skip taking photos
+                                    if target_marker == "CD":
+                                        logger.info("Skipping photo taking at CD")
+                                    else:
+                                        # take photos at the target marker
+                                        logger.info(f"Taking photos at marker {target_marker}")
+                                        time.sleep(1)  # Give some time for the robot to stabilize at the marker
                                         
-                                        if new_files:
-                                            file_paths.extend(new_files)
-                                            logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                                        photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
+                                        logger.debug(f"Raw photo result: {photo_result}")
+
+                                        if photo_result.get('status') == 'OK':
+                                            # 从 results 中提取所有成功的文件路径
+                                            new_files = [r['filepath'] for r in photo_result.get('results', []) 
+                                                        if r.get('status') == 'OK' and 'filepath' in r]
+                                            
+                                            if new_files:
+                                                file_paths.extend(new_files)
+                                                logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                                            else:
+                                                status = TASK_STATUS_PARTIAL
+                                                logger.warning(f"No photos saved at {target_marker} despite OK status")
                                         else:
                                             status = TASK_STATUS_PARTIAL
-                                            logger.warning(f"No photos saved at {target_marker} despite OK status")
-                                    else:
-                                        status = TASK_STATUS_PARTIAL
-                                        logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
-                                        logger.debug(f"Photo result: {photo_result}")
+                                            logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                                            logger.debug(f"Photo result: {photo_result}")
 
                                     move_success = True
                                     move_complete = True
