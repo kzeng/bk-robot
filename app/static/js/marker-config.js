@@ -172,6 +172,7 @@ function loadMarkerConfigs() {
                     <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}"></td>
                     <td>${config.id}</td>
                     <td>${config.mid}</td>
+                    <td>${config.mid2 || ''}</td>
                     <td>${config.mid_short}</td>
                     <td>${config.x}</td>
                     <td>${config.y}</td>
@@ -198,6 +199,7 @@ function loadMarkerConfigs() {
 function editMarkerConfig(config) {
     document.getElementById('configId').value = config.id;
     document.getElementById('mid').value = config.mid;
+    document.getElementById('mid2').value = config.mid2 || '';
     document.getElementById('midShort').value = config.mid_short;
     document.getElementById('x').value = config.x;
     document.getElementById('y').value = config.y;
@@ -219,6 +221,7 @@ function saveMarkerConfig() {
     const id = document.getElementById('configId').value;
     const data = {
         mid: document.getElementById('mid').value,
+        mid2: document.getElementById('mid2').value,
         mid_short: document.getElementById('midShort').value,
         x: parseInt(document.getElementById('x').value),
         y: parseInt(document.getElementById('y').value),

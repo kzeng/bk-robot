@@ -8,7 +8,6 @@ import subprocess
 from datetime import datetime
 from .robot_control import RobotControl
 from .obs_control import OBSControl
-from .opencv_control import OpenCVControl
 from .ffmpeg_control import FFmpegControl
 from .lift_control import Lift
 from config import Config
@@ -85,6 +84,7 @@ def create_app(test_config=None):
             logger.warning("OBS configuration not properly loaded - check config.py")
     elif photo_mode == '1':
         logger.info("[create_app] Using OpenCV for camera control")
+        from .opencv_control import OpenCVControl
         opencv_control = OpenCVControl()
         opencv_control.init_app(app)
         # Load camera URLs from environment - handle both newline and comma separated

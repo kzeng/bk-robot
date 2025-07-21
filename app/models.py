@@ -35,6 +35,7 @@ class MarkerConfig(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     mid = db.Column(db.String(255), unique=True, nullable=False)
+    mid2 = db.Column(db.String(255), nullable=True)  # 新增点位名称2
     mid_short = db.Column(db.String(255), unique=True, nullable=False)
     x = db.Column(db.Integer, default=0)
     y = db.Column(db.Integer, default=0)

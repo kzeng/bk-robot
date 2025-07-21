@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 from flask import current_app
 from app.utils.logger import configured_logger as logger
+from app.models import MarkerConfig
+
 
 class OpenCVControl:
     def __init__(self, app=None):
@@ -105,6 +107,18 @@ class OpenCVControl:
 
                     # Generate filename in format: position-sX-cX-timestamp.png
                     filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
+
+                    if i > 6: 
+                        # For cameras 7-12, use mid2 from MarkerConfig
+                        # query marker_config by mid (position_info) , get mid2
+                        mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
+                        filename = f"{mid2}-s{i}-c{i}-{timestamp}.png"
+                        self._log('debug', f"Using mid2 for camera {i}: {mid2}")
+                    else:
+                        # For cameras 1-6, use mid from MarkerConfig
+                        filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
+                        self._log('debug', f"Using mid for camera {i}: {position_info}")
+
                     filepath = os.path.join(base_dir, filename)
                     filepath = filepath.replace("\\", "/")
                     abs_filepath = os.path.abspath(filepath)

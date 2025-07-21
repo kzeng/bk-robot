@@ -642,6 +642,7 @@ def api_marker_configs():
         return jsonify([{
             'id': c.id,
             'mid': c.mid,
+            'mid2': c.mid2,
             'mid_short': c.mid_short,
             'x': c.x,
             'y': c.y,
@@ -652,6 +653,7 @@ def api_marker_configs():
     data = request.json
     config = MarkerConfig(
         mid=data['mid'],
+        mid2=data.get('mid2', ''),
         mid_short=data['mid_short'],
         x=data['x'],
         y=data['y'],
@@ -687,6 +689,7 @@ def api_marker_config(id):
     data = request.json
     try:
         config.mid = data['mid']
+        config.mid2 = data.get('mid2', '')
         config.mid_short = data['mid_short']
         config.x = data['x']
         config.y = data['y']
@@ -775,6 +778,7 @@ def sync_marker_configs():
                     
                 config = MarkerConfig(
                     mid=marker_name,
+                    mid2='00000000000',  # 默认值，后续可更新
                     mid_short=mid_short,
                     x=0,
                     y=0,
