@@ -46,6 +46,26 @@
             background-color: rgba(255, 0, 0, 1);
             transform: scale(1.05);
         }
+        
+        /* Pagination fixes */
+        .pagination-container {
+            width: 100%;
+            max-width: 100%;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .pagination {
+            display: inline-flex;
+            flex-wrap: nowrap;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        .page-item.ellipsis {
+            pointer-events: none;
+            padding: 0.375rem 0.75rem;
+        }
     </style>
 {% endblock %}
 
@@ -285,6 +305,7 @@
                         nav.className = 'pagination-container';
                         const ul = document.createElement('ul');
                         ul.className = 'pagination justify-content-center';
+                        
                         // 上一页按钮
                         const prevLi = document.createElement('li');
                         prevLi.className = 'page-item' + (page === 1 ? ' disabled' : '');
@@ -296,8 +317,40 @@
                             }
                         });
                         ul.appendChild(prevLi);
-                        // 页码按钮
-                        for (let i = 1; i <= totalPages; i++) {
+                        
+                        // 显示逻辑：最多显示7个页码按钮（包括省略号）
+                        const maxVisiblePages = 5;
+                        let startPage = Math.max(1, page - 2);
+                        let endPage = Math.min(totalPages, page + 2);
+                        
+                        // 调整显示范围确保显示maxVisiblePages个页码
+                        if (page <= 3) {
+                            endPage = Math.min(maxVisiblePages, totalPages);
+                        } else if (page >= totalPages - 2) {
+                            startPage = Math.max(1, totalPages - maxVisiblePages + 1);
+                        }
+                        
+                        // 第一页
+                        if (startPage > 1) {
+                            const firstLi = document.createElement('li');
+                            firstLi.className = 'page-item';
+                            firstLi.innerHTML = '<a class="page-link" href="#">1</a>';
+                            firstLi.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                loadImages(1);
+                            });
+                            ul.appendChild(firstLi);
+                            
+                            if (startPage > 2) {
+                                const ellipsisLi = document.createElement('li');
+                                ellipsisLi.className = 'page-item ellipsis';
+                                ellipsisLi.innerHTML = '<span class="page-link">...</span>';
+                                ul.appendChild(ellipsisLi);
+                            }
+                        }
+                        
+                        // 中间页码
+                        for (let i = startPage; i <= endPage; i++) {
                             const li = document.createElement('li');
                             li.className = 'page-item' + (i === page ? ' active' : '');
                             li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
@@ -307,6 +360,26 @@
                             });
                             ul.appendChild(li);
                         }
+                        
+                        // 最后一页
+                        if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                                const ellipsisLi = document.createElement('li');
+                                ellipsisLi.className = 'page-item ellipsis';
+                                ellipsisLi.innerHTML = '<span class="page-link">...</span>';
+                                ul.appendChild(ellipsisLi);
+                            }
+                            
+                            const lastLi = document.createElement('li');
+                            lastLi.className = 'page-item';
+                            lastLi.innerHTML = `<a class="page-link" href="#">${totalPages}</a>`;
+                            lastLi.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                loadImages(totalPages);
+                            });
+                            ul.appendChild(lastLi);
+                        }
+                        
                         // 下一页按钮
                         const nextLi = document.createElement('li');
                         nextLi.className = 'page-item' + (page === totalPages ? ' disabled' : '');
@@ -318,6 +391,7 @@
                             }
                         });
                         ul.appendChild(nextLi);
+                        
                         nav.appendChild(ul);
                         pagination.appendChild(nav);
                         const pageInfo = document.createElement('div');
