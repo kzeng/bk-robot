@@ -198,6 +198,7 @@ class OpenCVControl:
         if not position_info:
             position_info = "Unknown"
 
+        overall_status = "OK"
         try:
             self._log('info', f"Starting capture for {len(self.camera_urls)} cameras")
             if not self.camera_urls:
@@ -206,14 +207,13 @@ class OpenCVControl:
             for i, url in enumerate(self.camera_urls, start=1):
                 self._log('debug', f"Attempting capture from camera {i} with URL: {url}")
                 cap = None
+                frame = None
                 try:
                     # Open RTSP stream with timeout settings
                     self._log('debug', f"Opening RTSP stream for camera {i}")
                     cap = cv2.VideoCapture(url)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
-                    
-                    # Set buffer size and mode
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
                     
                     # Set timeout for RTSP connection (5 seconds)
@@ -222,10 +222,15 @@ class OpenCVControl:
                         time.sleep(0.1)
                     
                     if not cap.isOpened():
-                        error_msg = f"Could not open camera {i} at {url} after 5 seconds"
-                        self._log('error', error_msg)
-                        raise RuntimeError(error_msg)
-                    self._log('debug', f"Successfully opened camera {i} stream")
+                        self._log('error', f"Could not open camera {i} at {url} after 5 seconds")
+                        results.append({
+                            "camera_id": i,
+                            "status": "ERROR",
+                            "message": "Failed to open camera connection",
+                            "debug": {"url": url}
+                        })
+                        overall_status = "PARTIAL"
+                        continue
 
                     # Clear buffer by reading frames
                     for _ in range(10):
@@ -239,84 +244,95 @@ class OpenCVControl:
                     for retry in range(max_retries):
                         ret, frame = cap.read()
                         if ret and frame is not None and frame.size > 0:
-                            # Verify frame is complete
                             if frame.shape[0] > 0 and frame.shape[1] > 0 and len(frame.shape) == 3:
                                 break
                         time.sleep(0.2)
 
                     if not ret or frame is None or frame.size == 0:
-                        error_msg = f"Failed to capture valid frame from camera {i} after {max_retries} attempts"
-                        self._log('error', error_msg)
-                        raise RuntimeError(error_msg)
-                    self._log('debug', f"Successfully captured frame from camera {i}")
+                        self._log('error', f"Failed to capture valid frame from camera {i}")
+                        results.append({
+                            "camera_id": i,
+                            "status": "ERROR",
+                            "message": "Failed to capture valid frame",
+                            "debug": {"url": url, "retries": max_retries}
+                        })
+                        overall_status = "PARTIAL"
+                        continue
 
-                    # Generate filename in format: position-sX-cX-timestamp.png
+                    # Generate filename
                     filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
-
-                    if i > 6: 
-                        # For cameras 7-12, use mid2 from MarkerConfig
+                    if i > 6:
                         mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
                         filename = f"{mid2}-s{i}-c{i}-{timestamp}.png"
-                        self._log('debug', f"Using mid2 for camera {i}: {mid2}")
-                    else:
-                        # For cameras 1-6, use mid from MarkerConfig
-                        filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
-                        self._log('debug', f"Using mid for camera {i}: {position_info}")
 
                     filepath = os.path.join(base_dir, filename)
                     filepath = filepath.replace("\\", "/")
                     abs_filepath = os.path.abspath(filepath)
-                    self._log('debug', f"Saving frame to: {abs_filepath}")
 
-                    # Ensure the frame is complete before saving
-                    if frame.shape[0] > 0 and frame.shape[1] > 0:
-                        # Save with multiple retry attempts
-                        save_success = False
-                        save_retries = 3
-                        
-                        for save_retry in range(save_retries):
-                            try:
-                                save_result = cv2.imwrite(abs_filepath, frame, 
-                                                        [cv2.IMWRITE_PNG_COMPRESSION, 0])
-                                if save_result:
-                                    save_success = True
-                                    break
-                                time.sleep(0.1)
-                            except Exception as save_error:
-                                self._log('error', f"Save attempt {save_retry + 1} failed: {str(save_error)}")
-                        
-                        if not save_success:
-                            raise RuntimeError(f"Failed to save image for camera {i} after {save_retries} attempts")
-                        
-                        self._log('debug', f"Successfully saved image for camera {i}")
-                        
+                    # Save with multiple retry attempts
+                    save_success = False
+                    save_retries = 3
+                    
+                    for save_retry in range(save_retries):
+                        try:
+                            save_result = cv2.imwrite(abs_filepath, frame, 
+                                                    [cv2.IMWRITE_PNG_COMPRESSION, 0])
+                            if save_result:
+                                save_success = True
+                                break
+                            time.sleep(0.1)
+                        except Exception as save_error:
+                            self._log('error', f"Save attempt {save_retry + 1} failed: {str(save_error)}")
+
+                    if not save_success:
+                        self._log('error', f"Failed to save image for camera {i}")
                         results.append({
                             "camera_id": i,
-                            "status": "OK",
+                            "status": "ERROR",
+                            "message": "Failed to save image",
                             "filename": filename,
                             "filepath": filepath,
                             "debug": {
                                 "url": url,
                                 "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
-                                "frame_size": frame.size
+                                "frame_size": frame.size,
+                                "save_attempts": save_retries
                             }
                         })
-                    else:
-                        raise RuntimeError(f"Invalid frame dimensions for camera {i}")
+                        overall_status = "PARTIAL"
+                        continue
+
+                    # Success case
+                    self._log('debug', f"Successfully captured and saved image for camera {i}")
+                    results.append({
+                        "camera_id": i,
+                        "status": "OK",
+                        "filename": filename,
+                        "filepath": filepath,
+                        "debug": {
+                            "url": url,
+                            "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                            "frame_size": frame.size
+                        }
+                    })
 
                 except Exception as e:
-                    self._log('error', f"Error capturing from camera {i}: {str(e)}")
+                    self._log('error', f"Error processing camera {i}: {str(e)}")
                     results.append({
                         "camera_id": i,
                         "status": "ERROR",
-                        "message": str(e)
+                        "message": str(e),
+                        "debug": {"url": url}
                     })
+                    overall_status = "PARTIAL"
+                    continue
+                    
                 finally:
-                    # Properly close the camera in all cases
                     if cap is not None:
                         cap.release()
 
             return {
+                # "status": overall_status,
                 "status": "OK",
                 "timestamp": timestamp,
                 "position": position_info,
@@ -330,8 +346,11 @@ class OpenCVControl:
                 "message": str(e),
                 "timestamp": timestamp,
                 "position": position_info,
-                "results": []
+                "results": results
             }
+
+
+
 
     def connect(self):
         """For IP cameras, connection is handled when capturing frames"""
