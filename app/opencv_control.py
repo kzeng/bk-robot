@@ -46,6 +46,139 @@ class OpenCVControl:
         self.camera_urls = urls
         self._log('info', f"Set {len(urls)} camera URLs")
 
+    # def take_photo_all_cameras(self, position_info):
+    #     """Capture screenshots from all configured IP cameras with highest quality"""
+    #     if self.simulation_mode:
+    #         return {
+    #             "status": "OK",
+    #             "timestamp": str(int(time.time())),
+    #             "position": position_info,
+    #             "results": []
+    #         }
+
+    #     results = []
+    #     timestamp = str(int(time.time()))
+    #     date_str = datetime.now().strftime("%Y%m%d")
+    #     base_dir = os.path.join("static", "screenshots", date_str)
+    #     os.makedirs(base_dir, exist_ok=True)
+
+    #     if not position_info:
+    #         position_info = "Unknown"
+
+    #     try:
+    #         self._log('info', f"Starting capture for {len(self.camera_urls)} cameras")
+    #         if not self.camera_urls:
+    #             raise RuntimeError("No camera URLs configured - check .env CAMERA_URLS setting")
+
+    #         for i, url in enumerate(self.camera_urls, start=1):
+    #             self._log('debug', f"Attempting capture from camera {i} with URL: {url}")
+    #             try:
+    #                 # Open RTSP stream with timeout settings
+    #                 self._log('debug', f"Opening RTSP stream for camera {i}")
+    #                 cap = cv2.VideoCapture(url)
+    #                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
+    #                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
+                    
+    #                 # Set timeout for RTSP connection (5 seconds)
+    #                 start_time = time.time()
+    #                 while not cap.isOpened() and (time.time() - start_time) < 5:
+    #                     time.sleep(0.1)
+                    
+    #                 if not cap.isOpened():
+    #                     error_msg = f"Could not open camera {i} at {url} after 5 seconds"
+    #                     self._log('error', error_msg)
+    #                     raise RuntimeError(error_msg)
+    #                 self._log('debug', f"Successfully opened camera {i} stream")
+
+    #                 # Read multiple frames to allow buffer to fill
+    #                 for _ in range(5):
+    #                     ret, frame = cap.read()
+    #                     if ret and frame is not None:
+    #                         break
+    #                     time.sleep(0.1)
+                    
+    #                 cap.release()
+
+    #                 if not ret or frame is None:
+    #                     error_msg = f"Failed to capture frame from camera {i} after multiple attempts"
+    #                     self._log('error', error_msg)
+    #                     raise RuntimeError(error_msg)
+    #                 self._log('debug', f"Successfully captured frame from camera {i}")
+
+    #                 # Generate filename in format: position-sX-cX-timestamp.png
+    #                 filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
+
+    #                 if i > 6: 
+    #                     # For cameras 7-12, use mid2 from MarkerConfig
+    #                     # query marker_config by mid (position_info) , get mid2
+    #                     mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
+    #                     filename = f"{mid2}-s{i}-c{i}-{timestamp}.png"
+    #                     self._log('debug', f"Using mid2 for camera {i}: {mid2}")
+    #                 else:
+    #                     # For cameras 1-6, use mid from MarkerConfig
+    #                     filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
+    #                     self._log('debug', f"Using mid for camera {i}: {position_info}")
+
+    #                 filepath = os.path.join(base_dir, filename)
+    #                 filepath = filepath.replace("\\", "/")
+    #                 abs_filepath = os.path.abspath(filepath)
+    #                 self._log('debug', f"Saving frame to: {abs_filepath}")
+
+
+    #                 # # 保存为 PNG，压缩级别 9
+    #                 # cv2.imwrite('output_compressed.png', frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+    #                 # 压缩级别选择：
+    #                 # 如果优先考虑文件大小，选择较高的值（如 6-9）。
+    #                 # 如果优先考虑保存速度，选择较低的值（如 0-3）。
+    #                 # 默认值为 3，平衡了速度和文件大小。
+
+
+    #                 # # 保存为 JPEG，质量 90
+    #                 # cv2.imwrite('output_compressed.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+
+    #                 # Save as PNG with highest quality (no compression)
+    #                 if not cv2.imwrite(abs_filepath, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0]):
+    #                     raise RuntimeError(f"Failed to save image for camera {i}")
+    #                 self._log('debug', f"Successfully saved image for camera {i}")
+
+    #                 results.append({
+    #                     "camera_id": i,
+    #                     "status": "OK",
+    #                     "filename": filename,
+    #                     "filepath": filepath,
+    #                     "debug": {
+    #                         "url": url,
+    #                         "resolution": f"{frame.shape[1]}x{frame.shape[0]}"
+    #                     }
+    #                 })
+    #             except Exception as e:
+    #                 self._log('error', f"Error capturing from camera {i}: {str(e)}")
+    #                 results.append({
+    #                     "camera_id": i,
+    #                     "status": "ERROR",
+    #                     "message": str(e)
+    #                 })
+
+    #         return {
+    #             "status": "OK",
+    #             "timestamp": timestamp,
+    #             "position": position_info,
+    #             "results": results
+    #         }
+
+    #     except Exception as e:
+    #         self._log('error', f"Error in take_photo_all_cameras: {str(e)}")
+    #         return {
+    #             "status": "ERROR",
+    #             "message": str(e),
+    #             "timestamp": timestamp,
+    #             "position": position_info,
+    #             "results": []
+    #         }
+
+
+
     def take_photo_all_cameras(self, position_info):
         """Capture screenshots from all configured IP cameras with highest quality"""
         if self.simulation_mode:
@@ -72,12 +205,16 @@ class OpenCVControl:
 
             for i, url in enumerate(self.camera_urls, start=1):
                 self._log('debug', f"Attempting capture from camera {i} with URL: {url}")
+                cap = None
                 try:
                     # Open RTSP stream with timeout settings
                     self._log('debug', f"Opening RTSP stream for camera {i}")
                     cap = cv2.VideoCapture(url)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config['resolution']['width'])
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config['resolution']['height'])
+                    
+                    # Set buffer size and mode
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
                     
                     # Set timeout for RTSP connection (5 seconds)
                     start_time = time.time()
@@ -90,17 +227,25 @@ class OpenCVControl:
                         raise RuntimeError(error_msg)
                     self._log('debug', f"Successfully opened camera {i} stream")
 
-                    # Read multiple frames to allow buffer to fill
-                    for _ in range(5):
-                        ret, frame = cap.read()
-                        if ret and frame is not None:
-                            break
-                        time.sleep(0.1)
-                    
-                    cap.release()
+                    # Clear buffer by reading frames
+                    for _ in range(10):
+                        cap.grab()
 
-                    if not ret or frame is None:
-                        error_msg = f"Failed to capture frame from camera {i} after multiple attempts"
+                    # Read frame with retry mechanism
+                    max_retries = 5
+                    frame = None
+                    ret = False
+                    
+                    for retry in range(max_retries):
+                        ret, frame = cap.read()
+                        if ret and frame is not None and frame.size > 0:
+                            # Verify frame is complete
+                            if frame.shape[0] > 0 and frame.shape[1] > 0 and len(frame.shape) == 3:
+                                break
+                        time.sleep(0.2)
+
+                    if not ret or frame is None or frame.size == 0:
+                        error_msg = f"Failed to capture valid frame from camera {i} after {max_retries} attempts"
                         self._log('error', error_msg)
                         raise RuntimeError(error_msg)
                     self._log('debug', f"Successfully captured frame from camera {i}")
@@ -110,7 +255,6 @@ class OpenCVControl:
 
                     if i > 6: 
                         # For cameras 7-12, use mid2 from MarkerConfig
-                        # query marker_config by mid (position_info) , get mid2
                         mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
                         filename = f"{mid2}-s{i}-c{i}-{timestamp}.png"
                         self._log('debug', f"Using mid2 for camera {i}: {mid2}")
@@ -124,34 +268,42 @@ class OpenCVControl:
                     abs_filepath = os.path.abspath(filepath)
                     self._log('debug', f"Saving frame to: {abs_filepath}")
 
+                    # Ensure the frame is complete before saving
+                    if frame.shape[0] > 0 and frame.shape[1] > 0:
+                        # Save with multiple retry attempts
+                        save_success = False
+                        save_retries = 3
+                        
+                        for save_retry in range(save_retries):
+                            try:
+                                save_result = cv2.imwrite(abs_filepath, frame, 
+                                                        [cv2.IMWRITE_PNG_COMPRESSION, 0])
+                                if save_result:
+                                    save_success = True
+                                    break
+                                time.sleep(0.1)
+                            except Exception as save_error:
+                                self._log('error', f"Save attempt {save_retry + 1} failed: {str(save_error)}")
+                        
+                        if not save_success:
+                            raise RuntimeError(f"Failed to save image for camera {i} after {save_retries} attempts")
+                        
+                        self._log('debug', f"Successfully saved image for camera {i}")
+                        
+                        results.append({
+                            "camera_id": i,
+                            "status": "OK",
+                            "filename": filename,
+                            "filepath": filepath,
+                            "debug": {
+                                "url": url,
+                                "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                                "frame_size": frame.size
+                            }
+                        })
+                    else:
+                        raise RuntimeError(f"Invalid frame dimensions for camera {i}")
 
-                    # # 保存为 PNG，压缩级别 9
-                    # cv2.imwrite('output_compressed.png', frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
-                    # 压缩级别选择：
-                    # 如果优先考虑文件大小，选择较高的值（如 6-9）。
-                    # 如果优先考虑保存速度，选择较低的值（如 0-3）。
-                    # 默认值为 3，平衡了速度和文件大小。
-
-
-                    # # 保存为 JPEG，质量 90
-                    # cv2.imwrite('output_compressed.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-
-                    # Save as PNG with highest quality (no compression)
-                    if not cv2.imwrite(abs_filepath, frame, [cv2.IMWRITE_PNG_COMPRESSION, 0]):
-                        raise RuntimeError(f"Failed to save image for camera {i}")
-                    self._log('debug', f"Successfully saved image for camera {i}")
-
-                    results.append({
-                        "camera_id": i,
-                        "status": "OK",
-                        "filename": filename,
-                        "filepath": filepath,
-                        "debug": {
-                            "url": url,
-                            "resolution": f"{frame.shape[1]}x{frame.shape[0]}"
-                        }
-                    })
                 except Exception as e:
                     self._log('error', f"Error capturing from camera {i}: {str(e)}")
                     results.append({
@@ -159,6 +311,10 @@ class OpenCVControl:
                         "status": "ERROR",
                         "message": str(e)
                     })
+                finally:
+                    # Properly close the camera in all cases
+                    if cap is not None:
+                        cap.release()
 
             return {
                 "status": "OK",
