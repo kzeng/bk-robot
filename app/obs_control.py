@@ -93,7 +93,7 @@ class OBSControl:
 
 
 
-    def take_photo_all_cameras(self, position_info):
+    def take_photo_all_cameras(self, position_info, timestamp):
         ########################################################################################################################
         # 主要修改说明：
         # 1. 使用单一场景 "s1"，不再进行场景切换
@@ -134,7 +134,9 @@ class OBSControl:
             # 使用日期作为文件夹名
             date_str = datetime.now().strftime("%Y%m%d_%H%M")
             # 使用时间戳
-            timestamp = str(int(time.time()))
+            # timestamp = str(int(time.time()))
+            if timestamp is None:
+                timestamp = str(int(time.time()))
 
             base_dir = os.path.join("static", "screenshots", date_str)
             os.makedirs(base_dir, exist_ok=True)

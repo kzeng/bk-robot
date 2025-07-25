@@ -276,12 +276,13 @@ class FFmpegControl:
             logger.exception(f"Error taking photo with FFmpeg from camera {camera_id}: {str(e)}")
             return None, False
 
-    def take_photo_all_cameras(self, position_info):
+    def take_photo_all_cameras(self, position_info, timestamp):
         """
         Capture photos from all connected cameras
         
         Args:
             position_info (str): Position information to be included in the filename
+            timestamp (str): Timestamp for the photo capture
 
         Returns:
             dict: A dictionary containing:
@@ -290,7 +291,11 @@ class FFmpegControl:
                 - position: The provided position information
                 - results: List of results for each camera
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if timestamp is None:
+            timestamp = str(int(time.time()))
+
+
         date_str = datetime.now().strftime("%Y%m%d")
         base_dir = os.path.join("static", "screenshots", date_str)
         os.makedirs(base_dir, exist_ok=True)
@@ -305,7 +310,7 @@ class FFmpegControl:
                 if not self.camera_indices:
                     raise RuntimeError("No cameras detected")
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             date_str = datetime.now().strftime("%Y%m%d")
             
             # 使用绝对路径并确保目录存在

@@ -46,7 +46,7 @@ class OpenCVControl:
         self.camera_urls = urls
         self._log('info', f"Set {len(urls)} camera URLs")
 
-    # def take_photo_all_cameras(self, position_info):
+    # def take_photo_all_cameras(self, position_info, timestamp):
     #     """Capture screenshots from all configured IP cameras with highest quality"""
     #     if self.simulation_mode:
     #         return {
@@ -57,7 +57,10 @@ class OpenCVControl:
     #         }
 
     #     results = []
-    #     timestamp = str(int(time.time()))
+
+    #     if timestamp is None:
+    #         timestamp = str(int(time.time()))
+
     #     date_str = datetime.now().strftime("%Y%m%d")
     #     base_dir = os.path.join("static", "screenshots", date_str)
     #     os.makedirs(base_dir, exist_ok=True)
@@ -178,19 +181,26 @@ class OpenCVControl:
     #         }
 
 
-
-    def take_photo_all_cameras(self, position_info):
-        """Capture screenshots from all configured IP cameras with highest quality"""
+    def take_photo_all_cameras(self, position_info, timestamp):
+        """Capture screenshots from all configured IP cameras with highest quality
+        
+        Args:
+            position_info: Position information for the image
+            timestamp: Optional timestamp string. If None, current time will be used
+        """
         if self.simulation_mode:
             return {
                 "status": "OK",
-                "timestamp": str(int(time.time())),
+                "timestamp": timestamp or str(int(time.time())),
                 "position": position_info,
                 "results": []
             }
 
         results = []
-        timestamp = str(int(time.time()))
+        # Use provided timestamp or generate new one if not provided
+        if timestamp is None:
+            timestamp = str(int(time.time()))
+            
         date_str = datetime.now().strftime("%Y%m%d")
         base_dir = os.path.join("static", "screenshots", date_str)
         os.makedirs(base_dir, exist_ok=True)
@@ -332,8 +342,7 @@ class OpenCVControl:
                         cap.release()
 
             return {
-                # "status": overall_status,
-                "status": "OK",
+                "status": overall_status,
                 "timestamp": timestamp,
                 "position": position_info,
                 "results": results

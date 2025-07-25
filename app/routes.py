@@ -323,6 +323,8 @@ def take_screenshot():
     else:
         position_info = ''
     
+    timestamp = str(int(time.time()))
+
     camera_control = current_app.camera_control
     
     try:
@@ -333,7 +335,7 @@ def take_screenshot():
                 return jsonify(result), 500
                 
         # Take screenshots
-        result = camera_control.take_photo_all_cameras(position_info=position_info)
+        result = camera_control.take_photo_all_cameras(position_info=position_info, timestamp=timestamp)
         return jsonify(result)
         
     except Exception as e:
@@ -516,7 +518,8 @@ def async_run_task(app, task_id):
         task = Task.query.get(task_id)
         if not task:
             return
-            
+        
+        timestamp = str(int(time.time()))
         marker_list = task.marker.split(',') if task.marker else []
         marker_list = [marker.strip() for marker in marker_list if marker.strip()]
 
@@ -633,7 +636,7 @@ def async_run_task(app, task_id):
                                         logger.info(f"Taking photos at marker {target_marker}")
                                         time.sleep(1)  # Give some time for the robot to stabilize at the marker
                                         
-                                        photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker)
+                                        photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
                                         logger.debug(f"Raw photo result: {photo_result}")
 
                                         if photo_result.get('status') == 'OK':
