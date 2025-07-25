@@ -154,3 +154,5 @@ static/video/
 app/logs/*.log
 app/logs/*.log.*
 app/logs/*.zip
+
+patches/
