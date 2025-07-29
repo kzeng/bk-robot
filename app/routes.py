@@ -581,59 +581,61 @@ def async_run_task(app, task_id):
                 while current_marker_index < len(marker_list):
                     target_marker = marker_list[current_marker_index]
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
+
                     logger.info(f"Want to move target {target_marker}")
+                    if target_marker == "CD":
+                        logger.info("Next marker is CD, moving lift to position one...")
+                        app.lift.move_to_position_one()
+
 
                     # Try moving up to 3 times
                     max_retries = 3
                     retry_count = 0
                     move_success = False
-
+                    
                     while retry_count < max_retries and not move_success:
                         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
-
+                        
                         if not move_result:
                             logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
                             retry_count += 1
                             time.sleep(1)
                             continue
-
+                            
                         logger.info(f"Movement result: {move_result}")
 
                         # Wait for the robot to finish moving, monitoring the status
                         move_complete = False
                         status_checks = 0
                         max_status_checks = 30  # 30 second timeout
-
+                        
                         while not move_complete and status_checks < max_status_checks:
                             robot_status = app.robot_control.send_command("/api/robot_status")
-
+                            
                             if not robot_status:
                                 logger.warning(f"Failed to get robot status (check {status_checks + 1})")
                                 status_checks += 1
                                 time.sleep(1)
                                 continue
-
+                                
                             logger.debug(f"Robot status: {robot_status}")
-
+                            
                             if robot_status.get('status') == 'OK':
                                 results = robot_status.get('results', {})
                                 actual_marker = results.get('move_target')
                                 move_status = results.get('move_status')
-
+                                
                                 if move_status == 'succeeded' and actual_marker == target_marker:
                                     logger.info(f"Robot successfully reached marker {target_marker}")
 
-                                    # 到达CD点后再降杆
+                                    # if target_marker is CD, skip taking photos
                                     if target_marker == "CD":
-                                        logger.info("Reached CD, moving lift to position one...")
-                                        app.lift.move_to_position_one()
-                                        # CD点不拍照
                                         logger.info("Skipping photo taking at CD")
                                     else:
                                         # take photos at the target marker
                                         logger.info(f"Taking photos at marker {target_marker}")
                                         time.sleep(1)  # Give some time for the robot to stabilize at the marker
-
+                                        
                                         photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
                                         logger.debug(f"Raw photo result: {photo_result}")
 
@@ -641,7 +643,7 @@ def async_run_task(app, task_id):
                                             # 从 results 中提取所有成功的文件路径
                                             new_files = [r['filepath'] for r in photo_result.get('results', []) 
                                                         if r.get('status') == 'OK' and 'filepath' in r]
-
+                                            
                                             if new_files:
                                                 file_paths.extend(new_files)
                                                 logger.info(f"Saved {len(new_files)} photos at {target_marker}")
@@ -661,13 +663,20 @@ def async_run_task(app, task_id):
                             else:
                                 status_checks += 1
                                 time.sleep(1)
-
+                                
                         if not move_complete:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
                             retry_count += 1
+                            
+                    # # Check if next marker is CD and lift needs to be lowered
+                    # if current_marker_index == len(marker_list) - 2:  # Second last marker (before CD)
+                    #     logger.info("Next marker is CD, moving lift to position one...")
+                    #     app.lift.move_to_position_one()
+                    #     # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
 
                     if not move_success:
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
+             
 
             elif task.action == 1:  # 录像
                 pass
