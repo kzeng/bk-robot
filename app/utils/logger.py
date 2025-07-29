@@ -27,76 +27,92 @@ Centralized logging configuration for bk-robot project.
 # 可通过修改logger.add()中的level参数调整日志级别。
 
 
-from loguru import logger
-import sys
-import os
+# from loguru import logger
+# import sys
+# import os
 
-# Get project root directory and create logs directory
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-LOGS_DIR = os.path.join(PROJECT_ROOT, "app", "logs")
-os.makedirs(LOGS_DIR, exist_ok=True)
+# # Get project root directory and create logs directory
+# PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+# LOGS_DIR = os.path.join(PROJECT_ROOT, "app", "logs")
+# os.makedirs(LOGS_DIR, exist_ok=True)
 
-# Define log files
-LOG_FILE = os.path.join(LOGS_DIR, "app.log")
-DAILY_LOG_FILE = os.path.join(LOGS_DIR, "app.{time:YYYY-MM-DD}.log")
+# # Define log files
+# LOG_FILE = os.path.join(LOGS_DIR, "app.log")
+# DAILY_LOG_FILE = os.path.join(LOGS_DIR, "app.{time:YYYY-MM-DD}.log")
 
-# Remove default handler
-logger.remove()
+# # Remove default handler
+# logger.remove()
 
-# Add console output handler with colors
-logger.add(
-    sys.stderr, 
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>",
-    level="WARNING",
-    enqueue=True,  # Thread-safe
-    backtrace=False,  # Disable detailed tracebacks
-    diagnose=False  # Disable exception diagnosis
-)
+# # Add console output handler with colors
+# logger.add(
+#     sys.stderr, 
+#     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>",
+#     level="WARNING",
+#     enqueue=True,  # Thread-safe
+#     backtrace=False,  # Disable detailed tracebacks
+#     diagnose=False  # Disable exception diagnosis
+# )
 
-# Add size-based rotation handler
-logger.add(
-    LOG_FILE,
-    rotation="20 MB",  # Rotate when size reaches 20MB
-    retention="30 days",  # Keep logs for 30 days
-    compression="zip",  # Compress rotated files
-    encoding="utf-8",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-    level="WARNING",
-    enqueue=True,  # Thread-safe
-    backtrace=False,  # Disable detailed tracebacks
-    diagnose=False,  # Disable exception diagnosis
-    catch=True  # Catch exceptions within the logging system
-)
+# # Add size-based rotation handler
+# logger.add(
+#     LOG_FILE,
+#     rotation="20 MB",  # Rotate when size reaches 20MB
+#     retention="30 days",  # Keep logs for 30 days
+#     compression="zip",  # Compress rotated files
+#     encoding="utf-8",
+#     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+#     level="WARNING",
+#     enqueue=True,  # Thread-safe
+#     backtrace=False,  # Disable detailed tracebacks
+#     diagnose=False,  # Disable exception diagnosis
+#     catch=True  # Catch exceptions within the logging system
+# )
 
-# Add time-based rotation handler (daily at midnight)
-logger.add(
-    DAILY_LOG_FILE,
-    rotation="00:00",  # Rotate daily at midnight
-    retention="30 days",
-    compression="zip",
-    encoding="utf-8",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-    level="WARNING",
-    enqueue=True,
-    backtrace=True,
-    diagnose=True,
-    catch=True
-)
+# # Add time-based rotation handler (daily at midnight)
+# logger.add(
+#     DAILY_LOG_FILE,
+#     rotation="00:00",  # Rotate daily at midnight
+#     retention="30 days",
+#     compression="zip",
+#     encoding="utf-8",
+#     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+#     level="WARNING",
+#     enqueue=True,
+#     backtrace=True,
+#     diagnose=True,
+#     catch=True
+# )
 
-# Add size-based rotation handler as backup
-logger.add(
-    os.path.join(LOGS_DIR, "app.size_rotated.log"),
-    rotation="200 MB",  # Rotate when reaches 200MB
-    retention="30 days",
-    compression="zip",
-    encoding="utf-8",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-    level="WARNING",
-    enqueue=True,
-    backtrace=True,
-    diagnose=True,
-    catch=True
-)
+# # Add size-based rotation handler as backup
+# logger.add(
+#     os.path.join(LOGS_DIR, "app.size_rotated.log"),
+#     rotation="200 MB",  # Rotate when reaches 200MB
+#     retention="30 days",
+#     compression="zip",
+#     encoding="utf-8",
+#     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+#     level="WARNING",
+#     enqueue=True,
+#     backtrace=True,
+#     diagnose=True,
+#     catch=True
+# )
+# configured_logger = logger
 
-# Export configured logger
+
+
+# 日志功能已关闭，logger为哑对象
+class DummyLogger:
+    def debug(self, *args, **kwargs): pass
+    def info(self, *args, **kwargs): pass
+    def warning(self, *args, **kwargs): pass
+    def error(self, *args, **kwargs): pass
+    def critical(self, *args, **kwargs): pass
+    def success(self, *args, **kwargs): pass
+    def exception(self, *args, **kwargs): pass
+    def log(self, *args, **kwargs): pass
+    def remove(self, *args, **kwargs): pass
+    def add(self, *args, **kwargs): pass
+
+logger = DummyLogger()
 configured_logger = logger
