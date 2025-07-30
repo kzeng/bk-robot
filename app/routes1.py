@@ -905,10 +905,11 @@ def crop_images():
                                 second_part = parts[1]  # 例如：s1
                                 time_part = parts[3]    # 例如：1751422638
                                 
-                                # 构建 FOLDER1：01 + 前10位 + 第二个字段第2个字符补0
+                                # 构建 FOLDER1：01 + 前10位 + 第二个字段从第2个字符起到末尾，不足2位前面补0
                                 if len(first_part) >= 10 and len(second_part) >= 2:
                                     prefix_10 = first_part[:10]  # 取前10位
-                                    second_char = second_part[1]  # 取第二个字符
+                                    # second_char = second_part[1]  # 取第二个字符
+                                    second_char = second_part[1:]  # 从第二个字符开始到末尾
                                     folder1 = f"01{prefix_10}{second_char.zfill(2)}"  # 补0确保两位
                                     
                                     # 构建文件名：第一个字段的最后一位

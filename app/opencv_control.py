@@ -269,11 +269,26 @@ class OpenCVControl:
                         overall_status = "PARTIAL"
                         continue
 
+                    # convert camera id to layer id
+                    layer_id = 1
+                    if i == 1 or i == 7:
+                        layer_id = 1
+                    elif i == 2 or i == 8:
+                        layer_id = 2
+                    elif i == 3 or i == 9:
+                        layer_id = 3
+                    elif i == 4 or i == 10:
+                        layer_id = 4
+                    elif i == 5 or i == 11:
+                        layer_id = 5
+                    elif i == 6 or i == 12:
+                        layer_id = 6
+                
                     # Generate filename
-                    filename = f"{position_info}-s{i}-c{i}-{timestamp}.png"
+                    filename = f"{position_info}-s{layer_id}-c{layer_id}-{timestamp}.png"
                     if i > 6:
                         mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
-                        filename = f"{mid2}-s{i}-c{i}-{timestamp}.png"
+                        filename = f"{mid2}-s{layer_id}-c{layer_id}-{timestamp}.png"
 
                     filepath = os.path.join(base_dir, filename)
                     filepath = filepath.replace("\\", "/")
