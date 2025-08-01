@@ -294,6 +294,8 @@ class OpenCVControl:
                         if i > 6:
                             mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
                             filename = f"{mid2}-s{layer_id}-c{layer_id}-{timestamp}.png"
+                            if mid2 == '00000000000' or len(mid2) != 11: #not save if mid2 not configured
+                                continue
 
 
                     filepath = os.path.join(base_dir, filename)
