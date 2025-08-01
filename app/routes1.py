@@ -647,7 +647,11 @@ def api_marker_configs():
             'x': c.x,
             'y': c.y,
             'w': c.w,
-            'h': c.h
+            'h': c.h,
+            'x2': c.x2,
+            'y2': c.y2,
+            'w2': c.w2,
+            'h2': c.h2
         } for c in configs])
     
     data = request.json
@@ -658,7 +662,11 @@ def api_marker_configs():
         x=data['x'],
         y=data['y'],
         w=data['w'],
-        h=data['h']
+        h=data['h'],
+        x2=data.get('x2', 0),
+        y2=data.get('y2', 0),
+        w2=data.get('w2', 0),
+        h2=data.get('h2', 0)
     )
     try:
         db.session.add(config)
@@ -695,6 +703,10 @@ def api_marker_config(id):
         config.y = data['y']
         config.w = data['w']
         config.h = data['h']
+        config.x2 = data.get('x2', 0)
+        config.y2 = data.get('y2', 0)
+        config.w2 = data.get('w2', 0)
+        config.h2 = data.get('h2', 0)
         db.session.commit()
         return jsonify({
             'id': config.id,
@@ -783,7 +795,11 @@ def sync_marker_configs():
                     x=0,
                     y=0,
                     w=0,
-                    h=0
+                    h=0,
+                    x2=0,
+                    y2=0,
+                    w2=0,
+                    h2=0
                 )
                 db.session.add(config)
         
@@ -807,6 +823,8 @@ def sync_marker_configs():
 
 @bp1.route('/api/photos/crop', methods=['POST'])
 def crop_images():
+    USE_MID2 = False
+
     try:
         logger.info("开始处理裁剪请求")
         data = request.get_json()
@@ -854,6 +872,7 @@ def crop_images():
                 # 查询marker_config表获取裁剪参数
                 marker_config = MarkerConfig.query.filter_by(mid=marker_id).first()
                 if marker_config == None:
+                    USE_MID2 = True
                     marker_config = MarkerConfig.query.filter_by(mid2=marker_id).first()
                 
                 if not marker_config:
@@ -872,20 +891,35 @@ def crop_images():
                     logger.info(f"开始处理图片: {img_path}")
                     img = Image.open(img_path)
 
-                    # 如果x,y,w,h都为0，则跳过裁剪但仍然保存新文件
-                    if marker_config.x == 0 and marker_config.y == 0 and \
-                       marker_config.w == 0 and marker_config.h == 0:
-                        logger.info(f"配置参数全为0，跳过裁剪: {marker_id}")
-                        new_img = img
+                    if USE_MID2:
+                        if marker_config.x2 == 0 and marker_config.y2 == 0 and \
+                        marker_config.w2 == 0 and marker_config.h2 == 0:
+                            logger.info(f"配置参数全为0，跳过裁剪: {marker_id}")
+                            new_img = img
+                        else:
+                            # 执行裁剪
+                            logger.info(f"裁剪参数: x2={marker_config.x2}, y2={marker_config.y2}, w2={marker_config.w2}, h={marker_config.h2}")
+                            new_img = img.crop((
+                                marker_config.x2,  # 左
+                                marker_config.y2,  # 上
+                                marker_config.x2 + marker_config.w2,  # 右
+                                marker_config.y2 + marker_config.h2   # 下
+                            ))
                     else:
-                        # 执行裁剪
-                        logger.info(f"裁剪参数: x={marker_config.x}, y={marker_config.y}, w={marker_config.w}, h={marker_config.h}")
-                        new_img = img.crop((
-                            marker_config.x,  # 左
-                            marker_config.y,  # 上
-                            marker_config.x + marker_config.w,  # 右
-                            marker_config.y + marker_config.h   # 下
-                        ))
+                        # 如果x,y,w,h都为0，则跳过裁剪但仍然保存新文件
+                        if marker_config.x == 0 and marker_config.y == 0 and \
+                        marker_config.w == 0 and marker_config.h == 0:
+                            logger.info(f"配置参数全为0，跳过裁剪: {marker_id}")
+                            new_img = img
+                        else:
+                            # 执行裁剪
+                            logger.info(f"裁剪参数: x={marker_config.x}, y={marker_config.y}, w={marker_config.w}, h={marker_config.h}")
+                            new_img = img.crop((
+                                marker_config.x,  # 左
+                                marker_config.y,  # 上
+                                marker_config.x + marker_config.w,  # 右
+                                marker_config.y + marker_config.h   # 下
+                            ))
 
                     # 生成新的文件名
                     base_name = os.path.splitext(filename)[0]

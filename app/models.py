@@ -41,6 +41,10 @@ class MarkerConfig(db.Model):
     y = db.Column(db.Integer, default=0)
     w = db.Column(db.Integer, default=0)
     h = db.Column(db.Integer, default=0)
+    x2 = db.Column(db.Integer, default=0)
+    y2 = db.Column(db.Integer, default=0)
+    w2 = db.Column(db.Integer, default=0)
+    h2 = db.Column(db.Integer, default=0)
 
     def __repr__(self):
         return f'<MarkerConfig {self.mid}>'

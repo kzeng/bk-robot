@@ -172,12 +172,18 @@ function loadMarkerConfigs() {
                     <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}"></td>
                     <td>${config.id}</td>
                     <td>${config.mid}</td>
-                    <td>${config.mid2 || ''}</td>
+                    
                     <td>${config.mid_short}</td>
                     <td>${config.x}</td>
                     <td>${config.y}</td>
                     <td>${config.w}</td>
                     <td>${config.h}</td>
+                    
+                    <td>${config.mid2 || ''}</td>
+                    <td>${config.x2}</td>
+                    <td>${config.y2}</td>
+                    <td>${config.w2}</td>
+                    <td>${config.h2}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="editMarkerConfig(${JSON.stringify(config).replace(/"/g, '&quot;')})">
                             <i class="bi bi-pencil"></i>
@@ -206,6 +212,10 @@ function editMarkerConfig(config) {
     document.getElementById('y').value = config.y;
     document.getElementById('w').value = config.w;
     document.getElementById('h').value = config.h;
+    document.getElementById('x2').value = config.x2 || 0;
+    document.getElementById('y2').value = config.y2 || 0;
+    document.getElementById('w2').value = config.w2 || 0;
+    document.getElementById('h2').value = config.h2 || 0;
     
     document.getElementById('markerConfigModalLabel').textContent = '编辑点位';
     const modal = new bootstrap.Modal(document.getElementById('markerConfigModal'));
@@ -227,7 +237,11 @@ function saveMarkerConfig() {
         x: parseInt(document.getElementById('x').value),
         y: parseInt(document.getElementById('y').value),
         w: parseInt(document.getElementById('w').value),
-        h: parseInt(document.getElementById('h').value)
+        h: parseInt(document.getElementById('h').value),
+        x2: parseInt(document.getElementById('x2').value),
+        y2: parseInt(document.getElementById('y2').value),
+        w2: parseInt(document.getElementById('w2').value),
+        h2: parseInt(document.getElementById('h2').value)
     };
 
     const url = id ? `/api/marker-config/${id}` : '/api/marker-config';

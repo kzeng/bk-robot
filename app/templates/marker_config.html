@@ -162,7 +162,7 @@
 <div class="container mt-4">
     <h3 class="mb-4">点位配置         
         <button type="button" class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#markerConfigModal">
-              <i class="fas fa-plus me-1"></i> 手动打点
+              <i class="fas fa-plus me-1"></i> 新增点位
         </button>
         <button type="button" class="btn btn-success btn-sm me-2" id="syncMarkersButton">
               <i class="fas fa-sync me-1"></i> 同步机器人点位
@@ -196,12 +196,18 @@
                                 <th><input type="checkbox" id="selectAllCheckbox"></th>
                                 <th>ID</th>
                                 <th>点位名称1</th>
-                                <th>点位名称2</th>
+                                
                                 <th>点位简写</th>
                                 <th>X坐标</th>
                                 <th>Y坐标</th>
                                 <th>宽度</th>
                                 <th>高度</th>
+                                
+                                <th>点位名称2</th>
+                                <th>X2坐标</th>
+                                <th>Y2坐标</th>
+                                <th>宽度2</th>
+                                <th>高度2</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -226,33 +232,61 @@
             <div class="modal-body">
                 <form id="markerConfigForm">
                     <input type="hidden" id="configId">
-                    <div class="mb-3">
-                        <label for="mid" class="form-label">点位名称1</label>
-                        <input type="text" class="form-control" id="mid" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="mid" class="form-label">点位名称1</label>
+                            <input type="text" class="form-control" id="mid" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="mid2" class="form-label">点位名称2</label>
+                            <input type="text" class="form-control" id="mid2">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="mid2" class="form-label">点位名称2</label>
-                        <input type="text" class="form-control" id="mid2">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="midShort" class="form-label">点位简写</label>
+                            <input type="text" class="form-control" id="midShort" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="midShort" class="form-label">点位简写</label>
-                        <input type="text" class="form-control" id="midShort" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="x" class="form-label">X坐标</label>
+                            <input type="number" class="form-control" id="x" value="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="y" class="form-label">Y坐标</label>
+                            <input type="number" class="form-control" id="y" value="0" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="x" class="form-label">X坐标</label>
-                        <input type="number" class="form-control" id="x" value="0" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="w" class="form-label">宽度</label>
+                            <input type="number" class="form-control" id="w" value="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="h" class="form-label">高度</label>
+                            <input type="number" class="form-control" id="h" value="0" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="y" class="form-label">Y坐标</label>
-                        <input type="number" class="form-control" id="y" value="0" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="x2" class="form-label">X2坐标</label>
+                            <input type="number" class="form-control" id="x2" value="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="y2" class="form-label">Y2坐标</label>
+                            <input type="number" class="form-control" id="y2" value="0" required>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="w" class="form-label">宽度</label>
-                        <input type="number" class="form-control" id="w" value="0" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="h" class="form-label">高度</label>
-                        <input type="number" class="form-control" id="h" value="0" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="w2" class="form-label">宽度2</label>
+                            <input type="number" class="form-control" id="w2" value="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="h2" class="form-label">高度2</label>
+                            <input type="number" class="form-control" id="h2" value="0" required>
+                        </div>
                     </div>
                 </form>
             </div>
