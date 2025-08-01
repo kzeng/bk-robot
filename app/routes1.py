@@ -821,6 +821,14 @@ def crop_images():
 
         # 确保目录存在
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
+        
+        # 如果pic文件夹存在，先清空其内容
+        pic_dir = os.path.join(screenshots_dir, 'pic')
+        if os.path.exists(pic_dir):
+            logger.info(f"清空pic文件夹: {pic_dir}")
+            shutil.rmtree(pic_dir)
+            os.makedirs(pic_dir, exist_ok=True)
+
         dir_path = os.path.join(screenshots_dir, directory)
         logger.info(f"检查目录路径: {dir_path}")
         
