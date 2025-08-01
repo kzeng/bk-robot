@@ -278,17 +278,23 @@ class OpenCVControl:
                     elif i == 3 or i == 9:
                         layer_id = 3
                     elif i == 4 or i == 10:
-                        layer_id = 4
+                        layer_id = 4    
                     elif i == 5 or i == 11:
                         layer_id = 5
                     elif i == 6 or i == 12:
                         layer_id = 6
                 
-                    # Generate filename
-                    filename = f"{position_info}-s{layer_id}-c{layer_id}-{timestamp}.png"
-                    if i > 6:
-                        mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
-                        filename = f"{mid2}-s{layer_id}-c{layer_id}-{timestamp}.png"
+
+                    if position_info == "Unknown":
+                        # self._log('warning', "Position info is 'Unknown', using default filename")
+                        filename = f"Unknown-s{i}-c{i}-{timestamp}.png"
+                    else:
+                        # Generate filename
+                        filename = f"{position_info}-s{layer_id}-c{layer_id}-{timestamp}.png"
+                        if i > 6:
+                            mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
+                            filename = f"{mid2}-s{layer_id}-c{layer_id}-{timestamp}.png"
+
 
                     filepath = os.path.join(base_dir, filename)
                     filepath = filepath.replace("\\", "/")

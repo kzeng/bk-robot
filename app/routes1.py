@@ -845,6 +845,8 @@ def crop_images():
                 
                 # 查询marker_config表获取裁剪参数
                 marker_config = MarkerConfig.query.filter_by(mid=marker_id).first()
+                if marker_config == None:
+                    marker_config = MarkerConfig.query.filter_by(mid2=marker_id).first()
                 
                 if not marker_config:
                     processed_files.append({
