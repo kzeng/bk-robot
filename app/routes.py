@@ -679,7 +679,107 @@ def async_run_task(app, task_id):
              
 
             elif task.action == 1:  # 录像
-                pass
+                logger.info("Starting video recording task...")
+                start_timestamp = int(time.time())
+                recording_started = False
+                camera_ids = [1, 2, 3]  # 使用前3个IP摄像头
+                start_marker = marker_list[0]  # 记录开始点位
+                
+                current_marker_index = 0
+                while current_marker_index < len(marker_list):
+                    target_marker = marker_list[current_marker_index]
+                    logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
+
+                    # If at first marker, start recording before movement
+                    if current_marker_index == 0:
+                        logger.info("Starting video recording on first marker...")
+                        for cam_id in camera_ids:
+                            try:
+                                recording_result = app.camera_control.start_recording(cam_id)
+                                if recording_result.get('status') == 'OK':
+                                    recording_started = True
+                                else:
+                                    logger.error(f"Failed to start recording on camera {cam_id}")
+                                    status = TASK_STATUS_PARTIAL
+                            except Exception as e:
+                                logger.error(f"Error starting recording on camera {cam_id}: {str(e)}")
+                                status = TASK_STATUS_PARTIAL
+
+                    if target_marker == "CD":
+                        logger.info("Next marker is CD, moving lift to position one...")
+                        app.lift.move_to_position_one()
+
+                    # Try moving up to 3 times
+                    max_retries = 3
+                    retry_count = 0
+                    move_success = False
+                    
+                    while retry_count < max_retries and not move_success:
+                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        
+                        if not move_result:
+                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                            retry_count += 1
+                            time.sleep(1)
+                            continue
+                            
+                        # Wait for robot to complete movement
+                        move_complete = False
+                        status_checks = 0
+                        max_status_checks = 30  # 30 second timeout
+                        
+                        while not move_complete and status_checks < max_status_checks:
+                            robot_status = app.robot_control.send_command("/api/robot_status")
+                            
+                            if not robot_status:
+                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
+                                status_checks += 1
+                                time.sleep(1)
+                                continue
+                                
+                            logger.debug(f"Robot status: {robot_status}")
+                            
+                            if robot_status.get('status') == 'OK':
+                                results = robot_status.get('results', {})
+                                actual_marker = results.get('move_target')
+                                move_status = results.get('move_status')
+                                
+                                if move_status == 'succeeded' and actual_marker == target_marker:
+                                    logger.info(f"Robot successfully reached marker {target_marker}")
+                                    move_success = True
+                                    move_complete = True
+                                    current_marker_index += 1
+                                elif move_status in ['failed', 'canceled']:
+                                    raise Exception(f"Movement {move_status} at {target_marker}")
+                            else:
+                                status_checks += 1
+                                time.sleep(1)
+
+                        if not move_complete:
+                            logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            retry_count += 1
+
+                    if not move_success:
+                        raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
+
+                    # If this is the second-to-last marker (before CD), stop recording
+                    if current_marker_index == len(marker_list) - 1 and recording_started:
+                        end_timestamp = int(time.time())
+                        end_marker = marker_list[current_marker_index - 1]  # 记录结束点位
+                        logger.info("Stopping video recording before CD...")
+                        
+                        for cam_id in camera_ids:
+                            try:
+                                stop_result = app.camera_control.stop_recording(cam_id)
+                                if stop_result.get('status') == 'OK':
+                                    video_file = f"static/video/{task_id}-{start_marker}-{start_timestamp}-{end_marker}-{end_timestamp}.mp4"
+                                    file_paths.append(video_file)
+                                else:
+                                    logger.error(f"Failed to stop recording on camera {cam_id}")
+                                    status = TASK_STATUS_PARTIAL
+                            except Exception as e:
+                                logger.error(f"Error stopping recording on camera {cam_id}: {str(e)}")
+                                status = TASK_STATUS_PARTIAL
             elif task.action == 99:  # Move only
                 current_marker_index = 0
                 while current_marker_index < len(marker_list):

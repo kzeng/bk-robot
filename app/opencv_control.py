@@ -14,6 +14,11 @@ class OpenCVControl:
         self.camera_urls = []  # List of RTSP camera URLs
         self.simulation_mode = False
         
+        # Recording state management
+        self.recording_cameras = {}  # Dictionary to track recording state per camera
+        self.video_writers = {}  # Dictionary to store VideoWriter objects
+        self.video_paths = {}  # Dictionary to store video paths
+        
         if app is not None:
             self.init_app(app)
 
@@ -393,4 +398,159 @@ class OpenCVControl:
 
     def close(self):
         """Simple close method for IP cameras"""
+        # Stop all ongoing recordings
+        for camera_id in list(self.recording_cameras.keys()):
+            if self.recording_cameras.get(camera_id, False):
+                self.stop_recording(camera_id)
+                
         self._log('info', "OpenCVControl closed")
+
+    def start_recording(self, camera_id, task_id=None, marker=None):
+        """Start video recording for a specific camera
+        
+        Args:
+            camera_id (int): The ID of the camera to record from (1-based index)
+            task_id (int, optional): Task ID for file naming
+            marker (str, optional): Start marker position for file naming
+            
+        Returns:
+            dict: Status information about the recording start
+        """
+        try:
+            if self.recording_cameras.get(camera_id, False):
+                return {"status": "ERROR", "message": f"Camera {camera_id} is already recording"}
+
+            if camera_id < 1 or camera_id > len(self.camera_urls):
+                return {"status": "ERROR", "message": f"Invalid camera ID {camera_id}"}
+
+            url = self.camera_urls[camera_id - 1]
+            
+            # Create video directory if it doesn't exist
+            os.makedirs("static/video", exist_ok=True)
+
+            # Initialize video capture with optimal settings
+            cap = cv2.VideoCapture(url)
+            if not cap.isOpened():
+                raise RuntimeError(f"Failed to open camera {camera_id}")
+
+            # Configure video capture properties
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # Set buffer size
+            
+            # Set video properties
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = 15.0  # Fixed FPS for consistent recording
+
+            # Clear buffer
+            for _ in range(5):
+                cap.grab()
+
+            # Initialize video writer
+            timestamp = int(time.time())
+            video_path = f"static/video/temp_video_{camera_id}_{timestamp}.mp4"
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+            if not writer.isOpened():
+                cap.release()
+                raise RuntimeError("Failed to initialize video writer")
+
+            # Store recording state
+            self.recording_cameras[camera_id] = True
+            self.video_writers[camera_id] = writer
+            self.video_paths[camera_id] = video_path
+
+            # Start recording thread
+            self._start_recording_thread(camera_id, cap)
+
+            self._log('info', f"Started recording for camera {camera_id}")
+            return {"status": "OK", "message": "Recording started"}
+
+        except Exception as e:
+            self._log('error', f"Error starting recording for camera {camera_id}: {str(e)}")
+            return {"status": "ERROR", "message": str(e)}
+
+    def stop_recording(self, camera_id, task_id=None, start_marker=None, start_timestamp=None, end_marker=None):
+        """Stop video recording for a specific camera
+        
+        Args:
+            camera_id (int): The ID of the camera to stop recording
+            task_id (int, optional): Task ID for file naming
+            start_marker (str, optional): Start marker position for file naming
+            start_timestamp (int, optional): Start timestamp for file naming
+            end_marker (str, optional): End marker position for file naming
+            
+        Returns:
+            dict: Status information about the recording stop
+        """
+        try:
+            if not self.recording_cameras.get(camera_id, False):
+                return {"status": "ERROR", "message": f"Camera {camera_id} is not recording"}
+
+            # Stop recording
+            self.recording_cameras[camera_id] = False
+            writer = self.video_writers.get(camera_id)
+            temp_video_path = self.video_paths.get(camera_id)
+
+            if writer:
+                writer.release()
+                self.video_writers.pop(camera_id, None)
+
+            # Check if temporary video exists
+            if not temp_video_path or not os.path.exists(temp_video_path):
+                raise RuntimeError("Video file not found after recording")
+
+            # Generate final video path with task information
+            final_video_path = temp_video_path
+            if all([task_id, start_marker, start_timestamp, end_marker]):
+                end_timestamp = int(time.time())
+                final_name = f"{task_id}-{start_marker}-{start_timestamp}-{end_marker}-{end_timestamp}.mp4"
+                final_video_path = os.path.join("static/video", final_name)
+                
+                # Rename temporary file to final name
+                try:
+                    os.rename(temp_video_path, final_video_path)
+                    self._log('info', f"Renamed video from {temp_video_path} to {final_video_path}")
+                except Exception as e:
+                    self._log('error', f"Failed to rename video file: {str(e)}")
+                    final_video_path = temp_video_path  # Fall back to temp path if rename fails
+
+            self._log('info', f"Successfully stopped recording for camera {camera_id}")
+            self.video_paths.pop(camera_id, None)
+            return {
+                "status": "OK",
+                "message": "Recording stopped",
+                "filepath": final_video_path
+            }
+
+        except Exception as e:
+            self._log('error', f"Error stopping recording for camera {camera_id}: {str(e)}")
+            return {"status": "ERROR", "message": str(e)}
+
+    def _start_recording_thread(self, camera_id, cap):
+        """Start a thread to continuously capture frames for recording
+        
+        Args:
+            camera_id (int): The camera ID being recorded
+            cap (cv2.VideoCapture): The video capture object
+        """
+        import threading
+
+        def record_frames():
+            try:
+                writer = self.video_writers.get(camera_id)
+                while self.recording_cameras.get(camera_id, False) and writer:
+                    ret, frame = cap.read()
+                    if ret and frame is not None:
+                        writer.write(frame)
+                    else:
+                        self._log('warning', f"Failed to read frame from camera {camera_id}")
+                    time.sleep(1/30)  # Limit to ~30 fps
+            except Exception as e:
+                self._log('error', f"Error in recording thread for camera {camera_id}: {str(e)}")
+            finally:
+                cap.release()
+
+        thread = threading.Thread(target=record_frames)
+        thread.daemon = True
+        thread.start()
