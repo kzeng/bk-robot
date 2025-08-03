@@ -22,7 +22,7 @@ import psutil
 import subprocess
 import threading
 import queue
-
+from PIL import Image
 
 def login_required(f):
     @wraps(f)
@@ -874,6 +874,8 @@ def crop_images():
                 if marker_config == None:
                     USE_MID2 = True
                     marker_config = MarkerConfig.query.filter_by(mid2=marker_id).first()
+                else:
+                    USE_MID2 = False
                 
                 if not marker_config:
                     processed_files.append({
@@ -887,9 +889,11 @@ def crop_images():
                 img_path = os.path.join(dir_path, filename)
                 
                 try:
-                    from PIL import Image
                     logger.info(f"开始处理图片: {img_path}")
                     img = Image.open(img_path)
+                    width, height = img.size
+
+                    logger.info(f"图片打开成功: {img_path}, 大小: {img.size}, 模式: {img.mode}")
 
                     if USE_MID2:
                         if marker_config.x2 == 0 and marker_config.y2 == 0 and \
@@ -898,13 +902,18 @@ def crop_images():
                             new_img = img
                         else:
                             # 执行裁剪
-                            logger.info(f"裁剪参数: x2={marker_config.x2}, y2={marker_config.y2}, w2={marker_config.w2}, h={marker_config.h2}")
+                            x = marker_config.x2
+                            y = marker_config.y2
+                            w = min(width,  marker_config.w2 + x)
+                            h = min(height, marker_config.h2 + y)
+                            logger.info(f"裁剪参数: x={x}, y={y}, w={w}, h={h}")
                             new_img = img.crop((
-                                marker_config.x2,  # 左
-                                marker_config.y2,  # 上
-                                marker_config.x2 + marker_config.w2,  # 右
-                                marker_config.y2 + marker_config.h2   # 下
+                                x,  
+                                y,  
+                                w,
+                                h
                             ))
+                            logger.info(f"裁剪完成(mid2): {new_img.size}, 模式: {new_img.mode}")
                     else:
                         # 如果x,y,w,h都为0，则跳过裁剪但仍然保存新文件
                         if marker_config.x == 0 and marker_config.y == 0 and \
@@ -913,13 +922,18 @@ def crop_images():
                             new_img = img
                         else:
                             # 执行裁剪
-                            logger.info(f"裁剪参数: x={marker_config.x}, y={marker_config.y}, w={marker_config.w}, h={marker_config.h}")
+                            x = marker_config.x
+                            y = marker_config.y
+                            w = min(width,  marker_config.w + x)
+                            h = min(height, marker_config.h + y)
+                            logger.info(f"裁剪参数(mid): x={x}, y={y}, w={w}, h={h}")
                             new_img = img.crop((
-                                marker_config.x,  # 左
-                                marker_config.y,  # 上
-                                marker_config.x + marker_config.w,  # 右
-                                marker_config.y + marker_config.h   # 下
+                                x,  
+                                y,  
+                                w,
+                                h
                             ))
+                            logger.info(f"裁剪完成(mid): {new_img.size}, 模式: {new_img.mode}")
 
                     # 生成新的文件名
                     base_name = os.path.splitext(filename)[0]
@@ -929,7 +943,7 @@ def crop_images():
 
                     # 保存新图片
                     logger.info(f"保存裁剪后的图片: {new_path}")
-                    new_img.save(new_path)
+                    new_img.save(new_path, optimize=False, compression_level=0)
                     logger.info(f"成功保存裁剪后的图片: {new_path}")
 
                     # 准备处理结果

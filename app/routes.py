@@ -634,7 +634,7 @@ def async_run_task(app, task_id):
                                     else:
                                         # take photos at the target marker
                                         logger.info(f"Taking photos at marker {target_marker}")
-                                        time.sleep(1)  # Give some time for the robot to stabilize at the marker
+                                        time.sleep(2)  # Give some time for the robot to stabilize at the marker
                                         
                                         photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
                                         logger.debug(f"Raw photo result: {photo_result}")
