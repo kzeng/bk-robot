@@ -133,4 +133,12 @@ def create_app(test_config=None):
     app.register_blueprint(routes1.bp1)
 
 
+    from .routes_videos import bp as videos_api_bp
+    app.register_blueprint(videos_api_bp, url_prefix='/api/videos')
+
+    @app.route('/videos')
+    def videos_page():
+        """视频管理页面"""
+        return app.render_template('videos.html') if hasattr(app, 'render_template') else __import__('flask').render_template('videos.html')
+
     return app

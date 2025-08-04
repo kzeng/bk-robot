@@ -690,24 +690,11 @@ def async_run_task(app, task_id):
                     target_marker = marker_list[current_marker_index]
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
 
-                    # If at first marker, start recording before movement
-                    if current_marker_index == 0:
-                        logger.info("Starting video recording on first marker...")
-                        for cam_id in camera_ids:
-                            try:
-                                recording_result = app.camera_control.start_recording(cam_id)
-                                if recording_result.get('status') == 'OK':
-                                    recording_started = True
-                                else:
-                                    logger.error(f"Failed to start recording on camera {cam_id}")
-                                    status = TASK_STATUS_PARTIAL
-                            except Exception as e:
-                                logger.error(f"Error starting recording on camera {cam_id}: {str(e)}")
-                                status = TASK_STATUS_PARTIAL
-
+                    # Check if target is CD and adjust lift position
                     if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
                         app.lift.move_to_position_one()
+
 
                     # Try moving up to 3 times
                     max_retries = 3
@@ -746,6 +733,26 @@ def async_run_task(app, task_id):
                                 
                                 if move_status == 'succeeded' and actual_marker == target_marker:
                                     logger.info(f"Robot successfully reached marker {target_marker}")
+                                    
+                                    # Start recording after reaching first marker (except if it's CD)
+                                    if current_marker_index == 0 and target_marker != "CD":
+                                        logger.info("Starting video recording at first marker...")
+                                        for cam_id in camera_ids:
+                                            try:
+                                                recording_result = app.camera_control.start_recording(
+                                                    camera_id=cam_id,
+                                                    task_id=task_id,
+                                                    marker=target_marker
+                                                )
+                                                if recording_result.get('status') == 'OK':
+                                                    recording_started = True
+                                                else:
+                                                    logger.error(f"Failed to start recording on camera {cam_id}")
+                                                    status = TASK_STATUS_PARTIAL
+                                            except Exception as e:
+                                                logger.error(f"Error starting recording on camera {cam_id}: {str(e)}")
+                                                status = TASK_STATUS_PARTIAL
+                                    
                                     move_success = True
                                     move_complete = True
                                     current_marker_index += 1
@@ -762,7 +769,7 @@ def async_run_task(app, task_id):
                     if not move_success:
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
 
-                    # If this is the second-to-last marker (before CD), stop recording
+                    # Stop recording before the last marker (which should be CD)
                     if current_marker_index == len(marker_list) - 1 and recording_started:
                         end_timestamp = int(time.time())
                         end_marker = marker_list[current_marker_index - 1]  # 记录结束点位
@@ -770,10 +777,17 @@ def async_run_task(app, task_id):
                         
                         for cam_id in camera_ids:
                             try:
-                                stop_result = app.camera_control.stop_recording(cam_id)
+                                stop_result = app.camera_control.stop_recording(
+                                    camera_id=cam_id,
+                                    task_id=task_id,
+                                    start_marker=start_marker,
+                                    start_timestamp=start_timestamp,
+                                    end_marker=end_marker
+                                )
                                 if stop_result.get('status') == 'OK':
-                                    video_file = f"static/video/{task_id}-{start_marker}-{start_timestamp}-{end_marker}-{end_timestamp}.mp4"
-                                    file_paths.append(video_file)
+                                    video_file = stop_result.get('filepath')  # Use the filepath from the response
+                                    if video_file:
+                                        file_paths.append(video_file)
                                 else:
                                     logger.error(f"Failed to stop recording on camera {cam_id}")
                                     status = TASK_STATUS_PARTIAL

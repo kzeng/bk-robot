@@ -2290,3 +2290,156 @@ rtsp://[用户名]:[密码]@[IP地址]:[端口]/[资源路径]
 主码流：rtsp://admin:123456@192.168.1.100:554/ch1/main/av_stream
 
 rtsp://admin@192.168.1.10:554/user=admin&password=&channel=1&stream=0.sdp?
+
+------------------------
+
+检查和梳理routes.py (elif task.action == 1:  # 录像)整个录像流程
+---
+
+### 1. 初始化录像参数
+
+```python
+start_timestamp = int(time.time())
+recording_started = False
+camera_ids = [1, 2, 3]  # 使用前3个IP摄像头
+start_marker = marker_list[0]  # 记录开始点位
+```
+- 记录录像开始时间戳、摄像头ID列表、起始点位。
+
+---
+
+### 2. 遍历点位，逐点移动
+
+```python
+current_marker_index = 0
+while current_marker_index < len(marker_list):
+    target_marker = marker_list[current_marker_index]
+    ...
+```
+- 依次遍历所有点位（marker），每次循环处理一个目标点。
+
+---
+
+### 3. 到达CD点前，必要时调整升降柱
+
+```python
+if target_marker == "CD":
+    logger.info("Next marker is CD, moving lift to position one...")
+    app.lift.move_to_position_one()
+```
+- 如果目标点是充电点（CD），则先将升降柱降到一层。
+
+---
+
+### 4. 移动到目标点，最多重试3次
+
+```python
+max_retries = 3
+retry_count = 0
+move_success = False
+
+while retry_count < max_retries and not move_success:
+    move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+    ...
+```
+- 通过机器人控制API移动到目标点，失败时重试。
+
+---
+
+### 5. 轮询机器人状态，等待移动完成
+
+```python
+move_complete = False
+status_checks = 0
+max_status_checks = 30  # 30秒超时
+
+while not move_complete and status_checks < max_status_checks:
+    robot_status = app.robot_control.send_command("/api/robot_status")
+    ...
+    if move_status == 'succeeded' and actual_marker == target_marker:
+        ...
+```
+- 通过 `/api/robot_status` 轮询，直到机器人到达目标点或超时。
+
+---
+
+### 6. 到达第一个点位后启动录像
+
+```python
+if current_marker_index == 0 and target_marker != "CD":
+    logger.info("Starting video recording at first marker...")
+    for cam_id in camera_ids:
+        recording_result = app.camera_control.start_recording(
+            camera_id=cam_id,
+            task_id=task_id,
+            marker=target_marker
+        )
+        ...
+```
+- 仅在第一个点位（且不是CD）到达后，启动所有摄像头录像。
+
+---
+
+### 7. 到达最后一个点位（CD前一个）时停止录像
+
+```python
+if current_marker_index == len(marker_list) - 1 and recording_started:
+    end_timestamp = int(time.time())
+    end_marker = marker_list[current_marker_index - 1]
+    logger.info("Stopping video recording before CD...")
+    for cam_id in camera_ids:
+        stop_result = app.camera_control.stop_recording(
+            camera_id=cam_id,
+            task_id=task_id,
+            start_marker=start_marker,
+            start_timestamp=start_timestamp,
+            end_marker=end_marker
+        )
+        ...
+```
+- 在到达最后一个点位（CD前一个）时，停止录像并保存视频文件。
+
+---
+
+### 8. 错误处理与日志记录
+
+- 移动或录像失败时，抛出异常并记录日志。
+- 任务结束时，更新任务日志状态和文件路径。
+
+---
+
+## 注意事项与优化建议
+
+1. **录像启动与停止时机**  
+   - 录像只在第一个点位启动，最后一个点位（CD前）停止，确保录像覆盖所有移动过程。  
+   - 若点位较多或需分段录像，可考虑每个点位单独录像。
+
+2. **异常处理**  
+   - 录像启动/停止失败时，建议增加更详细的错误信息和恢复机制（如重试、报警等）。
+   - 录像过程中如遇异常，建议确保所有摄像头都能正确停止录像，避免资源泄露。
+
+3. **多摄像头支持**  
+   - 当前写死为前3个摄像头，建议根据实际配置动态获取摄像头数量。
+
+4. **状态轮询优化**  
+   - 机器人状态轮询采用固定次数和间隔，若机器人响应较慢或网络波动，可能导致误判。可考虑自适应超时或更智能的状态判断。
+
+5. **文件命名与管理**  
+   - 视频文件命名包含任务ID、点位、时间戳，便于追溯。建议定期清理无效或过期视频文件，防止磁盘占满。
+
+6. **日志与监控**  
+   - 关键步骤均有日志记录，便于排查问题。可考虑增加任务执行进度的实时推送或前端展示。
+
+7. **升降柱控制**  
+   - CD点自动降到一层，建议根据实际场景灵活配置（如不同点位对应不同高度）。
+
+8. **线程安全与资源释放**  
+   - 录像线程、摄像头资源需确保在异常或任务结束时正确释放，避免内存泄漏或死锁。
+
+---
+
+**相关代码位置**：  
+- `async_run_task`  
+- 摄像头录像控制：`OpenCVControl.start_recording`, `OpenCVControl.stop_recording`
+
+如需进一步优化，可考虑将录像流程抽象为独立的服务或任务队列，提升健壮性和可维护性。

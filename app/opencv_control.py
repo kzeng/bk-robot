@@ -434,20 +434,25 @@ class OpenCVControl:
                 raise RuntimeError(f"Failed to open camera {camera_id}")
 
             # Configure video capture properties
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # Set buffer size
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
             
             # Set video properties
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = 15.0  # Fixed FPS for consistent recording
+            fps = 15.0
 
             # Clear buffer
             for _ in range(5):
                 cap.grab()
 
-            # Initialize video writer
+            # Generate more descriptive temporary filename using task_id and marker
             timestamp = int(time.time())
-            video_path = f"static/video/temp_video_{camera_id}_{timestamp}.mp4"
+            date_str = datetime.now().strftime("%Y%m%d")
+            video_dir = os.path.join("static", "video", date_str)
+            os.makedirs(video_dir, exist_ok=True)
+            video_filename = f"temp_video_task{task_id}_cam{camera_id}_marker{marker}_{timestamp}.mp4"
+            video_path = os.path.join(video_dir, video_filename)
+            
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
 
@@ -455,7 +460,7 @@ class OpenCVControl:
                 cap.release()
                 raise RuntimeError("Failed to initialize video writer")
 
-            # Store recording state
+            # Store recording state and metadata
             self.recording_cameras[camera_id] = True
             self.video_writers[camera_id] = writer
             self.video_paths[camera_id] = video_path
@@ -463,8 +468,15 @@ class OpenCVControl:
             # Start recording thread
             self._start_recording_thread(camera_id, cap)
 
-            self._log('info', f"Started recording for camera {camera_id}")
-            return {"status": "OK", "message": "Recording started"}
+            self._log('info', f"Started recording for camera {camera_id} at marker {marker} for task {task_id}")
+            return {
+                "status": "OK", 
+                "message": "Recording started",
+                "camera_id": camera_id,
+                "task_id": task_id,
+                "marker": marker,
+                "timestamp": timestamp
+            }
 
         except Exception as e:
             self._log('error', f"Error starting recording for camera {camera_id}: {str(e)}")
@@ -502,11 +514,13 @@ class OpenCVControl:
 
             # Generate final video path with task information
             final_video_path = temp_video_path
-            if all([task_id, start_marker, start_timestamp, end_marker]):
+            if all([task_id, camera_id, start_marker, start_timestamp, end_marker]):
                 end_timestamp = int(time.time())
-                final_name = f"{task_id}-{start_marker}-{start_timestamp}-{end_marker}-{end_timestamp}.mp4"
-                final_video_path = os.path.join("static/video", final_name)
-                
+                date_str = datetime.now().strftime("%Y%m%d")
+                video_dir = os.path.join("static", "video", date_str)
+                os.makedirs(video_dir, exist_ok=True)
+                final_name = f"{task_id}-{camera_id}-{start_marker}-{start_timestamp}-{end_marker}-{end_timestamp}.mp4"
+                final_video_path = os.path.join(video_dir, final_name)
                 # Rename temporary file to final name
                 try:
                     os.rename(temp_video_path, final_video_path)
