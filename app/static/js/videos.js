@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 加载目录列表
     function loadVideoDirs() {
-        fetch('/api/videos/dirs')
+        fetch('/videos/dirs')
             .then(res => res.json())
             .then(data => {
                 let ul = document.getElementById('video-dir-list');
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载视频文件
     function loadVideos() {
         if (!currentDir) return;
-        fetch(`/api/videos/list?dir=${encodeURIComponent(currentDir)}&page=${currentPage}&size=${pageSize}`)
+        fetch(`/videos/list?dir=${encodeURIComponent(currentDir)}&page=${currentPage}&size=${pageSize}`)
             .then(res => res.json())
             .then(data => {
                 renderVideoList(data.files || []);
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
             col.innerHTML = `
                 <div class="card img-container video-thumb" style="cursor:pointer;">
                   <div class="ratio ratio-16x9 bg-light d-flex align-items-center justify-content-center" style="background:#eee;">
-                    <span class="text-secondary">视频</span>
+                    <i class="fas fa-video text-muted" style="font-size: 3rem;"></i>
                   </div>
                   <div class="card-body p-2">
                     <p class="card-text text-truncate mb-1" title="${file}">${file}</p>
@@ -175,18 +175,91 @@ document.addEventListener('DOMContentLoaded', function() {
     function previewVideo(filename) {
         let video = document.getElementById('preview-video');
         let label = document.getElementById('preview-filename');
-        video.src = `/static/video/${currentDir}/${filename}`;
+        
+        console.log('Attempting to preview video:', filename, 'in directory:', currentDir);
+        
+        // Clear previous video
+        video.src = '';
         video.load();
+        
+        // Set new source with type
+        let videoUrl = `/static/video/${currentDir}/${filename}`;
+        console.log('Video URL:', videoUrl);
+        
+        // Clear previous sources
+        video.innerHTML = '';
+        
+        // Add multiple source formats for better compatibility
+        let mp4Source = document.createElement('source');
+        mp4Source.src = videoUrl;
+        mp4Source.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+        
+        let webmSource = document.createElement('source');
+        webmSource.src = videoUrl.replace('.mp4', '.webm');
+        webmSource.type = 'video/webm; codecs="vp8, vorbis"';
+        
+        video.appendChild(mp4Source);
+        video.appendChild(webmSource);
+        
+        // Simple error message
+        let errorMsg = document.createElement('p');
+        errorMsg.className = 'text-danger';
+        errorMsg.textContent = '视频播放失败';
+        video.appendChild(errorMsg);
+        
+        video.setAttribute('controls', '');
+        video.setAttribute('playsinline', '');
+        video.load();
+        
+        // Add comprehensive event listeners
+        video.onerror = function() {
+            console.error('Video playback error:', video.error);
+            console.error('Network state:', video.networkState);
+            console.error('Ready state:', video.readyState);
+        };
+        
+        video.onloadedmetadata = function() {
+            console.log('Video metadata loaded - dimensions:', 
+                video.videoWidth, 'x', video.videoHeight,
+                'duration:', video.duration);
+        };
+        
+        video.oncanplay = function() {
+            console.log('Video can now play');
+        };
+        
+        video.onstalled = function() {
+            console.warn('Video stalled - buffering data');
+        };
+        
+        video.onprogress = function() {
+            console.log('Video loading progress:', 
+                video.buffered.length ? video.buffered.end(0) : 0);
+        };
+        
         label.textContent = filename;
         let modal = new bootstrap.Modal(document.getElementById('videoPreviewModal'));
         modal.show();
+        
+        // Try to play with comprehensive error handling
+        let playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => console.log('Video playback started successfully'))
+                .catch(e => {
+                    console.error('Playback failed:', e);
+                    console.error('Current video source:', video.currentSrc);
+                    console.error('Video ready state:', video.readyState);
+                    label.textContent = `${filename} (播放失败: ${e.message})`;
+                });
+        }
     }
 
     // 删除当前目录
     function deleteCurrentDir() {
         if (!currentDir) return;
         if (!confirm(`确定要删除目录 ${currentDir} 吗？此操作不可恢复！`)) return;
-        fetch('/api/videos/delete_directory', {
+        fetch('/videos/delete_directory', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ directory: currentDir })
@@ -203,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 清空所有视频
     function clearAllVideos() {
         if (!confirm('确定要清空所有视频文件吗？此操作不可恢复！')) return;
-        fetch('/api/videos/clear_all', {method: 'POST'})
+        fetch('/videos/clear_all', {method: 'POST'})
             .then(res => res.json())
             .then(data => {
                 alert(data.message || '已清空');

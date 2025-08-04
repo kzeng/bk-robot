@@ -4,9 +4,9 @@ import shutil
 
 bp = Blueprint('videos_api', __name__)
 
-VIDEO_BASE = os.path.join('static', 'video')
+VIDEO_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'video')
 
-@bp.route('/dirs')
+@bp.route('/videos/dirs')
 def list_video_dirs():
     try:
         dirs = []
@@ -17,7 +17,7 @@ def list_video_dirs():
     except Exception as e:
         return jsonify({'directories': [], 'error': str(e)})
 
-@bp.route('/list')
+@bp.route('/videos/list')
 def list_videos():
     dir_name = request.args.get('dir', '')
     page = int(request.args.get('page', 1))
@@ -37,7 +37,7 @@ def list_videos():
         'total_pages': (total+size-1)//size
     })
 
-@bp.route('/delete_directory', methods=['POST'])
+@bp.route('/videos/delete_directory', methods=['POST'])
 def delete_video_dir():
     data = request.get_json()
     dir_name = data.get('directory', '')
@@ -47,7 +47,7 @@ def delete_video_dir():
         return jsonify({'success': True, 'message': f'已删除目录 {dir_name}'})
     return jsonify({'success': False, 'message': '目录不存在'}), 404
 
-@bp.route('/clear_all', methods=['POST'])
+@bp.route('/videos/clear_all', methods=['POST'])
 def clear_all_videos():
     if os.path.exists(VIDEO_BASE):
         for d in os.listdir(VIDEO_BASE):
@@ -58,7 +58,7 @@ def clear_all_videos():
                 os.remove(dpath)
     return jsonify({'success': True, 'message': '所有视频已清空'})
 
-# 可选：提供视频文件下载/播放接口（如需权限控制可加）
-@bp.route('/static/video/<dir>/<filename>')
-def serve_video(dir, filename):
-    return send_from_directory(os.path.join(VIDEO_BASE, dir), filename)
+# Serve video files directly from static folder
+@bp.route('/static/video/<path:filename>')
+def serve_video(filename):
+    return send_from_directory(VIDEO_BASE, filename)

@@ -134,7 +134,7 @@ def create_app(test_config=None):
 
 
     from .routes_videos import bp as videos_api_bp
-    app.register_blueprint(videos_api_bp, url_prefix='/api/videos')
+    app.register_blueprint(videos_api_bp)
 
     @app.route('/videos')
     def videos_page():
