@@ -175,72 +175,44 @@ document.addEventListener('DOMContentLoaded', function() {
     function previewVideo(filename) {
         let video = document.getElementById('preview-video');
         let label = document.getElementById('preview-filename');
-        
         console.log('Attempting to preview video:', filename, 'in directory:', currentDir);
-        
-        // Clear previous video
-        video.src = '';
+        // 清空旧内容
+        video.pause();
+        video.removeAttribute('src');
+        video.innerHTML = '';
         video.load();
-        
-        // Set new source with type
+        // 直接设置 src 属性
         let videoUrl = `/static/video/${currentDir}/${filename}`;
         console.log('Video URL:', videoUrl);
-        
-        // Clear previous sources
-        video.innerHTML = '';
-        
-        // Add multiple source formats for better compatibility
-        let mp4Source = document.createElement('source');
-        mp4Source.src = videoUrl;
-        mp4Source.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
-        
-        let webmSource = document.createElement('source');
-        webmSource.src = videoUrl.replace('.mp4', '.webm');
-        webmSource.type = 'video/webm; codecs="vp8, vorbis"';
-        
-        video.appendChild(mp4Source);
-        video.appendChild(webmSource);
-        
-        // Simple error message
-        let errorMsg = document.createElement('p');
-        errorMsg.className = 'text-danger';
-        errorMsg.textContent = '视频播放失败';
-        video.appendChild(errorMsg);
-        
+        video.src = videoUrl;
+        video.setAttribute('type', 'video/mp4');
         video.setAttribute('controls', '');
         video.setAttribute('playsinline', '');
         video.load();
-        
-        // Add comprehensive event listeners
+        // 事件监听和弹窗逻辑保持不变
         video.onerror = function() {
             console.error('Video playback error:', video.error);
             console.error('Network state:', video.networkState);
             console.error('Ready state:', video.readyState);
         };
-        
         video.onloadedmetadata = function() {
             console.log('Video metadata loaded - dimensions:', 
                 video.videoWidth, 'x', video.videoHeight,
                 'duration:', video.duration);
         };
-        
         video.oncanplay = function() {
             console.log('Video can now play');
         };
-        
         video.onstalled = function() {
             console.warn('Video stalled - buffering data');
         };
-        
         video.onprogress = function() {
             console.log('Video loading progress:', 
                 video.buffered.length ? video.buffered.end(0) : 0);
         };
-        
         label.textContent = filename;
         let modal = new bootstrap.Modal(document.getElementById('videoPreviewModal'));
         modal.show();
-        
         // Try to play with comprehensive error handling
         let playPromise = video.play();
         if (playPromise !== undefined) {
