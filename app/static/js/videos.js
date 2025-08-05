@@ -223,8 +223,8 @@ document.addEventListener('DOMContentLoaded', function() {
         video.removeAttribute('src');
         video.innerHTML = '';
         video.load();
-        // 直接设置 src 属性
-        let videoUrl = `/static/video/${currentDir}/${filename}`;
+        // 直接设置 src 属性，避免多余的斜杠
+        let videoUrl = currentDir ? `/static/video/${currentDir}/${filename}` : `/static/video/${filename}`;
         console.log('Video URL:', videoUrl);
         video.src = videoUrl;
         video.setAttribute('type', 'video/mp4');

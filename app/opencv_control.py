@@ -439,7 +439,7 @@ class OpenCVControl:
             # Set video properties
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = 15.0
+            fps = 20.0
 
             # Clear buffer
             for _ in range(5):
