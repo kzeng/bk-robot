@@ -1,3 +1,5 @@
+
+
 from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
 import hashlib
 from functools import wraps
@@ -1026,3 +1028,193 @@ def crop_images():
             'message': f'处理过程中发生错误: {str(e)}',
             'processed_files': []
         }), 500  # 添加500状态码表示服务器错误
+
+
+@bp1.route('/api/videos/list', methods=['GET'])
+def get_videos_in_directory():
+    """获取指定目录下的视频列表，支持分页"""
+    try:
+        directory = request.args.get('dir', '')
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('size', 8))
+        videos_dir = os.path.join(current_app.root_path, '..', 'static', 'video')
+        # 目录为空时递归所有视频
+        if directory:
+            dir_path = os.path.join(videos_dir, directory)
+        else:
+            dir_path = videos_dir
+        if not os.path.exists(dir_path):
+            return jsonify({
+                'files': [],
+                'total_count': 0,
+                'total_pages': 1,
+                'page': page,
+                'size': page_size
+            })
+        files = []
+        for root, _, filenames in os.walk(dir_path):
+            for file in filenames:
+                if file.lower().endswith('.mp4'):
+                    # 只返回文件名
+                    files.append(os.path.relpath(os.path.join(root, file), dir_path if directory else videos_dir))
+            if directory:
+                break  # 只遍历当前目录
+        files.sort(reverse=True)
+        total_count = len(files)
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged_files = files[start:end]
+        return jsonify({
+            'files': paged_files,
+            'total_count': total_count,
+            'total_pages': total_pages,
+            'page': page,
+            'size': page_size
+        })
+    except Exception as e:
+        logger.error(f"Error getting videos: {str(e)}")
+        return jsonify({
+            'files': [],
+            'total_count': 0,
+            'total_pages': 1,
+            'page': 1,
+            'size': 8,
+            'error': str(e)
+        }), 500
+    
+# ---------------------- 视频一键上传 API ----------------------
+@bp1.route('/api/videos/upload', methods=['POST'])
+def upload_video_directory():
+    """
+    上传指定视频目录及其子目录下的所有mp4到FTP服务器(保留目录结构，根为vid)
+    POST参数: { directory: '20250804' }
+    """
+    try:
+        data = request.get_json()
+        directory = data.get('directory', '')
+        if not directory:
+            return jsonify({
+                'status': 'ERROR',
+                'message': '未指定目录'
+            }), 400
+
+        # 本地视频目录
+        videos_dir = os.path.join(current_app.root_path, '..', 'static', 'video')
+        dir_path = os.path.join(videos_dir, directory)
+        if not os.path.exists(dir_path):
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'目录不存在: {directory}'
+            }), 404
+
+        config = current_app.config
+        uploaded_files = []
+
+        if config.get('FTP_MOCK_MODE', False):
+            # Mock模式-仅模拟
+            logger.info(f"模拟FTP上传视频目录: {directory}")
+            for root, _, files in os.walk(dir_path):
+                for file in files:
+                    if file.lower().endswith('.mp4'):
+                        rel_path = os.path.relpath(root, dir_path)
+                        uploaded_files.append({
+                            'file': file,
+                            'directory': rel_path if rel_path != '.' else '',
+                            'status': 'success',
+                            'message': 'Simulated upload successful'
+                        })
+            logger.info(f"模拟上传完成，共处理 {len(uploaded_files)} 个视频文件")
+        else:
+            # 真正FTP上传
+            ftp = None
+            try:
+                ftp = FTP()
+                ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
+                ftp.login(config['FTP_USER'], config['FTP_PASS'])
+                logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
+
+                # 设置FTP根目录 vid
+                remote_base = config.get('FTP_VIDEO_BASE_DIR', '/vid')
+                try:
+                    ftp.cwd(remote_base)
+                except Exception as e:
+                    logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
+                    try:
+                        ftp.mkd(remote_base)
+                        ftp.cwd(remote_base)
+                        logger.info(f"成功创建并进入FTP根目录: {remote_base}")
+                    except Exception as mkdir_error:
+                        logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
+                        return jsonify({
+                            'status': 'ERROR',
+                            'message': f'无法创建FTP根目录: {str(mkdir_error)}',
+                            'uploaded_files': []
+                        }), 500
+
+                # 递归上传mp4，保持目录结构
+                for root, _, files in os.walk(dir_path):
+                    rel_path = os.path.relpath(root, dir_path)
+                    # 创建子目录
+                    if rel_path != '.':
+                        current_remote_path = remote_base
+                        for subdir in rel_path.split(os.sep):
+                            try:
+                                ftp.cwd(subdir)
+                                current_remote_path = os.path.join(current_remote_path, subdir)
+                            except:
+                                try:
+                                    ftp.mkd(subdir)
+                                    ftp.cwd(subdir)
+                                    current_remote_path = os.path.join(current_remote_path, subdir)
+                                except Exception as e:
+                                    logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
+                                    ftp.cwd(remote_base)
+                                    continue
+                    # 上传当前目录下所有mp4
+                    for file in files:
+                        if file.lower().endswith('.mp4'):
+                            local_file = os.path.join(root, file)
+                            try:
+                                with open(local_file, 'rb') as fp:
+                                    ftp.storbinary(f'STOR {file}', fp)
+                                uploaded_files.append({
+                                    'file': file,
+                                    'directory': rel_path if rel_path != '.' else '',
+                                    'status': 'success',
+                                    'message': 'Upload successful'
+                                })
+                                logger.info(f"成功上传: {local_file}")
+                            except Exception as e:
+                                error_msg = f"上传失败: {str(e)}"
+                                logger.error(f"{error_msg} - {local_file}")
+                                uploaded_files.append({
+                                    'file': file,
+                                    'directory': rel_path if rel_path != '.' else '',
+                                    'status': 'failed',
+                                    'error': error_msg
+                                })
+                    # 返回上级目录
+                    if rel_path != '.':
+                        for _ in rel_path.split(os.sep):
+                            ftp.cwd('..')
+            except Exception as ftp_error:
+                logger.error(f"FTP connection error: {str(ftp_error)}")
+                return jsonify({
+                    'status': 'ERROR',
+                    'message': f'FTP连接失败: {str(ftp_error)}',
+                    'uploaded_files': uploaded_files
+                }), 500
+
+        return jsonify({
+            'status': 'OK',
+            'message': f'成功上传 {len(uploaded_files)} 个视频到 {directory}',
+            'directory': directory,
+            'uploaded_files': uploaded_files
+        })
+    except Exception as e:
+        logger.error(f"Error uploading video directory: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'ERROR',
+            'message': f'Upload failed: {str(e)}'
+        }), 500

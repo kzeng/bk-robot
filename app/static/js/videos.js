@@ -14,6 +14,39 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('delete-video-dir').onclick = deleteCurrentDir;
     document.getElementById('clear-all-videos').onclick = clearAllVideos;
 
+    // 一键上传按钮事件
+    const oneClickUploadBtn = document.getElementById('oneClickUploadVideoBtn');
+    if (oneClickUploadBtn) {
+        oneClickUploadBtn.onclick = async function() {
+            if (!currentDir) {
+                alert('请先选择要上传的视频目录');
+                return;
+            }
+            if (!confirm(`确定要上传目录 ${currentDir} 下的所有视频到FTP服务器？`)) return;
+            oneClickUploadBtn.disabled = true;
+            let oldText = oneClickUploadBtn.innerHTML;
+            oneClickUploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>上传中...';
+            try {
+                const resp = await fetch('/api/videos/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ directory: currentDir })
+                });
+                const data = await resp.json();
+                if (data.status === 'OK') {
+                    alert(data.message || '上传成功！');
+                } else {
+                    alert(data.message || '上传失败！');
+                }
+            } catch (e) {
+                alert('上传请求失败: ' + e.message);
+            } finally {
+                oneClickUploadBtn.disabled = false;
+                oneClickUploadBtn.innerHTML = oldText;
+            }
+        };
+    }
+
     // 加载目录列表
     function loadVideoDirs() {
         fetch('/videos/dirs')
@@ -34,26 +67,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     };
                     ul.appendChild(li);
                 });
-                // 默认选中第一个
-                if (data.directories && data.directories.length > 0) {
-                    ul.firstChild && ul.firstChild.click();
-                } else {
-                    document.getElementById('video-list').innerHTML = '<div class="text-muted">暂无视频目录</div>';
-                }
+                // 默认不选中任何目录，直接加载全部视频
+                currentDir = '';
+                currentPage = 1;
+                loadVideos();
             });
     }
 
     // 加载视频文件
     function loadVideos() {
-        if (!currentDir) return;
-        fetch(`/videos/list?dir=${encodeURIComponent(currentDir)}&page=${currentPage}&size=${pageSize}`)
+        // currentDir 为空时加载所有视频
+        fetch(`/api/videos/list?dir=${encodeURIComponent(currentDir)}&page=${currentPage}&size=${pageSize}`)
             .then(res => res.json())
             .then(data => {
                 renderVideoList(data.files || []);
                 // 分页
                 totalPages = data.total_pages || 1;
-                renderPagination();
-                document.getElementById('current-dir-title').textContent = `视频文件 - ${currentDir}`;
+                renderPagination(data);
+                // 标题
+                document.getElementById('current-dir-title').textContent = currentDir ? `当前目录：${currentDir}` : '';
             });
     }
 
@@ -68,8 +100,8 @@ document.addEventListener('DOMContentLoaded', function() {
             col.className = 'col-md-2-4 col-sm-3 col-4';
             col.innerHTML = `
                 <div class="card img-container video-thumb" style="cursor:pointer;">
-                  <div class="ratio ratio-16x9 bg-light d-flex align-items-center justify-content-center" style="background:#eee;">
-                    <i class="fas fa-video text-muted" style="font-size: 3rem;"></i>
+                  <div class="ratio ratio-16x9 d-flex align-items-center justify-content-center" style="background:#f8f9fa;">
+                    <i class="fas fa-video" style="font-size: 3rem; color: #d0d3d6;"></i>
                   </div>
                   <div class="card-body p-2">
                     <p class="card-text text-truncate mb-1" title="${file}">${file}</p>
@@ -83,11 +115,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 渲染分页
-    function renderPagination() {
+    function renderPagination(data) {
         let ul = document.getElementById('video-pagination');
-        ul.className = 'pagination justify-content-center'; // 保持和photos.html一致
+        ul.className = 'pagination justify-content-center';
         ul.innerHTML = '';
-        if (totalPages <= 1) return;
+        if (totalPages <= 1) {
+            document.getElementById('video-page-info').textContent = data && data.total_count !== undefined
+                ? `共 ${data.total_count} 个视频`
+                : '';
+            return;
+        }
         // 最多显示7个页码按钮（包括省略号）
         const maxVisiblePages = 5;
         let startPage = Math.max(1, currentPage - 2);
@@ -169,6 +206,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
         ul.appendChild(nextLi);
+
+        // 分页信息
+        document.getElementById('video-page-info').textContent = data && data.total_count !== undefined
+            ? `第 ${currentPage} 页（共 ${totalPages} 页） - 共 ${data.total_count} 个视频`
+            : '';
     }
 
     // 预览视频
