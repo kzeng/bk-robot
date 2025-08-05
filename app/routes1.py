@@ -1,5 +1,3 @@
-
-
 from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
 import hashlib
 from functools import wraps
@@ -50,6 +48,12 @@ def photos_page():
 def marker_config_page():
     """标记点位配置页面"""
     return render_template('marker_config.html')
+
+@bp1.route('/videos')
+@login_required
+def videos_page():
+    """视频管理页面"""
+    return render_template('videos.html')
 
 
 # Photo management API routes ##########################################################################

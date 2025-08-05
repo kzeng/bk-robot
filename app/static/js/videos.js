@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 totalPages = data.total_pages || 1;
                 renderPagination(data);
                 // 标题
-                document.getElementById('current-dir-title').textContent = currentDir ? `当前目录：${currentDir}` : '';
+                document.getElementById('current-dir-title').textContent = currentDir ? `当前目录：${currentDir}` : '当前目录：全部视频';
             });
     }
 
