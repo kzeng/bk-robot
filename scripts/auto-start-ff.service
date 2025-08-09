@@ -1,0 +1,17 @@
+[Unit]
+Description=Auto-start Firefox for BK Robot
+After=network.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/bk/.Xauthority"
+WorkingDirectory=/home/bk/BOKU-SERVICE-HOME/bk-robot/scripts
+ExecStart=/home/bk/BOKU-SERVICE-HOME/bk-robot/scripts/auto-start-ff.sh
+Restart=on-failure
+User=bk
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target

@@ -156,3 +156,5 @@ app/logs/*.log.*
 app/logs/*.zip
 
 patches/
+
+!app/logs
