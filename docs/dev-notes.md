@@ -2443,3 +2443,15 @@ if current_marker_index == len(marker_list) - 1 and recording_started:
 - 摄像头录像控制：`OpenCVControl.start_recording`, `OpenCVControl.stop_recording`
 
 如需进一步优化，可考虑将录像流程抽象为独立的服务或任务队列，提升健壮性和可维护性。
+
+----------------
+
+# Auto Start Robot Service
+@reboot /home/bk/robot_start.sh
+
+#每天上午10点执行任务ID为8的任务
+# 0 10 * * * /bin/bash /home/bk/crontab_task.sh 8
+
+# 每日19:00执行任务 720分钟即12小时后自动开机 即早上7点开机
+# 0 19 * * * /bin/bash /home/bk/crontab_shutdown_reboot.sh 720
+
