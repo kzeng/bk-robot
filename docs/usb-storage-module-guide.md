@@ -704,6 +704,224 @@ sudo systemctl status ssh
 ip addr show
 ```
 
+------------------------
+
+好，给你“全自动（密码方式）”版。一句话概括：脚本里填上 `BOARD_USER`、`BOARD_HOST`、`BOARD_PASS`，它会用 `sshpass` 自动完成所有 `ssh/scp` 操作，全程不再交互输入密码。
+
 ---
+
+# 一键脚本（自动输入密码版）
+
+保存为 `build_rk3588_usb_modules.sh`，然后执行：
+
+```bash
+chmod +x build_rk3588_usb_modules.sh
+./build_rk3588_usb_modules.sh
+# 或在执行时覆盖变量：
+# BOARD_USER=bk BOARD_HOST=192.168.1.88 BOARD_PASS=12345678 ./build_rk3588_usb_modules.sh
+```
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+### ======= 连接与路径配置（按需改） =======
+BOARD_USER="${BOARD_USER:-bk}"
+BOARD_HOST="${BOARD_HOST:-192.168.1.88}"
+BOARD_PASS="${BOARD_PASS:-12345678}"   # <—— 你的密码；也可在运行命令行里覆盖
+BOARD="${BOARD_USER}@${BOARD_HOST}"
+
+# 你的本地内核源码树（已准备好并切到 RK3588 分支）
+KERNEL_SRC="${KERNEL_SRC:-$HOME/Codes/OPI5/linux-orangepi}"
+KERNEL_BRANCH="${KERNEL_BRANCH:-orange-pi-5.10-rk3588}"
+
+# 工具链与体系架构
+CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
+ARCH="${ARCH:-arm64}"
+
+# 需要编译的模块目录（可精简）
+MOD_DIRS=(
+  "drivers/usb/storage"   # usb-storage / uas
+  "drivers/scsi"          # sd_mod
+  "drivers/usb/host"      # xhci
+  "drivers/usb/dwc3"      # dwc3 / dwc3-rockchip
+  "fs/exfat"              # exfat（可选）
+  "fs/ntfs3"              # ntfs3（可选）
+)
+
+WORKDIR="${WORKDIR:-$PWD/rk3588-usb-build}"
+OUTPKG_NAME="${OUTPKG_NAME:-rk3588-usb-mods.tgz}"
+
+### ======= 准备依赖（含 sshpass） =======
+echo "[*] 安装依赖（如已安装会跳过）..."
+sudo apt-get update -y
+sudo apt-get install -y git build-essential gcc-aarch64-linux-gnu \
+  bc bison flex libssl-dev libncurses5-dev dwarves fakeroot cpio sshpass
+
+# 基于 sshpass 的 SSH/SCP 包装
+SSH_CMD=(sshpass -p "$BOARD_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$BOARD")
+SCP_CMD=(sshpass -p "$BOARD_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+
+### ======= 检查源码树 =======
+if [ ! -d "$KERNEL_SRC" ]; then
+  echo "[X] 找不到内核源码目录：$KERNEL_SRC"
+  echo "    请确认它已存在且已切到 $KERNEL_BRANCH 分支，或用 KERNEL_SRC=... 覆盖。"
+  exit 1
+fi
+
+cd "$KERNEL_SRC"
+CUR_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+if [ "$CUR_BRANCH" != "$KERNEL_BRANCH" ]; then
+  echo "[!] 当前分支是 $CUR_BRANCH，建议切换到 $KERNEL_BRANCH（脚本继续，但可能导致不匹配）。"
+fi
+
+### ======= 从板子抓取目标信息 =======
+mkdir -p "$WORKDIR/target-info"
+echo "[*] 从板子抓取内核配置/符号表..."
+
+if "${SSH_CMD[@]}" 'test -f /proc/config.gz'; then
+  "${SSH_CMD[@]}" 'cat /proc/config.gz' > "$WORKDIR/target-info/config.gz"
+else
+  KR="$("${SSH_CMD[@]}" 'uname -r' || true)"
+  if [ -n "$KR" ]; then
+    "${SSH_CMD[@]}" "cat /boot/config-${KR}" > "$WORKDIR/target-info/config" || true
+  fi
+fi
+
+"${SSH_CMD[@]}" 'uname -a' > "$WORKDIR/target-info/uname-a.txt" || true
+"${SSH_CMD[@]}" 'uname -r' > "$WORKDIR/target-info/uname-r.txt" || true
+
+if "${SSH_CMD[@]}" 'test -f /lib/modules/$(uname -r)/Module.symvers'; then
+  "${SSH_CMD[@]}" 'cat /lib/modules/$(uname -r)/Module.symvers' > "$WORKDIR/target-info/Module.symvers"
+fi
+
+"${SSH_CMD[@]}" 'modinfo -F vermagic $(ls /lib/modules/* -d 2>/dev/null | xargs -n1 basename 2>/dev/null | head -n1) 2>/dev/null || true' \
+  > "$WORKDIR/target-info/vermagic.txt" || true
+
+echo "[*] 目标 uname -a:"
+cat "$WORKDIR/target-info/uname-a.txt" || true
+echo "[*] 目标 vermagic:"
+cat "$WORKDIR/target-info/vermagic.txt" || true
+
+### ======= 套用目标 .config / 符号表 =======
+echo "[*] 套用 .config / Module.symvers..."
+if [ -f "$WORKDIR/target-info/config.gz" ]; then
+  zcat "$WORKDIR/target-info/config.gz" > .config
+elif [ -f "$WORKDIR/target-info/config" ]; then
+  cp "$WORKDIR/target-info/config" .config
+else
+  echo "[!] 未拿到目标内核配置（/proc/config.gz 或 /boot/config-*）。继续使用现有配置，可能 vermagic 不匹配。"
+fi
+
+if [ -f "$WORKDIR/target-info/Module.symvers" ]; then
+  cp "$WORKDIR/target-info/Module.symvers" .
+fi
+
+export ARCH CROSS_COMPILE
+make olddefconfig
+make prepare modules_prepare
+
+### ======= 确保关键选项开启（优先模块） =======
+echo "[*] 校验并启用关键配置..."
+[ -x scripts/config ] || make scripts
+enable_m () { ./scripts/config --module "$1" || ./scripts/config --enable "$1" || true; }
+
+# USB Host/Controller
+enable_m CONFIG_USB_XHCI_HCD
+enable_m CONFIG_USB_XHCI_PLATFORM
+enable_m CONFIG_USB_DWC3
+enable_m CONFIG_USB_DWC3_ROCKCHIP
+
+# USB Storage / UAS
+enable_m CONFIG_USB_STORAGE
+enable_m CONFIG_USB_UAS
+
+# SCSI / 块设备
+enable_m CONFIG_SCSI
+enable_m CONFIG_BLK_DEV_SD
+./scripts/config --enable CONFIG_SCSI_SCAN_ASYNC || true
+
+# 常见文件系统
+enable_m CONFIG_VFAT_FS
+enable_m CONFIG_MSDOS_FS
+enable_m CONFIG_EXFAT_FS
+enable_m CONFIG_NLS_CODEPAGE_437
+enable_m CONFIG_NLS_ISO8859_1
+enable_m CONFIG_NTFS3_FS
+enable_m CONFIG_EXT4_FS
+
+make olddefconfig
+make prepare modules_prepare
+
+### ======= 编译需要的模块 =======
+echo "[*] 按目录编译模块..."
+for d in "${MOD_DIRS[@]}"; do
+  echo "    -> make M=${d} modules"
+  make -j"$(nproc)" M="${d}" modules
+done
+
+### ======= 校验 vermagic =======
+echo "[*] 校验 vermagic..."
+BUILD_VERMAGIC="$(/usr/sbin/modinfo drivers/usb/storage/usb-storage.ko 2>/dev/null | awk '/vermagic/{$1=""; sub(/^ /,""); print}')"
+TARGET_VERMAGIC="$(cat "$WORKDIR/target-info/vermagic.txt" 2>/dev/null || true)"
+echo "    build vermagic:  ${BUILD_VERMAGIC:-<unknown>}"
+echo "    target vermagic: ${TARGET_VERMAGIC:-<unknown>}"
+if [ -n "${TARGET_VERMAGIC:-}" ] && [ -n "${BUILD_VERMAGIC:-}" ] && [ "$BUILD_VERMAGIC" != "$TARGET_VERMAGIC" ]; then
+  echo "[!] 警告：vermagic 不匹配，加载可能失败。建议务必使用目标板导出的 .config 与 Module.symvers。"
+fi
+
+### ======= 收集/打包并推送 =======
+echo "[*] 收集 .ko 并打包..."
+OUTROOT="$WORKDIR/outmods/extra"
+mkdir -p "$OUTROOT"
+find drivers/usb/storage -name "*.ko" -exec cp -v {} "$OUTROOT"/ \;
+find drivers/scsi        -name "sd_mod.ko" -exec cp -v {} "$OUTROOT"/ \;
+find drivers/usb/host    -name "*.ko" -exec cp -v {} "$OUTROOT"/ \;
+find drivers/usb/dwc3    -name "*.ko" -exec cp -v {} "$OUTROOT"/ \;
+find fs/exfat            -name "*.ko" -exec cp -v {} "$OUTROOT"/ \; 2>/dev/null || true
+find fs/ntfs3            -name "*.ko" -exec cp -v {} "$OUTROOT"/ \; 2>/dev/null || true
+
+cat > "$WORKDIR/outmods/install_and_load.sh" <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+KREL="$(uname -r)"
+MODBASE="/lib/modules/${KREL}"
+echo "[*] 安装到 ${MODBASE}/extra ..."
+sudo mkdir -p "${MODBASE}/extra"
+sudo cp -v extra/*.ko "${MODBASE}/extra/" || true
+echo "[*] depmod ..."
+sudo depmod -a "${KREL}"
+echo "[*] 加载模块（按需忽略报错）..."
+sudo modprobe usb-storage || true
+sudo modprobe uas || true
+sudo modprobe sd_mod || true
+echo "[*] 最近内核日志："
+dmesg | tail -n 80
+echo "[*] 如看到 /dev/sdX，请用 lsblk 验证。"
+EOS
+chmod +x "$WORKDIR/outmods/install_and_load.sh"
+
+tar -C "$WORKDIR/outmods" -czf "$WORKDIR/${OUTPKG_NAME}" .
+
+echo "[*] 推送并安装..."
+"${SCP_CMD[@]}" "$WORKDIR/${OUTPKG_NAME}" "${BOARD}:/tmp/${OUTPKG_NAME}"
+"${SSH_CMD[@]}" "cd /tmp && tar xzf ${OUTPKG_NAME} && sudo bash outmods/install_and_load.sh"
+
+echo "[✓] 完成。现在在板子上插拔 U 盘并用： dmesg -w / lsblk 观察是否出现 /dev/sdX"
+```
+
+---
+
+## 要点与安全提醒
+
+* 这个脚本使用 `sshpass`，会把密码以进程参数的形式传给 `ssh/scp`。在同机用户可通过进程列表看到命令行参数。**建议仅用于内网临时自动化**。
+* 更安全的长期方案是**配置公钥免密**（`ssh-copy-id bk@IP`），然后把脚本里的 `sshpass` 改回标准 `ssh/scp`。
+* 如果遇到 `Permission denied`，请确认板子上：
+
+  * `openssh-server` 已安装并启动：`sudo systemctl status ssh`
+  * 用户 `bk` 具备 `sudo` 权限（脚本里会执行 `sudo`）。没有的话可去掉 `sudo` 或给 `bk` 加权限。
+
+需要我把 `MOD_DIRS` 按你 `dmesg` 里实际控制器（比如只留 `dwc3-rockchip`）进一步精简吗？贴一段 `dmesg | egrep -i 'dwc3|xhci'` 我来给你裁。
+
 
 
