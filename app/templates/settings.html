@@ -171,12 +171,12 @@
         </div>
     </div>
 
-    <!-- Fullscreen Toggle -->
+    <!-- Firefox Kiosk Mode Control -->
     <div class="card mt-4">
         <div class="card-body">
-            <h5 class="card-title">全屏控制</h5>
-            <button id="fullscreenToggle" class="btn btn-outline-primary">
-                <i class="fas fa-expand me-1"></i>切换全屏模式
+            <h5 class="card-title">Firefox全屏控制</h5>
+            <button id="firefoxKioskToggle" class="btn btn-outline-primary">
+                <i class="fas fa-expand me-1"></i>退出全屏模式
             </button>
         </div>
     </div>
@@ -186,30 +186,64 @@
 
 {% block scripts %}
 <script>
-// 全屏控制功能
+// Firefox Kiosk模式控制
 document.addEventListener('DOMContentLoaded', function() {
-    const fullscreenToggle = document.getElementById('fullscreenToggle');
-    const icon = fullscreenToggle.querySelector('i');
+    const firefoxToggle = document.getElementById('firefoxKioskToggle');
+    const icon = firefoxToggle.querySelector('i');
     
-    fullscreenToggle.addEventListener('click', function() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().then(() => {
-                icon.classList.remove('fa-expand');
-                icon.classList.add('fa-compress');
-                fullscreenToggle.innerHTML = '<i class="fas fa-compress me-1"></i>退出全屏模式';
+    firefoxToggle.addEventListener('click', async function() {
+        const isExiting = firefoxToggle.textContent.includes('退出');
+        
+        try {
+            const response = await fetch(isExiting ? '/api/firefox/exit' : '/api/firefox/restart', {
+                method: 'POST'
             });
-        } else {
-            document.exitFullscreen().then(() => {
-                icon.classList.remove('fa-compress');
-                icon.classList.add('fa-expand');
-                fullscreenToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
-            });
-        }
-    });
-
-    document.addEventListener('fullscreenchange', function() {
-        if (!document.fullscreenElement) {
-            fullscreenToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
+            
+            if (response.ok) {
+                if (isExiting) {
+                    firefoxToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
+                } else {
+                    firefoxToggle.innerHTML = '<i class="fas fa-compress me-1"></i>退出全屏模式';
+                }
+                
+                // 显示操作成功的toast通知
+                const container = document.getElementById('toastContainer');
+                container.innerHTML = `
+                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-success text-white">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong class="me-auto">成功</strong>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${isExiting ? '已退出全屏模式' : '已进入全屏模式'}
+                        </div>
+                    </div>
+                `;
+                const toastElement = container.querySelector('.toast');
+                const toast = new bootstrap.Toast(toastElement);
+                toast.show();
+            } else {
+                throw new Error('操作失败');
+            }
+        } catch (error) {
+            // 显示错误消息 toast
+            const container = document.getElementById('toastContainer');
+            container.innerHTML = `
+                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-danger text-white">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong class="me-auto">错误</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        操作失败: ${error.message}
+                    </div>
+                </div>
+            `;
+            const toastElement = container.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
         }
     });
 });
