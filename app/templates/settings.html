@@ -170,84 +170,12 @@
             </div>
         </div>
     </div>
-
-    <!-- Firefox Kiosk Mode Control -->
-    <div class="card mt-4">
-        <div class="card-body">
-            <h5 class="card-title">Firefox全屏控制</h5>
-            <button id="firefoxKioskToggle" class="btn btn-outline-primary">
-                <i class="fas fa-expand me-1"></i>退出全屏模式
-            </button>
-        </div>
-    </div>
 </div>
       <br><br><br><br>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Firefox Kiosk模式控制
-document.addEventListener('DOMContentLoaded', function() {
-    const firefoxToggle = document.getElementById('firefoxKioskToggle');
-    const icon = firefoxToggle.querySelector('i');
-    
-    firefoxToggle.addEventListener('click', async function() {
-        const isExiting = firefoxToggle.textContent.includes('退出');
-        
-        try {
-            const response = await fetch(isExiting ? '/api/firefox/exit' : '/api/firefox/restart', {
-                method: 'POST'
-            });
-            
-            if (response.ok) {
-                if (isExiting) {
-                    firefoxToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
-                } else {
-                    firefoxToggle.innerHTML = '<i class="fas fa-compress me-1"></i>退出全屏模式';
-                }
-                
-                // 显示操作成功的toast通知
-                const container = document.getElementById('toastContainer');
-                container.innerHTML = `
-                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header bg-success text-white">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <strong class="me-auto">成功</strong>
-                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                        </div>
-                        <div class="toast-body">
-                            ${isExiting ? '已退出全屏模式' : '已进入全屏模式'}
-                        </div>
-                    </div>
-                `;
-                const toastElement = container.querySelector('.toast');
-                const toast = new bootstrap.Toast(toastElement);
-                toast.show();
-            } else {
-                throw new Error('操作失败');
-            }
-        } catch (error) {
-            // 显示错误消息 toast
-            const container = document.getElementById('toastContainer');
-            container.innerHTML = `
-                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header bg-danger text-white">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong class="me-auto">错误</strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        操作失败: ${error.message}
-                    </div>
-                </div>
-            `;
-            const toastElement = container.querySelector('.toast');
-            const toast = new bootstrap.Toast(toastElement);
-            toast.show();
-        }
-    });
-});
-
 // 只保留表单提交相关JS
 
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
