@@ -170,12 +170,50 @@
             </div>
         </div>
     </div>
+
+    <!-- Fullscreen Toggle -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">全屏控制</h5>
+            <button id="fullscreenToggle" class="btn btn-outline-primary">
+                <i class="fas fa-expand me-1"></i>切换全屏模式
+            </button>
+        </div>
+    </div>
 </div>
       <br><br><br><br>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// 全屏控制功能
+document.addEventListener('DOMContentLoaded', function() {
+    const fullscreenToggle = document.getElementById('fullscreenToggle');
+    const icon = fullscreenToggle.querySelector('i');
+    
+    fullscreenToggle.addEventListener('click', function() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                icon.classList.remove('fa-expand');
+                icon.classList.add('fa-compress');
+                fullscreenToggle.innerHTML = '<i class="fas fa-compress me-1"></i>退出全屏模式';
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                icon.classList.remove('fa-compress');
+                icon.classList.add('fa-expand');
+                fullscreenToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
+            });
+        }
+    });
+
+    document.addEventListener('fullscreenchange', function() {
+        if (!document.fullscreenElement) {
+            fullscreenToggle.innerHTML = '<i class="fas fa-expand me-1"></i>进入全屏模式';
+        }
+    });
+});
+
 // 只保留表单提交相关JS
 
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
