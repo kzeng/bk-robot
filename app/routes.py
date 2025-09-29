@@ -682,7 +682,7 @@ def async_run_task(app, task_id):
                 logger.info("Starting video recording task...")
                 start_timestamp = int(time.time())
                 recording_started = False
-                camera_ids = [1, 2, 3]  # 使用前3个IP摄像头
+                camera_ids = [1, 2, 3, 4, 5, 6]  # 使用前6个IP摄像头
                 start_marker = marker_list[0]  # 记录开始点位
                 
                 current_marker_index = 0
