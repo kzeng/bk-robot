@@ -121,12 +121,12 @@ robot_all_apis_options = [
             "cmd": "/api/shutdown"
         },
         {
-            "title": "17.1 设置灯带接口亮度",
+            "title": "17.1 设置灯带亮度",
             "url": "#",
             "cmd": "/api/LED/set_luminance"
         },
         {
-            "title": "17.2 设置灯带接口颜色",
+            "title": "17.2 设置灯带颜色",
             "url": "#",
             "cmd": "/api/LED/set_color"
         },
