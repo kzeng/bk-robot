@@ -236,6 +236,10 @@ def upload_directory():
                 ftp.login(config['FTP_USER'], config['FTP_PASS'])
                 logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
+                # Force binary mode to prevent automatic compression
+                ftp.voidcmd("TYPE I")
+                logger.info("强制设置FTP二进制传输模式")
+
                 # 设置FTP根目录
                 remote_base = config.get('FTP_BASE_DIR', '/pic')
                 try:
@@ -285,15 +289,21 @@ def upload_directory():
                             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                                 local_file = os.path.join(root, file)
                                 try:
+                                    # 记录本地文件大小
+                                    local_file_size = os.path.getsize(local_file)
+                                    logger.info(f"开始上传文件: {file}, 本地大小: {local_file_size} bytes ({local_file_size/1024/1024:.2f} MB)")
+                                    
                                     with open(local_file, 'rb') as fp:
                                         ftp.storbinary(f'STOR {file}', fp)
+                                    
                                     uploaded_files.append({
                                         'file': file,
                                         'directory': rel_path if rel_path != '.' else '',
                                         'status': 'success',
-                                        'message': 'Upload successful'
+                                        'message': 'Upload successful',
+                                        'local_size': local_file_size
                                     })
-                                    logger.info(f"成功上传: {local_file}")
+                                    logger.info(f"成功上传: {local_file}, 大小: {local_file_size} bytes")
                                 except Exception as e:
                                     error_msg = f"上传失败: {str(e)}"
                                     logger.error(f"{error_msg} - {local_file}")
