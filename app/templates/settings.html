@@ -121,7 +121,7 @@
                                 <label class="form-label">串口号</label>
                                 <input type="text" class="form-control" name="LIFT_PORT" value="{{ env.LIFT_PORT }}" required>
                             </div>
-                            <div class="mb-3">
+                            <div class="mb-3 d-none">
                                 <label class="form-label">升降柱高度</label>
                                 <select class="form-select" name="LIFT_HEIGHT">
                                     <option value="L2" {% if env.LIFT_HEIGHT == 'L2' %}selected{% endif %}>半程高度（二号位）</option>

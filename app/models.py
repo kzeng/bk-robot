@@ -10,6 +10,7 @@ class Task(db.Model):
     create_at = db.Column(db.DateTime, default=datetime.utcnow)
     update_at = db.Column(db.DateTime)
     description = db.Column(db.String(255), default='')
+    lift = db.Column(db.String(10), default='L2')  # L2/L3, default: L2
 
     def __repr__(self):
         return f'<Task {self.task_id}>'

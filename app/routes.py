@@ -380,7 +380,8 @@ def list_tasks():
                 'action': task.action,
                 'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
                 'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
-                'description': task.description
+                'description': task.description,
+                'lift': task.lift
             } for task in tasks.items],
             'pagination': {
                 'page': page,
@@ -419,6 +420,7 @@ def create_task():
             marker=data.get('marker', ''),
             action=data.get('action', 0),
             description=data.get('description', ''),
+            lift=data.get('lift', 'L2'),
             create_at=datetime.now(timezone(timedelta(hours=8)))  # Use Shanghai timezone
         )
 
@@ -459,6 +461,7 @@ def get_task(task_id):
         'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
         'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
         'description': task.description,
+        'lift': task.lift,
         'status': status
     })
 
@@ -472,6 +475,7 @@ def update_task(task_id):
     task.marker = data.get('marker', task.marker)
     task.action = data.get('action', task.action)
     task.description = data.get('description', task.description)
+    task.lift = data.get('lift', task.lift)
     task.update_at = datetime.now()
     
     db.session.commit()
@@ -569,10 +573,10 @@ def async_run_task(app, task_id):
                                .first()
         
         try:
-            # move lift to configured height position before starting the task
+            # move lift to per-task configured height before starting the task
             if app.lift:
-                logger.info("Moving lift to configured height position...")
-                if not move_lift_to_configured_height():
+                logger.info(f"Moving lift to position for task lift={task.lift} ...")
+                if not move_lift_to_configured_height(task.lift):
                     raise Exception("Failed to move lift to configured height")
                 time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # wait for lift to reach position
             else:
@@ -1581,11 +1585,9 @@ def stop_obs():
         return jsonify({'error': str(e)}), 500
 
 
-def move_lift_to_configured_height():
-    """Move the lift to the configured height position"""
+def move_lift_to_configured_height(lift_height):
+    """Move the lift to the specified height position (L2/L3)"""
     try:
-        lift_height = os.getenv('LIFT_HEIGHT', 'L2')  # Default to L2 if not set
-        
         if current_app.lift:
             if lift_height == 'L3':
                 current_app.lift.move_to_position_three()

@@ -57,6 +57,7 @@
                             <th>ID</th>
                             <th width="30%">标记点</th>
                             <th>操作类型</th>
+                            <th>升降柱高度</th>
                             <th>描述</th>
                             <th>创建时间</th>
                             <th>操作</th>
@@ -126,6 +127,14 @@
                             </select>
                         </div>
                         <div class="mb-3">
+                            <label for="lift" class="form-label">升降柱高度</label>
+                            <select class="form-select" id="lift">
+                                <option value="L2" selected>L2</option>
+                                <option value="L3">L3</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="description" class="form-label">描述</label>
                             <textarea class="form-control" id="description" rows="3"></textarea>
                         </div>
@@ -149,6 +158,7 @@
                 </div>
                 <div class="modal-body">
                     <form id="editTaskForm">
+
                         <input type="hidden" id="editTaskId">
                         <div class="mb-3">
                             <label for="editMarker" class="form-label">标记点</label>
@@ -174,6 +184,14 @@
                                 <option value="99">仅是移动</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="editLift" class="form-label">升降柱高度</label>
+                            <select class="form-select" id="editLift">
+                                <option value="L2">L2</option>
+                                <option value="L3">L3</option>
+                            </select>
+                        </div>
+
                         <div class="mb-3">
                             <label for="editDescription" class="form-label">描述</label>
                             <textarea class="form-control" id="editDescription" rows="3"></textarea>
@@ -216,15 +234,14 @@
                             <td>${task.task_id}</td>
                             <td class="marker-cell">${task.marker}</td>
                             <td>${getActionText(task.action)}</td>
+                            <td>${task.lift || 'L2'}</td>
                             <td>${task.description}</td>
                             <td>${task.create_at ? task.create_at.slice(0,10) : ''}</td>
-             
                             <td>
                                 {% if session.role == 'super_user' %}
                                     <button class="btn btn-lg btn-primary" onclick="editTask(${task.task_id})">编辑</button>
                                     <button class="btn btn-lg btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
                                 {% endif %}                                
-                                
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <button class="btn btn-lg btn-success" onclick="runTask(${task.task_id})">执行 <i class="fa fa-paper-plane" aria-hidden="true"></i>
 </button>
@@ -368,7 +385,7 @@
                     document.getElementById('editMarker').value = task.marker;
                     document.getElementById('editAction').value = task.action;
                     document.getElementById('editDescription').value = task.description;
-                    
+                    document.getElementById('editLift').value = task.lift || 'L2';
                     const modal = new bootstrap.Modal(document.getElementById('editTaskModal'));
                     modal.show();
                 });
@@ -385,7 +402,8 @@
             const taskData = {
                 marker: markerValue,
                 action: parseInt(document.getElementById('editAction').value),
-                description: document.getElementById('editDescription').value
+                description: document.getElementById('editDescription').value,
+                lift: document.getElementById('editLift').value
             };
 
             fetch(`/api/tasks/${taskId}`, {
