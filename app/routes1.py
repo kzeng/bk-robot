@@ -1148,6 +1148,10 @@ def upload_video_directory():
                 ftp.login(config['FTP_USER'], config['FTP_PASS'])
                 logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
+                # Force binary mode to prevent automatic compression
+                ftp.voidcmd("TYPE I")
+                logger.info("强制设置FTP二进制传输模式")
+
                 # 设置FTP根目录 vid
                 remote_base = config.get('FTP_VIDEO_BASE_DIR', '/vid')
                 try:
