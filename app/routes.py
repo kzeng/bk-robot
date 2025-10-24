@@ -1606,20 +1606,51 @@ def move_lift_to_configured_height(lift_height):
 @login_required
 def ipcams():
     """网络摄像头仪表盘页面，支持多行和逗号分隔的 CAMERA_URLS"""
-    # 获取摄像头URL配置
-    # camera_urls_raw = current_app.config.get('CAMERA_URLS', '')
     cameras = []
     urls_str = os.environ.get('CAMERA_URLS', '')
-    # First split by newlines, then split each line by commas
-    camera_urls = []
+    
     for line in urls_str.splitlines():
-        # camera_urls.extend([url.strip() for url in line.split(',') if url.strip()])
-        print(line)
-        # rtsp://admin@192.168.10.21:554/user=admin&password=&channel=1&stream=0.sdp?
-        cameras.append({
-            'name': f'{ line.split("@")[1].split(":")[0] }',
-            'url': line
-        })
+        url = line.strip()
+        if not url:
+            continue
+            
+        # Extract camera name from RTSP URL
+        # Handle both formats:
+        # - rtsp://admin:boku2025@192.168.10.64:554/Streaming/Channels/101 (with password)
+        # - rtsp://admin@192.168.10.21:554/user=admin&password=&channel=1&stream=0.sdp? (without password)
+        try:
+            # Remove rtsp:// prefix
+            if url.startswith('rtsp://'):
+                url_without_protocol = url[7:]
+                
+                # Extract host/IP part
+                if '@' in url_without_protocol:
+                    # URL with authentication: user:pass@host
+                    host_part = url_without_protocol.split('@', 1)[1]
+                else:
+                    # URL without authentication
+                    host_part = url_without_protocol
+                
+                # Extract host/IP (remove port and path)
+                host = host_part.split(':')[0].split('/')[0]
+                
+                cameras.append({
+                    'name': host,
+                    'url': url
+                })
+            else:
+                # Fallback for non-RTSP URLs
+                cameras.append({
+                    'name': f'Camera_{len(cameras)+1}',
+                    'url': url
+                })
+                
+        except Exception as e:
+            # If parsing fails, use a generic name
+            cameras.append({
+                'name': f'Camera_{len(cameras)+1}',
+                'url': url
+            })
 
     return render_template('ipcams.html', cameras=cameras)
 
