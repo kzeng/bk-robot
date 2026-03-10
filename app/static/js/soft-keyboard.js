@@ -17,20 +17,31 @@ class SoftKeyboard {
         this.isVisible = false;
         this.currentSymbolSet = 'general'; // general, url, programming
         
-        // Consolidated 4-row keyboard layout
-        this.layout = {
-            name: '虚拟键盘',
-            rows: [
-                // Row 1: Numbers and backspace (equal width buttons)
-                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', { text: '⌫', class: 'backspace', action: 'backspace' }],
-                // Row 2: QWERTY top and middle rows combined
-                ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-                // Row 3: QWERTY bottom row with shift and symbols
-                [{ text: '⇧', class: 'shift', action: 'shift' }, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', { text: '空格', class: 'space', action: 'space' }],
-                // Row 4: Dynamic symbol row (changes based on context)
-                this.getSymbolRow('general')
+    // Standard QWERTY keyboard layout with 5 rows
+    this.layout = {
+        name: '标准键盘',
+        rows: [
+            // Row 1: Numbers and symbols
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', { text: '⌫', class: 'backspace', action: 'backspace' }],
+            // Row 2: QWERTY top row
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            // Row 3: QWERTY middle row with Caps Lock
+            [{ text: '⇪', class: 'caps', action: 'caps' }, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', { text: '↵', class: 'enter', action: 'enter' }],
+            // Row 4: QWERTY bottom row with Shift
+            [{ text: '⇧', class: 'shift', action: 'shift' }, 'z', 'x', 'c', 'v', 'b', 'n', 'm', { text: ',', class: 'symbol', action: 'insert:,' }, { text: '.', class: 'symbol', action: 'insert:.' }, { text: '?', class: 'symbol', action: 'insert:?' }],
+            // Row 5: Space bar and special keys
+            [
+                { text: '123', class: 'mode', action: 'toggle:numeric' },
+                { text: '@#&', class: 'mode', action: 'toggle:symbol' },
+                { text: '.com', class: 'shortcut', action: 'insert:.com' },
+                { text: '@', class: 'shortcut', action: 'insert:@' },
+                { text: '空格', class: 'space', action: 'space' },
+                { text: '←', class: 'arrow', action: 'arrow:left' },
+                { text: '→', class: 'arrow', action: 'arrow:right' },
+                { text: '隐藏', class: 'hide', action: 'hide' }
             ]
-        };
+        ]
+    };
 
         this.init();
     }
@@ -75,6 +86,7 @@ class SoftKeyboard {
             case 'general':
             default:
                 return [
+                    { text: '/', class: 'symbol', action: 'insert:/' },
                     { text: '!', class: 'symbol', action: 'insert:!' },
                     { text: '@', class: 'symbol', action: 'insert:@' },
                     { text: '#', class: 'symbol', action: 'insert:#' },
@@ -82,8 +94,7 @@ class SoftKeyboard {
                     { text: '%', class: 'symbol', action: 'insert:%' },
                     { text: '&', class: 'symbol', action: 'insert:&' },
                     { text: '*', class: 'symbol', action: 'insert:*' },
-                    { text: '-', class: 'symbol', action: 'insert:-' },
-                    { text: '_', class: 'symbol', action: 'insert:_' }
+                    { text: '-', class: 'symbol', action: 'insert:-' }
                 ];
         }
     }
@@ -256,6 +267,12 @@ class SoftKeyboard {
             case 'insert:.':
                 this.insertText('.');
                 break;
+            case 'insert:,':
+                this.insertText(',');
+                break;
+            case 'insert:.com':
+                this.insertText('.com');
+                break;
             case 'backspace':
                 this.backspace();
                 break;
@@ -264,6 +281,30 @@ class SoftKeyboard {
                 break;
             case 'shift':
                 this.toggleShift();
+                break;
+            case 'caps':
+                this.toggleCaps();
+                break;
+            case 'enter':
+                this.pressEnter();
+                break;
+            case 'arrow:left':
+                this.moveCursor(-1);
+                break;
+            case 'arrow:right':
+                this.moveCursor(1);
+                break;
+            case 'toggle:numeric':
+                this.toggleNumericMode();
+                break;
+            case 'toggle:symbol':
+                this.toggleSymbolMode();
+                break;
+            case 'toggle:alpha':
+                this.toggleAlphaMode();
+                break;
+            case 'hide':
+                this.hide();
                 break;
         }
     }
@@ -276,11 +317,20 @@ class SoftKeyboard {
         const end = input.selectionEnd;
         const value = input.value;
         
+        // Apply shift/caps lock to letters
+        let finalText = text;
+        if (text.length === 1 && /^[a-z]$/.test(text)) {
+            // Only apply case transformation to single letters
+            if (this.isShift || this.isCaps) {
+                finalText = text.toUpperCase();
+            }
+        }
+        
         // Insert text at cursor position
-        input.value = value.substring(0, start) + text + value.substring(end);
+        input.value = value.substring(0, start) + finalText + value.substring(end);
         
         // Move cursor to after inserted text
-        input.selectionStart = input.selectionEnd = start + text.length;
+        input.selectionStart = input.selectionEnd = start + finalText.length;
         
         // Trigger input event for React/Vue compatibility
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -319,6 +369,96 @@ class SoftKeyboard {
 
     toggleShift() {
         this.isShift = !this.isShift;
+        this.renderLayout();
+    }
+
+    toggleCaps() {
+        this.isCaps = !this.isCaps;
+        this.renderLayout();
+    }
+
+    pressEnter() {
+        if (!this.currentInput) return;
+        
+        // Trigger enter key event
+        const enterEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true
+        });
+        this.currentInput.dispatchEvent(enterEvent);
+        
+        // Also trigger submit if in a form
+        if (this.currentInput.form) {
+            this.currentInput.form.dispatchEvent(new Event('submit', { bubbles: true }));
+        }
+    }
+
+    moveCursor(direction) {
+        if (!this.currentInput) return;
+        
+        const input = this.currentInput;
+        const currentPos = input.selectionStart;
+        const newPos = Math.max(0, Math.min(input.value.length, currentPos + direction));
+        
+        input.selectionStart = input.selectionEnd = newPos;
+        input.focus();
+    }
+
+    toggleNumericMode() {
+        // Switch to numeric layout
+        this.layout.rows[0] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', { text: '⌫', class: 'backspace', action: 'backspace' }];
+        this.layout.rows[1] = ['+', '-', '*', '/', '=', '%', '(', ')', '[', ']'];
+        this.layout.rows[2] = [{ text: 'ABC', class: 'mode', action: 'toggle:alpha' }, '.', ',', ':', ';', '!', '?', '"', "'", { text: '↵', class: 'enter', action: 'enter' }];
+        this.layout.rows[3] = [{ text: '@#&', class: 'mode', action: 'toggle:symbol' }, '$', '€', '£', '¥', '¢', '°', '±', '×', '÷'];
+        this.layout.rows[4] = [
+            { text: 'ABC', class: 'mode', action: 'toggle:alpha' },
+            { text: '.com', class: 'shortcut', action: 'insert:.com' },
+            { text: '@', class: 'shortcut', action: 'insert:@' },
+            { text: '空格', class: 'space', action: 'space' },
+            { text: '←', class: 'arrow', action: 'arrow:left' },
+            { text: '→', class: 'arrow', action: 'arrow:right' },
+            { text: '隐藏', class: 'hide', action: 'hide' }
+        ];
+        this.renderLayout();
+    }
+
+    toggleSymbolMode() {
+        // Switch to symbol layout
+        this.layout.rows[0] = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', { text: '⌫', class: 'backspace', action: 'backspace' }];
+        this.layout.rows[1] = ['_', '+', '-', '=', '{', '}', '[', ']', '|', '\\'];
+        this.layout.rows[2] = [{ text: '123', class: 'mode', action: 'toggle:numeric' }, ':', ';', '"', "'", '<', '>', ',', '.', { text: '↵', class: 'enter', action: 'enter' }];
+        this.layout.rows[3] = [{ text: 'ABC', class: 'mode', action: 'toggle:alpha' }, '~', '`', '¡', '¿', '€', '£', '¥', '¢', '°'];
+        this.layout.rows[4] = [
+            { text: 'ABC', class: 'mode', action: 'toggle:alpha' },
+            { text: '.com', class: 'shortcut', action: 'insert:.com' },
+            { text: '@', class: 'shortcut', action: 'insert:@' },
+            { text: '空格', class: 'space', action: 'space' },
+            { text: '←', class: 'arrow', action: 'arrow:left' },
+            { text: '→', class: 'arrow', action: 'arrow:right' },
+            { text: '隐藏', class: 'hide', action: 'hide' }
+        ];
+        this.renderLayout();
+    }
+
+    toggleAlphaMode() {
+        // Switch back to standard QWERTY layout
+        this.layout.rows[0] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', { text: '⌫', class: 'backspace', action: 'backspace' }];
+        this.layout.rows[1] = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'];
+        this.layout.rows[2] = [{ text: '⇪', class: 'caps', action: 'caps' }, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', { text: '↵', class: 'enter', action: 'enter' }];
+        this.layout.rows[3] = [{ text: '⇧', class: 'shift', action: 'shift' }, 'z', 'x', 'c', 'v', 'b', 'n', 'm', { text: ',', class: 'symbol', action: 'insert:,' }, { text: '.', class: 'symbol', action: 'insert:.' }, { text: '?', class: 'symbol', action: 'insert:?' }];
+        this.layout.rows[4] = [
+            { text: '123', class: 'mode', action: 'toggle:numeric' },
+            { text: '@#&', class: 'mode', action: 'toggle:symbol' },
+            { text: '.com', class: 'shortcut', action: 'insert:.com' },
+            { text: '@', class: 'shortcut', action: 'insert:@' },
+            { text: '空格', class: 'space', action: 'space' },
+            { text: '←', class: 'arrow', action: 'arrow:left' },
+            { text: '→', class: 'arrow', action: 'arrow:right' },
+            { text: '隐藏', class: 'hide', action: 'hide' }
+        ];
         this.renderLayout();
     }
 

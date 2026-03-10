@@ -58,21 +58,21 @@
 
 /* Keyboard Keys - Equal width for all letter/number/symbol buttons */
 .keyboard-key {
-  min-width: 48px;
-  height: 56px;
+  min-width: 40px;
+  height: 48px;
   background: var(--key-bg);
   border: 1px solid var(--key-border);
   border-radius: var(--key-radius);
   color: var(--key-text);
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
-  padding: 0 8px;
+  padding: 0 6px;
   flex: 1;
   touch-action: manipulation;
 }
@@ -92,41 +92,89 @@
 /* Special Keys */
 .keyboard-key.special {
   background: var(--special-key-bg);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 /* Space key - larger */
 .keyboard-key.space {
   background: var(--space-key-bg);
-  flex: 2.5;
-  font-size: 1.1rem;
-  font-weight: 700;
-  min-width: 120px;
+  flex: 3;
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 150px;
 }
 
 /* Backspace key - larger */
 .keyboard-key.backspace {
   background: var(--special-key-bg);
-  flex: 1.8;
-  font-size: 1.2rem;
-  font-weight: 700;
-  min-width: 80px;
+  flex: 1.2;
+  font-size: 1.1rem;
+  font-weight: 600;
+  min-width: 60px;
 }
 
 /* Shift key */
 .keyboard-key.shift {
   background: var(--special-key-bg);
-  flex: 1.5;
-  font-size: 1.1rem;
-  font-weight: 700;
+  flex: 1.2;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Caps key */
+.keyboard-key.caps {
+  background: var(--special-key-bg);
+  flex: 1.2;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Enter key */
+.keyboard-key.enter {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.20) 0%, rgba(46, 204, 113, 0.15) 100%);
+  flex: 1.2;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 /* Symbol keys */
 .keyboard-key.symbol {
   background: var(--special-key-bg);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Mode keys (123, @#&, ABC) */
+.keyboard-key.mode {
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.20) 0%, rgba(155, 89, 182, 0.15) 100%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Shortcut keys (.com, @) */
+.keyboard-key.shortcut {
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.20) 0%, rgba(52, 152, 219, 0.15) 100%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Arrow keys */
+.keyboard-key.arrow {
+  background: linear-gradient(135deg, rgba(241, 196, 15, 0.20) 0%, rgba(241, 196, 15, 0.15) 100%);
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 0.8;
+}
+
+/* Hide key */
+.keyboard-key.hide {
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.20) 0%, rgba(231, 76, 60, 0.15) 100%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex: 1;
 }
 
 /* Key States */

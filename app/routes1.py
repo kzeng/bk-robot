@@ -186,6 +186,41 @@ def get_images_in_directory():
         }), 500
 
 
+def ftp_upload_with_resume(ftp, local_path, remote_filename, logger=logger):
+    """
+    在当前远端目录下上传文件，支持断点续传。
+    返回: (action, local_size, remote_size)
+      action: skipped | resumed | uploaded
+    """
+    local_size = os.path.getsize(local_path)
+    remote_size = 0
+    try:
+        # 部分服务器不支持 SIZE；不支持时当作 0 处理
+        size = ftp.size(remote_filename)
+        remote_size = int(size) if size is not None else 0
+    except Exception:
+        remote_size = 0
+
+    if remote_size == local_size:
+        logger.info(f"跳过(已存在且大小一致): {remote_filename} ({local_size} bytes)")
+        return 'skipped', local_size, remote_size
+
+    if 0 < remote_size < local_size:
+        # 断点续传
+        logger.info(f"断点续传: {remote_filename} 从 {remote_size}/{local_size} bytes")
+        with open(local_path, 'rb') as fp:
+            fp.seek(remote_size)
+            # storbinary 的 rest 参数会自动发送 REST 指令
+            ftp.storbinary(f'STOR {remote_filename}', fp, rest=remote_size)
+        return 'resumed', local_size, remote_size
+
+    # 远端不存在/远端更大/异常情况，做全量重传
+    logger.info(f"全量上传: {remote_filename} 大小 {local_size} bytes (远端大小: {remote_size})")
+    with open(local_path, 'rb') as fp:
+        ftp.storbinary(f'STOR {remote_filename}', fp)
+    return 'uploaded', local_size, remote_size
+
+
 @bp1.route('/api/photos/upload', methods=['POST'])
 def upload_directory():
     """上传指定目录及其子目录下的所有图片到FTP服务器(保留目录结构)"""
@@ -232,23 +267,20 @@ def upload_directory():
             try:
                 # Connect to FTP server
                 ftp = FTP()
-                ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
+                # 增加超时，提升稳定性
+                ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
                 ftp.login(config['FTP_USER'], config['FTP_PASS'])
                 logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
-                # Force binary mode to prevent automatic compression
                 ftp.voidcmd("TYPE I")
-                logger.info("强制设置FTP二进制传输模式")
 
                 # 设置FTP根目录
                 remote_base = config.get('FTP_BASE_DIR', '/pic')
                 try:
-                    # 先尝试进入目录
                     ftp.cwd(remote_base)
                 except Exception as e:
                     logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
                     try:
-                        # 创建目录
                         ftp.mkd(remote_base)
                         ftp.cwd(remote_base)
                         logger.info(f"成功创建并进入FTP根目录: {remote_base}")
@@ -269,12 +301,10 @@ def upload_directory():
                         current_remote_path = remote_base
                         for subdir in rel_path.split(os.sep):
                             try:
-                                # 先尝试进入目录
                                 ftp.cwd(subdir)
                                 current_remote_path = os.path.join(current_remote_path, subdir)
                             except:
                                 try:
-                                    # 如果目录不存在则创建
                                     ftp.mkd(subdir)
                                     ftp.cwd(subdir)
                                     current_remote_path = os.path.join(current_remote_path, subdir)
@@ -284,26 +314,22 @@ def upload_directory():
                                     ftp.cwd(remote_base)
                                     continue
                         
-                        # 上传当前目录下的所有图片
+                        # 上传当前目录下的所有图片（断点续传）
                         for file in files:
                             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                                 local_file = os.path.join(root, file)
                                 try:
-                                    # 记录本地文件大小
-                                    local_file_size = os.path.getsize(local_file)
-                                    logger.info(f"开始上传文件: {file}, 本地大小: {local_file_size} bytes ({local_file_size/1024/1024:.2f} MB)")
-                                    
-                                    with open(local_file, 'rb') as fp:
-                                        ftp.storbinary(f'STOR {file}', fp)
-                                    
+                                    action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
                                     uploaded_files.append({
                                         'file': file,
                                         'directory': rel_path if rel_path != '.' else '',
-                                        'status': 'success',
-                                        'message': 'Upload successful',
-                                        'local_size': local_file_size
+                                        'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
+                                        'message': 'Upload successful' if action != 'skipped' else 'Already exists',
+                                        'action': action,
+                                        'local_size': local_size,
+                                        'remote_size': remote_size
                                     })
-                                    logger.info(f"成功上传: {local_file}, 大小: {local_file_size} bytes")
+                                    logger.info(f"{action.upper()} 完成: {local_file}")
                                 except Exception as e:
                                     error_msg = f"上传失败: {str(e)}"
                                     logger.error(f"{error_msg} - {local_file}")
@@ -1144,7 +1170,7 @@ def upload_video_directory():
             ftp = None
             try:
                 ftp = FTP()
-                ftp.connect(config['FTP_HOST'], config['FTP_PORT'])
+                ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
                 ftp.login(config['FTP_USER'], config['FTP_PASS'])
                 logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
 
@@ -1189,20 +1215,22 @@ def upload_video_directory():
                                     logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
                                     ftp.cwd(remote_base)
                                     continue
-                    # 上传当前目录下所有mp4
+                    # 上传当前目录下所有mp4（断点续传）
                     for file in files:
                         if file.lower().endswith('.mp4'):
                             local_file = os.path.join(root, file)
                             try:
-                                with open(local_file, 'rb') as fp:
-                                    ftp.storbinary(f'STOR {file}', fp)
+                                action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
                                 uploaded_files.append({
                                     'file': file,
                                     'directory': rel_path if rel_path != '.' else '',
-                                    'status': 'success',
-                                    'message': 'Upload successful'
+                                    'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
+                                    'message': 'Upload successful' if action != 'skipped' else 'Already exists',
+                                    'action': action,
+                                    'local_size': local_size,
+                                    'remote_size': remote_size
                                 })
-                                logger.info(f"成功上传: {local_file}")
+                                logger.info(f"{action.upper()} 完成: {local_file}")
                             except Exception as e:
                                 error_msg = f"上传失败: {str(e)}"
                                 logger.error(f"{error_msg} - {local_file}")
