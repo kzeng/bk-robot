@@ -1,12 +1,19 @@
 let selectedMarkersOrder = [];
 
 function updateSelectedMarkersDisplay() {
-    // 确保CD在最后
-    const cdIndex = selectedMarkersOrder.indexOf('CD');
-    if (cdIndex > -1) {
-        selectedMarkersOrder.splice(cdIndex, 1);
-        selectedMarkersOrder.push('CD');
-    }
+    // 确保所有以CD开头的点位在最后
+    const cdMarkers = selectedMarkersOrder.filter(marker => {
+        const markerName = marker || '';
+        return markerName.toUpperCase().startsWith('CD');
+    });
+    
+    const nonCdMarkers = selectedMarkersOrder.filter(marker => {
+        const markerName = marker || '';
+        return !markerName.toUpperCase().startsWith('CD');
+    });
+    
+    // 重新组合：非CD点位在前，CD点位在后
+    selectedMarkersOrder = [...nonCdMarkers, ...cdMarkers];
     
     const container = document.getElementById('selectedMarkersList');
     container.innerHTML = '';
@@ -125,37 +132,77 @@ document.getElementById('createTaskButton').addEventListener('click', function()
         return;
     }
 
-    // 确保CD在最后，如果没有则添加
-    if (!selectedMarkersOrder.includes('CD')) {
-        selectedMarkersOrder.push('CD');
-        updateSelectedMarkersDisplay();
-    }
-
-    const taskData = {
-        marker: selectedMarkersOrder.join(','),
-        action: 0,
-        description: ''
-    };
-
-    fetch('/tasks', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(taskData)
-    })
-    .then(response => response.json())
-    .then(data => {
+    // 1. 查询所有点位配置
+    fetch('/api/marker-config')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('获取点位配置失败');
+            }
+            return response.json();
+        })
+        .then(markerConfigs => {
+            // 2. 找出所有以CD开头的点位（不区分大小写）
+            const cdMarkers = markerConfigs
+                .filter(config => {
+                    const markerName = config.mid_short || '';
+                    return markerName.toUpperCase().startsWith('CD');
+                })
+                .map(config => config.mid_short)
+                .sort(); // 按字母顺序排序
+            
+            // 3. 如果没有任何CD点位，使用默认的'CD'
+            if (cdMarkers.length === 0) {
+                cdMarkers.push('CD');
+            }
+            
+            // 4. 去重：找出已选中的CD点位
+            const existingCdMarkers = selectedMarkersOrder.filter(marker => {
+                const markerName = marker || '';
+                return markerName.toUpperCase().startsWith('CD');
+            });
+            
+            // 5. 添加未选中的CD点位到末尾
+            cdMarkers.forEach(cdMarker => {
+                if (!existingCdMarkers.includes(cdMarker)) {
+                    selectedMarkersOrder.push(cdMarker);
+                }
+            });
+            
+            // 6. 更新显示
+            updateSelectedMarkersDisplay();
+            
+            // 7. 创建任务
+            const taskData = {
+                marker: selectedMarkersOrder.join(','),
+                action: 0,
+                description: ''
+            };
+            
+            return fetch('/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(taskData)
+            });
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('创建任务请求失败');
+            }
+            return response.json();
+        })
+        .then(data => {
             if (data.status === 'OK') {
                 window.location.href = '/tasks';
             } else {
-            alert('创建任务失败: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error creating task:', error);
-        alert('创建任务失败');
-    });
+                alert('创建任务失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error creating task:', error);
+            alert('创建任务失败: ' + error.message);
+        });
 });
 
 function loadMarkerConfigs() {

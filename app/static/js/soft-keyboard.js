@@ -510,7 +510,22 @@ class SoftKeyboard {
     }
 
     isInputElement(element) {
-        return element.tagName === 'INPUT' || element.tagName === 'TEXTAREA';
+        if (element.tagName === 'TEXTAREA') {
+            return true;
+        }
+        
+        if (element.tagName === 'INPUT') {
+            const inputType = element.type.toLowerCase();
+            // Exclude non-text input types
+            const excludedTypes = [
+                'checkbox', 'radio', 'file', 'range', 'color', 
+                'date', 'time', 'datetime-local', 'month', 'week',
+                'submit', 'reset', 'button', 'image', 'hidden'
+            ];
+            return !excludedTypes.includes(inputType);
+        }
+        
+        return false;
     }
 
     prepareInput(input) {

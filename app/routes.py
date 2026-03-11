@@ -111,6 +111,12 @@ robot_all_apis_options = [
             "cmd": "/api/map/list"
         },
         {
+            "title": "14.2设置当前地图",
+            "url": "#",
+            "cmd": "/api/map/set_current_map"
+        },
+
+        {
             "title": "14.3获取当前地图",
             "url": "#",
             "cmd": "/api/map/get_current_map"
@@ -1282,25 +1288,45 @@ def robot_recharge():
     try:
         robot_control = current_app.robot_control
         
-        # 先检查当前是否已在充电点
+        # 1. 查询MarkerConfig表中所有以CD开头的点位名称
+        cd_markers = MarkerConfig.query.filter(
+            MarkerConfig.mid_short.like('CD%')
+        ).all()
+        
+        if not cd_markers:
+            # 如果没有找到CD开头的点位，提示用户同步机器人点位
+            return jsonify({
+                "status": "ERROR",
+                "message": "未找到充电点位，请先同步机器人点位配置",
+                "results": None
+            }), 400
+        
+        # 2. 使用第一个CD点位作为move_target
+        # 按mid_short排序，确保一致性
+        cd_markers.sort(key=lambda m: m.mid_short)
+        target_marker = cd_markers[0].mid_short
+        
+        # 3. 先检查当前是否已在目标充电点
         status = robot_control.get_status()
-        if status.get('results', {}).get('move_target') == 'CD' and \
+        if status.get('results', {}).get('move_target') == target_marker and \
            status.get('results', {}).get('move_status') == 'succeeded':
             return jsonify({
                 "status": "OK",
-                "message": "Already at charging station",
+                "message": f"Already at charging station ({target_marker})",
                 "results": status.get('results', {})
             })
         
-        # 如果不在充电点，则发送充电命令
-        result = robot_control.recharge()
+        # 4. 如果不在充电点，则发送充电命令
+        # 修改recharge方法以接受参数，或者直接调用send_command
+        result = robot_control.send_command(f"/api/move?marker={target_marker}")
         
         return jsonify({
             "status": result.get("status", "ERROR"),
             "message": result.get("error_message", ""),
-            "results": result.get("task_id", "")
+            "results": result.get("results", {})
         })
     except Exception as e:
+        logger.error(f"Error in robot_recharge: {str(e)}")
         return jsonify({
             "status": "ERROR",
             "message": str(e),

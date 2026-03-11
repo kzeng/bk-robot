@@ -113,7 +113,6 @@
                                         <li>使用英文逗号分隔多个点位</li>
                                         <li>点位名称必须与地图系统中的点位名称一致</li>
                                         <li>至少需要输入两个点位</li>
-                                        <li>路线必须以充电点(CD)结束</li>
                                     </ul>
                                 </div>
                             </div>
@@ -171,7 +170,6 @@
                                         <li>使用英文逗号分隔多个点位</li>
                                         <li>点位名称必须与地图系统中的点位名称一致</li>
                                         <li>至少需要输入两个点位</li>
-                                        <li>路线必须以充电点(CD)结束</li>
                                     </ul>
                                 </div>
                             </div>
@@ -309,11 +307,6 @@
             
             if (points.length < 2) {
                 alert('至少需要输入两个点位');
-                return false;
-            }
-
-            if (points[points.length - 1] !== 'CD') {
-                alert('路线必须以充电点(CD)结束');
                 return false;
             }
 

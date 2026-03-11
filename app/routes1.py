@@ -822,13 +822,14 @@ def sync_marker_configs():
         for location_name, info in markers.items():
             marker_name = info.get('marker_name')
             if marker_name:
-                # 创建简写名称（M1, M2, ...）
-                # if marker_name != 'CD':
-                if marker_name.strip().replace(' ', '').upper() != 'CD':
+                marker_name = marker_name.strip()
+                # 检查是否以 "CD" 开头（不区分大小写）
+                if marker_name.upper().startswith('CD'):
                     count += 1
                     mid_short = f'M{count}'
                 else:
-                    mid_short = 'CD'
+                    # 直接使用 marker_name 作为 mid_short
+                    mid_short = marker_name
                     
                 config = MarkerConfig(
                     mid=marker_name,
