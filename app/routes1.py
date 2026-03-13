@@ -825,11 +825,11 @@ def sync_marker_configs():
                 marker_name = marker_name.strip()
                 # 检查是否以 "CD" 开头（不区分大小写）
                 if marker_name.upper().startswith('CD'):
-                    count += 1
-                    mid_short = f'M{count}'
-                else:
                     # 直接使用 marker_name 作为 mid_short
                     mid_short = marker_name
+                else:
+                    count += 1
+                    mid_short = f'M{count}'
                     
                 config = MarkerConfig(
                     mid=marker_name,
