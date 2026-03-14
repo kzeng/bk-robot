@@ -1011,7 +1011,10 @@ def crop_images():
                                     prefix_10 = first_part[:10]  # 取前10位
                                     # second_char = second_part[1]  # 取第二个字符
                                     second_char = second_part[1:]  # 从第二个字符开始到末尾
-                                    folder1 = f"01{prefix_10}{second_char.zfill(2)}"  # 补0确保两位
+                                    # folder1 = f"01{prefix_10}{second_char.zfill(2)}"  # 补0确保两位
+                                    
+                                    # 这边有多个校区，不能默认加01了，这个可以去掉，他们打点的时候自己设置校区的代码
+                                    folder1 = f"{prefix_10}{second_char.zfill(2)}"  # 补0确保两位
                                     
                                     # 构建文件名：第一个字段的最后一位
                                     if len(first_part) > 0:
