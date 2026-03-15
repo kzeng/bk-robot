@@ -12,6 +12,18 @@
                 <div class="row">
                     <!-- 只保留右侧板块 -->
                     <div class="col-md-12">
+                        <!-- 学校配置 -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2"><i class="fas fa-school me-2"></i>学校配置</h5>
+                            <div class="mb-3">
+                                <label class="form-label">校区代码</label>
+                                <input type="text" class="form-control" name="CCODE" value="{{ env.CCODE }}" placeholder="01" required
+                                       pattern="^\d{2}$" maxlength="2" minlength="2"
+                                       oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2)">
+                                <small class="form-text text-muted">校区代码必须是两位数字，例如：01、02、03 等</small>
+                            </div>
+                        </div>
+
                         <!-- 机器人配置 -->
                         <div class="mb-4">
                             <h5 class="border-bottom pb-2"><i class="fas fa-robot me-2"></i>机器人配置</h5>
@@ -180,6 +192,33 @@
 
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    
+    // 验证校区代码必须是两位数字
+    const ccodeInput = document.querySelector('input[name="CCODE"]');
+    const ccodeValue = ccodeInput.value.trim();
+    
+    if (!/^\d{2}$/.test(ccodeValue)) {
+        // 显示错误消息 toast
+        const container = document.getElementById('toastContainer');
+        container.innerHTML = `
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-danger text-white">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong class="me-auto">错误</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    校区代码必须是两位数字，例如：01、02、03 等
+                </div>
+            </div>
+        `;
+        const toastElement = container.querySelector('.toast');
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        ccodeInput.focus();
+        return;
+    }
+    
     const formData = new FormData(this);
     const settings = {};
     // 处理所有复选框字段

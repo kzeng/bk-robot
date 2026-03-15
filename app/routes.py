@@ -23,6 +23,7 @@ from loguru import logger
 import os
 from flask import stream_with_context, Response
 import cv2
+import re
 
 TASK_STATUS_READY        = 0
 TASK_STATUS_INPROGRESS   = 1
@@ -1156,6 +1157,9 @@ def settings():
         'CAMERA_BACKLIGHT': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('backlight_comp', '0')),
         'CAMERA_POWERLINE_FREQ': str(current_app.config['CAMERA_CONFIG'].get('control_params', {}).get('power_line_freq', '1')),
 
+        # 学校配置
+        'CCODE': str(current_app.config.get('CCODE', '01')),
+
         # 其他配置
         'ROBOT_IP': str(current_app.config['ROBOT_IP']),
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
@@ -1209,6 +1213,8 @@ def update_settings():
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
             'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT',
             'PHOTO_MODE',
+            # 学校配置
+            'CCODE',
             # 相机控制参数
             'CAMERA_BRIGHTNESS', 'CAMERA_CONTRAST', 'CAMERA_SATURATION',
             'CAMERA_SHARPNESS', 'CAMERA_GAMMA', 'CAMERA_AUTO_EXPOSURE',
@@ -1220,6 +1226,12 @@ def update_settings():
         for field in required_fields:
             if field not in data:
                 raise ValueError(f"Missing required field: {field}")
+        
+        # 验证校区代码必须是两位数字
+        if 'CCODE' in data:
+            ccode_value = str(data['CCODE']).strip()
+            if not re.match(r'^\d{2}$', ccode_value):
+                raise ValueError("校区代码必须是两位数字，例如：01、02、03 等")
         
         # 验证数值范围
         validations = {
