@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 import os
 import time
-from threading import Thread
+from threading import Thread, Lock
 import ftplib
 from ftplib import FTP
 import logging
@@ -30,6 +30,9 @@ TASK_STATUS_INPROGRESS   = 1
 TASK_STATUS_COMPLETED    = 2
 TASK_STATUS_PARTIAL      = 3
 TASK_STATUS_FAILED       = 4
+
+# Task execution lock to prevent concurrent task execution
+task_exec_lock = Lock()
 
 
 def async_route(f):
@@ -502,7 +505,15 @@ def run_task(task_id):
         - task_log_id: 任务日志ID用于跟踪执行过程
     """
     task = Task.query.get_or_404(task_id)
-    
+
+    # 检查是否有其他任务正在执行
+    if not task_exec_lock.acquire(blocking=False):
+        logger.warning(f"Task {task_id} rejected: another task is already running")
+        return jsonify({
+            'status': 'ERROR',
+            'message': 'Another task is already running, please wait for it to complete'
+        })
+
     # 创建任务执行日志
     current_time = datetime.now()
     task_log = TaskLog(
@@ -527,6 +538,83 @@ def run_task(task_id):
         'message': 'Task execution started',
         'task_log_id': task_log.log_id  # 返回正确的task_log_id
     })
+
+def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_consecutive_failures=10):
+    """轮询机器人状态，等待移动到目标点位完成。
+
+    改进点：
+    - 使用绝对超时时间（默认5分钟），而不是对连续检查计数
+    - 跟踪连续失败次数，用于检测网络/通信故障
+    - "移动中"状态不消耗超时计数器
+
+    Args:
+        robot_control: 机器人控制实例
+        target_marker: 目标点位
+        max_duration: 最大等待时间（秒），默认300秒（5分钟）
+        max_consecutive_failures: 最大连续状态检查失败次数，默认10次
+
+    Returns:
+        True 表示移动成功，False 表示超时
+
+    Raises:
+        Exception: 当机器人报告移动失败或取消时抛出
+    """
+    start_time = time.time()
+    consecutive_failures = 0
+
+    while True:
+        # 绝对超时检查——防止无限循环
+        elapsed = time.time() - start_time
+        if elapsed > max_duration:
+            logger.warning(
+                f"Movement to {target_marker} timed out after {elapsed:.0f}s "
+                f"(exceeded {max_duration}s limit)"
+            )
+            return False
+
+        robot_status = robot_control.send_command("/api/robot_status")
+
+        if not robot_status:
+            consecutive_failures += 1
+            logger.warning(
+                f"Failed to get robot status "
+                f"(consecutive failure {consecutive_failures}/{max_consecutive_failures})"
+            )
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error(
+                    f"Too many consecutive status check failures "
+                    f"({consecutive_failures}), aborting move to {target_marker}"
+                )
+                return False
+            time.sleep(1)
+            continue
+
+        consecutive_failures = 0  # 成功获取状态，重置失败计数
+        logger.debug(f"Robot status: {robot_status}")
+
+        if robot_status.get('status') == 'OK':
+            results = robot_status.get('results', {})
+            actual_marker = results.get('move_target')
+            move_status = results.get('move_status')
+
+            if move_status == 'succeeded' and actual_marker == target_marker:
+                logger.info(f"Robot successfully reached marker {target_marker}")
+                return True
+            elif move_status in ['failed', 'canceled']:
+                raise Exception(f"Movement {move_status} at {target_marker}")
+            # 其他状态（如 'running'/'moving'）表示仍在移动中，继续轮询
+        else:
+            consecutive_failures += 1
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error(
+                    f"Too many non-OK status responses "
+                    f"({consecutive_failures}), aborting move to {target_marker}"
+                )
+                return False
+            time.sleep(1)
+
+        time.sleep(0.5)  # 轮询间隔，防止紧循环
+
 
 def async_run_task(app, task_id):
     """在后台线程中执行任务"""
@@ -580,12 +668,15 @@ def async_run_task(app, task_id):
                                .first()
         
         try:
+            lift_was_raised = False  # Track whether lift was raised for safe lowering
+
             # move lift to per-task configured height before starting the task
             if app.lift:
                 logger.info(f"Moving lift to position for task lift={task.lift} ...")
                 if not move_lift_to_configured_height(task.lift):
                     raise Exception("Failed to move lift to configured height")
                 time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # wait for lift to reach position
+                lift_was_raised = True  # Mark lift as raised
             else:
                 logger.error("Lift control not initialized, please check")
                 raise Exception("Lift control not initialized, please check")
@@ -602,6 +693,7 @@ def async_run_task(app, task_id):
                     if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
                         app.lift.move_to_position_one()
+                        time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
 
 
                     # Try moving up to 3 times
@@ -620,67 +712,42 @@ def async_run_task(app, task_id):
                             
                         logger.info(f"Movement result: {move_result}")
 
-                        # Wait for the robot to finish moving, monitoring the status
-                        move_complete = False
-                        status_checks = 0
-                        max_status_checks = 30  # 30 second timeout
-                        
-                        while not move_complete and status_checks < max_status_checks:
-                            robot_status = app.robot_control.send_command("/api/robot_status")
-                            
-                            if not robot_status:
-                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
-                                status_checks += 1
-                                time.sleep(1)
-                                continue
-                                
-                            logger.debug(f"Robot status: {robot_status}")
-                            
-                            if robot_status.get('status') == 'OK':
-                                results = robot_status.get('results', {})
-                                actual_marker = results.get('move_target')
-                                move_status = results.get('move_status')
-                                
-                                if move_status == 'succeeded' and actual_marker == target_marker:
-                                    logger.info(f"Robot successfully reached marker {target_marker}")
+                        # Wait for the robot to finish moving with improved timeout handling
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
 
-                                    # if target_marker is CD, skip taking photos
-                                    if target_marker == "CD":
-                                        logger.info("Skipping photo taking at CD")
-                                    else:
-                                        # take photos at the target marker
-                                        logger.info(f"Taking photos at marker {target_marker}")
-                                        time.sleep(2)  # Give some time for the robot to stabilize at the marker
-                                        
-                                        photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
-                                        logger.debug(f"Raw photo result: {photo_result}")
+                        if move_complete:
+                            logger.info(f"Robot successfully reached marker {target_marker}")
 
-                                        if photo_result.get('status') == 'OK':
-                                            # 从 results 中提取所有成功的文件路径
-                                            new_files = [r['filepath'] for r in photo_result.get('results', []) 
-                                                        if r.get('status') == 'OK' and 'filepath' in r]
-                                            
-                                            if new_files:
-                                                file_paths.extend(new_files)
-                                                logger.info(f"Saved {len(new_files)} photos at {target_marker}")
-                                            else:
-                                                status = TASK_STATUS_PARTIAL
-                                                logger.warning(f"No photos saved at {target_marker} despite OK status")
-                                        else:
-                                            status = TASK_STATUS_PARTIAL
-                                            logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
-                                            logger.debug(f"Photo result: {photo_result}")
-
-                                    move_success = True
-                                    move_complete = True
-                                    current_marker_index += 1  # Only advance to next marker after confirmed success
-                                elif move_status in ['failed', 'canceled']:
-                                    raise Exception(f"Movement {move_status} at {target_marker}")
+                            # if target_marker is CD, skip taking photos
+                            if target_marker == "CD":
+                                logger.info("Skipping photo taking at CD")
                             else:
-                                status_checks += 1
-                                time.sleep(1)
-                                
-                        if not move_complete:
+                                # take photos at the target marker
+                                logger.info(f"Taking photos at marker {target_marker}")
+                                time.sleep(2)  # Give some time for the robot to stabilize at the marker
+
+                                photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
+                                logger.debug(f"Raw photo result: {photo_result}")
+
+                                if photo_result.get('status') == 'OK':
+                                    # 从 results 中提取所有成功的文件路径
+                                    new_files = [r['filepath'] for r in photo_result.get('results', [])
+                                                if r.get('status') == 'OK' and 'filepath' in r]
+
+                                    if new_files:
+                                        file_paths.extend(new_files)
+                                        logger.info(f"Saved {len(new_files)} photos at {target_marker}")
+                                    else:
+                                        status = TASK_STATUS_PARTIAL
+                                        logger.warning(f"No photos saved at {target_marker} despite OK status")
+                                else:
+                                    status = TASK_STATUS_PARTIAL
+                                    logger.warning(f"Photo failed at {target_marker}: {photo_result.get('message')}")
+                                    logger.debug(f"Photo result: {photo_result}")
+
+                            move_success = True
+                            current_marker_index += 1  # Only advance to next marker after confirmed success
+                        else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
                             retry_count += 1
                             
@@ -710,6 +777,7 @@ def async_run_task(app, task_id):
                     if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
                         app.lift.move_to_position_one()
+                        time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
 
 
                     # Try moving up to 3 times
@@ -726,59 +794,34 @@ def async_run_task(app, task_id):
                             time.sleep(1)
                             continue
                             
-                        # Wait for robot to complete movement
-                        move_complete = False
-                        status_checks = 0
-                        max_status_checks = 30  # 30 second timeout
-                        
-                        while not move_complete and status_checks < max_status_checks:
-                            robot_status = app.robot_control.send_command("/api/robot_status")
-                            
-                            if not robot_status:
-                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
-                                status_checks += 1
-                                time.sleep(1)
-                                continue
-                                
-                            logger.debug(f"Robot status: {robot_status}")
-                            
-                            if robot_status.get('status') == 'OK':
-                                results = robot_status.get('results', {})
-                                actual_marker = results.get('move_target')
-                                move_status = results.get('move_status')
-                                
-                                if move_status == 'succeeded' and actual_marker == target_marker:
-                                    logger.info(f"Robot successfully reached marker {target_marker}")
-                                    
-                                    # Start recording after reaching first marker (except if it's CD)
-                                    if current_marker_index == 0 and target_marker != "CD":
-                                        logger.info("Starting video recording at first marker...")
-                                        for cam_id in camera_ids:
-                                            try:
-                                                recording_result = app.camera_control.start_recording(
-                                                    camera_id=cam_id,
-                                                    task_id=task_id,
-                                                    marker=target_marker
-                                                )
-                                                if recording_result.get('status') == 'OK':
-                                                    recording_started = True
-                                                else:
-                                                    logger.error(f"Failed to start recording on camera {cam_id}")
-                                                    status = TASK_STATUS_PARTIAL
-                                            except Exception as e:
-                                                logger.error(f"Error starting recording on camera {cam_id}: {str(e)}")
-                                                status = TASK_STATUS_PARTIAL
-                                    
-                                    move_success = True
-                                    move_complete = True
-                                    current_marker_index += 1
-                                elif move_status in ['failed', 'canceled']:
-                                    raise Exception(f"Movement {move_status} at {target_marker}")
-                            else:
-                                status_checks += 1
-                                time.sleep(1)
+                        # Wait for the robot to finish moving with improved timeout handling
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
 
-                        if not move_complete:
+                        if move_complete:
+                            logger.info(f"Robot successfully reached marker {target_marker}")
+
+                            # Start recording after reaching first marker (except if it's CD)
+                            if current_marker_index == 0 and target_marker != "CD":
+                                logger.info("Starting video recording at first marker...")
+                                for cam_id in camera_ids:
+                                    try:
+                                        recording_result = app.camera_control.start_recording(
+                                            camera_id=cam_id,
+                                            task_id=task_id,
+                                            marker=target_marker
+                                        )
+                                        if recording_result.get('status') == 'OK':
+                                            recording_started = True
+                                        else:
+                                            logger.error(f"Failed to start recording on camera {cam_id}")
+                                            status = TASK_STATUS_PARTIAL
+                                    except Exception as e:
+                                        logger.error(f"Error starting recording on camera {cam_id}: {str(e)}")
+                                        status = TASK_STATUS_PARTIAL
+
+                            move_success = True
+                            current_marker_index += 1
+                        else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
                             retry_count += 1
 
@@ -832,39 +875,14 @@ def async_run_task(app, task_id):
                             
                         logger.info(f"Movement result: {move_result}")
 
-                        # Wait for the robot to finish moving, monitoring the status
-                        move_complete = False
-                        status_checks = 0
-                        max_status_checks = 30  # 30 second timeout
-                        
-                        while not move_complete and status_checks < max_status_checks:
-                            robot_status = app.robot_control.send_command("/api/robot_status")
-                            
-                            if not robot_status:
-                                logger.warning(f"Failed to get robot status (check {status_checks + 1})")
-                                status_checks += 1
-                                time.sleep(1)
-                                continue
-                                
-                            logger.debug(f"Robot status: {robot_status}")
-                            
-                            if robot_status.get('status') == 'OK':
-                                results = robot_status.get('results', {})
-                                actual_marker = results.get('move_target')
-                                move_status = results.get('move_status')
-                                
-                                if move_status == 'succeeded' and actual_marker == target_marker:
-                                    logger.info(f"Robot successfully reached marker {target_marker}")
-                                    move_success = True
-                                    move_complete = True
-                                    current_marker_index += 1  # Only advance to next marker after confirmed success
-                                elif move_status in ['failed', 'canceled']:
-                                    raise Exception(f"Movement {move_status} at {target_marker}")
-                            else:
-                                status_checks += 1
-                                time.sleep(1)
-                                
-                        if not move_complete:
+                        # Wait for the robot to finish moving with improved timeout handling
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
+
+                        if move_complete:
+                            logger.info(f"Robot successfully reached marker {target_marker}")
+                            move_success = True
+                            current_marker_index += 1  # Only advance to next marker after confirmed success
+                        else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
                             retry_count += 1
                             
@@ -881,9 +899,9 @@ def async_run_task(app, task_id):
         except Exception as e:
             status = 4
             logger.error(f"Error executing task {task_id}: {str(e)}")
-            # 确保在任何错误情况下升降柱都能回到安全位置
+            # 安全降柱：只在升降柱确实升起过的情况下执行
             try:
-                if app.lift:
+                if app.lift and lift_was_raised:
                     logger.info("Moving lift to position one due to task failure...")
                     app.lift.move_to_position_one()
             except Exception as lift_error:
@@ -897,6 +915,13 @@ def async_run_task(app, task_id):
             #     except Exception as stop_error:
             #         logger.error(f"Error stopping recording after failure: stop_error")
         finally:
+            # Release task execution lock
+            try:
+                task_exec_lock.release()
+                logger.info("Task execution lock released")
+            except Exception:
+                pass  # Lock may not have been acquired
+
             if task_log:
                 # task_log.status = status
                 task_log.status = TASK_STATUS_COMPLETED  #2 force to completed
