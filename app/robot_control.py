@@ -51,6 +51,53 @@ class RobotControl:
                 self.socket = None
         self.connected = False
 
+    def _receive_json_response(self, require_complete=False):
+        """Receive and parse a JSON response from robot socket.
+
+        Handles TCP packet fragmentation where UTF-8 multibyte characters
+        or JSON payload may arrive across multiple recv calls.
+        """
+        if not self.socket:
+            raise ConnectionError("Socket not initialized")
+
+        rx = b''
+        decoder = json.JSONDecoder()
+
+        while True:
+            chunk = self.socket.recv(self.buffer_size)
+            if not chunk:
+                break
+
+            rx += chunk
+
+            # Keep receiving until current bytes can form valid UTF-8 text.
+            try:
+                text = rx.decode('utf-8')
+            except UnicodeDecodeError:
+                continue
+
+            # Keep receiving until a complete JSON object is available.
+            try:
+                response, _ = decoder.raw_decode(text)
+            except json.JSONDecodeError:
+                continue
+
+            if require_complete and not response.get('complete', True):
+                continue
+
+            return response
+
+        if not rx:
+            raise ConnectionError("No response received")
+
+        text = rx.decode('utf-8')
+        response = json.loads(text)
+
+        if require_complete and not response.get('complete', True):
+            raise ConnectionError("Connection closed before complete response")
+
+        return response
+
     def send_command(self, cmd_str):
         """Send command to robot and handle response
         
@@ -85,29 +132,10 @@ class RobotControl:
             
             # Send command
             cmd_bytes = cmd_str.encode('utf-8')
-            bytes_sent = self.socket.send(cmd_bytes)
-            if bytes_sent != len(cmd_bytes):
-                raise ConnectionError(f"Only sent {bytes_sent}/{len(cmd_bytes)} bytes")
-            
+            self.socket.sendall(cmd_bytes)
+
             # Wait for response
-            rx = b''
-            while True:
-                chunk = self.socket.recv(self.buffer_size)
-                if not chunk:
-                    break
-                rx += chunk
-                try:
-                    # Try to parse partial response
-                    response = json.loads(rx.decode('utf-8'))
-                    if response.get('complete', True):
-                        return response
-                except json.JSONDecodeError:
-                    continue
-            
-            if not rx:
-                raise ConnectionError("No response received")
-                
-            response = json.loads(rx.decode('utf-8'))
+            response = self._receive_json_response(require_complete=True)
             return response
             
         except socket.timeout as e:
@@ -136,6 +164,18 @@ class RobotControl:
             }
         except json.JSONDecodeError as e:
             error_msg = f"Invalid response format: {str(e)}"
+            logger.error(error_msg)
+            self.disconnect()
+            return {
+                'type': 'response',
+                'command': cmd_str,
+                'status': 'ERROR',
+                'error_message': error_msg,
+                'error_type': 'invalid_response',
+                'results': None
+            }
+        except UnicodeDecodeError as e:
+            error_msg = f"Invalid UTF-8 response: {str(e)}"
             logger.error(error_msg)
             self.disconnect()
             return {
@@ -260,12 +300,9 @@ class RobotControl:
             api_request = '/api/robot_status'
             logger.debug(f"Sending status request: {api_request}")
             # Send request
-            self.socket.send(api_request.encode('utf-8'))
+            self.socket.sendall(api_request.encode('utf-8'))
             # Receive response
-            rx = self.socket.recv(self.buffer_size)
-            if not rx:
-                raise ConnectionError("No response from robot")
-            response = json.loads(rx.decode('utf-8'))
+            response = self._receive_json_response(require_complete=False)
             return response
         except Exception as e:
             logger.error(f"Status check failed: {str(e)}")
