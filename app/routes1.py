@@ -776,6 +776,42 @@ def clear_marker_configs():
             'message': f'清空点位失败: {str(e)}'
         }), 500
 
+def format_robot_error(result):
+    """Build a useful robot API error message for UI and logs."""
+    if not isinstance(result, dict):
+        return f'机器人无有效响应: {result}'
+
+    message = result.get('error_message') or result.get('message') or ''
+    status = result.get('status')
+    error_type = result.get('error_type')
+    details = []
+
+    if message:
+        details.append(str(message))
+    if status and status != 'OK':
+        details.append(f'状态={status}')
+    if error_type:
+        details.append(f'错误类型={error_type}')
+
+    return '，'.join(details) if details else f'机器人返回异常: {result}'
+
+def query_robot_markers_with_retry(robot_control, max_attempts=3, retry_delay=1):
+    """Query robot markers with a small retry window for transient socket/API errors."""
+    last_result = None
+    for attempt in range(1, max_attempts + 1):
+        last_result = robot_control.send_command("/api/markers/query_list")
+        if isinstance(last_result, dict) and last_result.get('status') == 'OK':
+            return last_result
+
+        logger.warning(
+            f"Failed to query robot markers "
+            f"(attempt {attempt}/{max_attempts}): {last_result}"
+        )
+        if attempt < max_attempts:
+            time.sleep(retry_delay)
+
+    return last_result
+
 @bp1.route('/api/marker-config/sync', methods=['POST'])
 @login_required
 def sync_marker_configs():
@@ -803,23 +839,34 @@ def sync_marker_configs():
         else:
             # Call robot API to get marker list
             robot_control = current_app.robot_control
-            result = robot_control.send_command("/api/markers/query_list")
+            result = query_robot_markers_with_retry(robot_control)
         
-        if result.get('status') != 'OK':
+        if not isinstance(result, dict) or result.get('status') != 'OK':
+            error_message = format_robot_error(result)
+            logger.error(f"获取机器人点位失败: {error_message}; raw_result={result}")
             return jsonify({
                 'status': 'ERROR',
-                'error_type': result.get('error_type', 'unknown_error'),
-                'message': f'获取机器人点位失败: {result.get("error_message", "未知错误")}'
+                'error_type': result.get('error_type', 'unknown_error') if isinstance(result, dict) else 'invalid_response',
+                'message': f'获取机器人点位失败: {error_message}'
             }), 500
 
-        # 清空现有点位
-        db.session.query(MarkerConfig).delete()
-        
-               
         # 解析并添加新点位
         markers = result.get('results', {})
+        if not isinstance(markers, dict) or not markers:
+            logger.error(f"机器人点位响应为空或格式错误: {result}")
+            return jsonify({
+                'status': 'ERROR',
+                'error_type': 'invalid_marker_response',
+                'message': '获取机器人点位失败: 机器人返回的点位列表为空或格式错误'
+            }), 500
+
         count = 0
+        new_configs = []
         for location_name, info in markers.items():
+            if not isinstance(info, dict):
+                logger.warning(f"跳过格式错误的点位: {location_name} -> {info}")
+                continue
+
             marker_name = info.get('marker_name')
             if marker_name:
                 marker_name = marker_name.strip()
@@ -831,7 +878,7 @@ def sync_marker_configs():
                     count += 1
                     mid_short = f'M{count}'
                     
-                config = MarkerConfig(
+                new_configs.append(MarkerConfig(
                     mid=marker_name,
                     mid2='00000000000',  # 默认值，后续可更新
                     mid_short=mid_short,
@@ -843,15 +890,27 @@ def sync_marker_configs():
                     y2=0,
                     w2=0,
                     h2=0
-                )
-                db.session.add(config)
+                ))
+
+        if not new_configs:
+            logger.error(f"机器人点位响应中没有可用 marker_name: {result}")
+            return jsonify({
+                'status': 'ERROR',
+                'error_type': 'invalid_marker_response',
+                'message': '获取机器人点位失败: 机器人返回中没有可用点位名称'
+            }), 500
+
+        # 确认新点位可用后，再清空并替换现有点位。
+        db.session.query(MarkerConfig).delete()
+        for config in new_configs:
+            db.session.add(config)
         
         db.session.commit()
         return jsonify({
             'status': 'OK',
-            'message': f'成功同步 {count+1} 个点位',
+            'message': f'成功同步 {len(new_configs)} 个点位',
             'results': {
-                'count': count+1,
+                'count': len(new_configs),
                 'markers': list(markers.keys())
             }
         })

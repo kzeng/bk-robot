@@ -4,6 +4,7 @@ from config import Config
 import time
 import struct
 import random
+from threading import RLock
 from app.utils.logger import configured_logger as logger
 
 class RobotControl:
@@ -21,6 +22,8 @@ class RobotControl:
         self.timeout = 5  # seconds
         self.buffer_size = 4096
         self.app = None
+        self._command_lock = RLock()
+        self._rx_buffer = b''
 
     def init_app(self, app):
         """Initialize with Flask application"""
@@ -33,11 +36,12 @@ class RobotControl:
             self.socket.settimeout(self.timeout)
             self.socket.connect((self.host, self.port))
             self.connected = True
+            self._rx_buffer = b''
             logger.info(f"Connected to robot at {self.host}:{self.port}")
             return True
         except Exception as e:
             logger.error(f"Connection failed: {str(e)}")
-            self.connected = False
+            self.disconnect()
             return False
 
     def disconnect(self):
@@ -49,7 +53,33 @@ class RobotControl:
                 pass
             finally:
                 self.socket = None
+                self._rx_buffer = b''
         self.connected = False
+
+    def _pop_json_from_buffer(self):
+        if not self._rx_buffer:
+            return None
+
+        try:
+            text = self._rx_buffer.decode('utf-8')
+        except UnicodeDecodeError:
+            return None
+
+        if not text.strip():
+            self._rx_buffer = b''
+            return None
+
+        decoder = json.JSONDecoder()
+        stripped_text = text.lstrip()
+
+        try:
+            response, end_index = decoder.raw_decode(stripped_text)
+        except json.JSONDecodeError:
+            return None
+
+        # Preserve any bytes that belong to the next response on the same TCP stream.
+        self._rx_buffer = stripped_text[end_index:].lstrip().encode('utf-8')
+        return response
 
     def _receive_json_response(self, require_complete=False):
         """Receive and parse a JSON response from robot socket.
@@ -60,43 +90,26 @@ class RobotControl:
         if not self.socket:
             raise ConnectionError("Socket not initialized")
 
-        rx = b''
-        decoder = json.JSONDecoder()
-
         while True:
+            response = self._pop_json_from_buffer()
+            if response is not None:
+                if require_complete and not response.get('complete', True):
+                    continue
+                return response
+
             chunk = self.socket.recv(self.buffer_size)
             if not chunk:
                 break
 
-            rx += chunk
+            self._rx_buffer += chunk
 
-            # Keep receiving until current bytes can form valid UTF-8 text.
-            try:
-                text = rx.decode('utf-8')
-            except UnicodeDecodeError:
-                continue
-
-            # Keep receiving until a complete JSON object is available.
-            try:
-                response, _ = decoder.raw_decode(text)
-            except json.JSONDecodeError:
-                continue
-
+        response = self._pop_json_from_buffer()
+        if response is not None:
             if require_complete and not response.get('complete', True):
-                continue
-
+                raise ConnectionError("Connection closed before complete response")
             return response
 
-        if not rx:
-            raise ConnectionError("No response received")
-
-        text = rx.decode('utf-8')
-        response = json.loads(text)
-
-        if require_complete and not response.get('complete', True):
-            raise ConnectionError("Connection closed before complete response")
-
-        return response
+        raise ConnectionError("No complete JSON response received")
 
     def send_command(self, cmd_str):
         """Send command to robot and handle response
@@ -121,83 +134,91 @@ class RobotControl:
         Note:
             Automatically reconnects if connection is lost
         """
-        if not self.connected and not self.connect():
-            return {'status': 'error', 'message': 'Connection failed'}
+        with self._command_lock:
+            if not self.connected and not self.connect():
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': 'Connection failed',
+                    'error_type': 'connection_failed',
+                    'results': None
+                }
 
-        try:
-            if not self.socket:
-                raise ConnectionError("Socket not initialized")
+            try:
+                if not self.socket:
+                    raise ConnectionError("Socket not initialized")
+
+                logger.info(f"Sending command: {cmd_str}")
                 
-            logger.info(f"Sending command: {cmd_str}")
-            
-            # Send command
-            cmd_bytes = cmd_str.encode('utf-8')
-            self.socket.sendall(cmd_bytes)
+                # Send command
+                cmd_bytes = cmd_str.encode('utf-8')
+                self.socket.sendall(cmd_bytes)
 
-            # Wait for response
-            response = self._receive_json_response(require_complete=True)
-            return response
+                # Wait for response
+                response = self._receive_json_response(require_complete=True)
+                return response
             
-        except socket.timeout as e:
-            error_msg = f"Command timeout: {str(e)}"
-            logger.error(error_msg)
-            self.disconnect()
-            return {
-                'type': 'response',
-                'command': cmd_str,
-                'status': 'ERROR',
-                'error_message': error_msg,
-                'error_type': 'connection_timeout',
-                'results': None
-            }
-        except ConnectionError as e:
-            error_msg = f"Connection error: {str(e)}"
-            logger.error(error_msg)
-            self.disconnect()
-            return {
-                'type': 'response',
-                'command': cmd_str,
-                'status': 'ERROR',
-                'error_message': error_msg,
-                'error_type': 'connection_failed',
-                'results': None
-            }
-        except json.JSONDecodeError as e:
-            error_msg = f"Invalid response format: {str(e)}"
-            logger.error(error_msg)
-            self.disconnect()
-            return {
-                'type': 'response',
-                'command': cmd_str,
-                'status': 'ERROR',
-                'error_message': error_msg,
-                'error_type': 'invalid_response',
-                'results': None
-            }
-        except UnicodeDecodeError as e:
-            error_msg = f"Invalid UTF-8 response: {str(e)}"
-            logger.error(error_msg)
-            self.disconnect()
-            return {
-                'type': 'response',
-                'command': cmd_str,
-                'status': 'ERROR',
-                'error_message': error_msg,
-                'error_type': 'invalid_response',
-                'results': None
-            }
-        except Exception as e:
-            error_msg = f"Unexpected error: {str(e)}"
-            logger.error(error_msg)
-            self.disconnect()
-            return {
-                'type': 'response',
-                'command': cmd_str,
-                'status': 'ERROR',
-                'error_message': error_msg,
-                'error_type': 'unexpected_error',
-                'results': None
-            }
+            except socket.timeout as e:
+                error_msg = f"Command timeout: {str(e)}"
+                logger.error(error_msg)
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': error_msg,
+                    'error_type': 'connection_timeout',
+                    'results': None
+                }
+            except ConnectionError as e:
+                error_msg = f"Connection error: {str(e)}"
+                logger.error(error_msg)
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': error_msg,
+                    'error_type': 'connection_failed',
+                    'results': None
+                }
+            except json.JSONDecodeError as e:
+                error_msg = f"Invalid response format: {str(e)}"
+                logger.error(error_msg)
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': error_msg,
+                    'error_type': 'invalid_response',
+                    'results': None
+                }
+            except UnicodeDecodeError as e:
+                error_msg = f"Invalid UTF-8 response: {str(e)}"
+                logger.error(error_msg)
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': error_msg,
+                    'error_type': 'invalid_response',
+                    'results': None
+                }
+            except Exception as e:
+                error_msg = f"Unexpected error: {str(e)}"
+                logger.error(error_msg)
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': cmd_str,
+                    'status': 'ERROR',
+                    'error_message': error_msg,
+                    'error_type': 'unexpected_error',
+                    'results': None
+                }
     
 
 
@@ -286,30 +307,32 @@ class RobotControl:
         #     }
 
         """Get current robot status"""
-        if not self.connected and not self.connect():
-            return {
-                'type': 'response',
-                'command': '/api/robot_status',
-                'status': 'ERROR',
-                'error_message': 'Connection failed',
-                'results': None
-            }
+        with self._command_lock:
+            if not self.connected and not self.connect():
+                return {
+                    'type': 'response',
+                    'command': '/api/robot_status',
+                    'status': 'ERROR',
+                    'error_message': 'Connection failed',
+                    'results': None
+                }
 
-        try:
-            # Call actual robot status API
-            api_request = '/api/robot_status'
-            logger.debug(f"Sending status request: {api_request}")
-            # Send request
-            self.socket.sendall(api_request.encode('utf-8'))
-            # Receive response
-            response = self._receive_json_response(require_complete=False)
-            return response
-        except Exception as e:
-            logger.error(f"Status check failed: {str(e)}")
-            return {
-                'type': 'response',
-                'command': '/api/robot_status',
-                'status': 'ERROR',
-                'error_message': str(e),
-                'results': None
-            }
+            try:
+                # Call actual robot status API
+                api_request = '/api/robot_status'
+                logger.debug(f"Sending status request: {api_request}")
+                # Send request
+                self.socket.sendall(api_request.encode('utf-8'))
+                # Receive response
+                response = self._receive_json_response(require_complete=False)
+                return response
+            except Exception as e:
+                logger.error(f"Status check failed: {str(e)}")
+                self.disconnect()
+                return {
+                    'type': 'response',
+                    'command': '/api/robot_status',
+                    'status': 'ERROR',
+                    'error_message': str(e),
+                    'results': None
+                }

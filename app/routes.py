@@ -574,16 +574,16 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
 
         robot_status = robot_control.send_command("/api/robot_status")
 
-        if not robot_status:
+        if not robot_status or robot_status.get('status') != 'OK':
             consecutive_failures += 1
             logger.warning(
-                f"Failed to get robot status "
+                f"Failed to get OK robot status for {target_marker}: {robot_status} "
                 f"(consecutive failure {consecutive_failures}/{max_consecutive_failures})"
             )
             if consecutive_failures >= max_consecutive_failures:
                 logger.error(
-                    f"Too many consecutive status check failures "
-                    f"({consecutive_failures}), aborting move to {target_marker}"
+                    f"Too many consecutive status check failures ({consecutive_failures}), "
+                    f"aborting move to {target_marker}"
                 )
                 return False
             time.sleep(1)
@@ -592,26 +592,16 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         consecutive_failures = 0  # 成功获取状态，重置失败计数
         logger.debug(f"Robot status: {robot_status}")
 
-        if robot_status.get('status') == 'OK':
-            results = robot_status.get('results', {})
-            actual_marker = results.get('move_target')
-            move_status = results.get('move_status')
+        results = robot_status.get('results', {})
+        actual_marker = results.get('move_target')
+        move_status = results.get('move_status')
 
-            if move_status == 'succeeded' and actual_marker == target_marker:
-                logger.info(f"Robot successfully reached marker {target_marker}")
-                return True
-            elif move_status in ['failed', 'canceled']:
-                raise Exception(f"Movement {move_status} at {target_marker}")
-            # 其他状态（如 'running'/'moving'）表示仍在移动中，继续轮询
-        else:
-            consecutive_failures += 1
-            if consecutive_failures >= max_consecutive_failures:
-                logger.error(
-                    f"Too many non-OK status responses "
-                    f"({consecutive_failures}), aborting move to {target_marker}"
-                )
-                return False
-            time.sleep(1)
+        if move_status == 'succeeded' and actual_marker == target_marker:
+            logger.info(f"Robot successfully reached marker {target_marker}")
+            return True
+        elif move_status in ['failed', 'canceled']:
+            raise Exception(f"Movement {move_status} at {target_marker}")
+        # 其他状态（如 'running'/'moving'）表示仍在移动中，继续轮询
 
         time.sleep(0.5)  # 轮询间隔，防止紧循环
 
@@ -621,6 +611,11 @@ def async_run_task(app, task_id):
     with app.app_context():
         task = Task.query.get(task_id)
         if not task:
+            try:
+                task_exec_lock.release()
+                logger.info("Task execution lock released because task was not found")
+            except Exception:
+                pass
             return
         
         timestamp = str(int(time.time()))
@@ -704,8 +699,8 @@ def async_run_task(app, task_id):
                     while retry_count < max_retries and not move_success:
                         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
                         
-                        if not move_result:
-                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                        if not move_result or move_result.get('status') != 'OK':
+                            logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -788,8 +783,8 @@ def async_run_task(app, task_id):
                     while retry_count < max_retries and not move_success:
                         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
                         
-                        if not move_result:
-                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                        if not move_result or move_result.get('status') != 'OK':
+                            logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -867,8 +862,8 @@ def async_run_task(app, task_id):
                     while retry_count < max_retries and not move_success:
                         move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
                         
-                        if not move_result:
-                            logger.error(f"Failed to get response when moving to {target_marker} (attempt {retry_count + 1})")
+                        if not move_result or move_result.get('status') != 'OK':
+                            logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -892,10 +887,8 @@ def async_run_task(app, task_id):
                 status = 4
                 raise Exception(f"Unknown action type: {task.action}")
             
-            if status == 1:
-                # status = 2
-                task_log.status = TASK_STATUS_COMPLETED 
-                db.session.commit()  # Commit the failure status immediately
+            if status == TASK_STATUS_INPROGRESS:
+                status = TASK_STATUS_COMPLETED
         except Exception as e:
             status = 4
             logger.error(f"Error executing task {task_id}: {str(e)}")
@@ -923,8 +916,7 @@ def async_run_task(app, task_id):
                 pass  # Lock may not have been acquired
 
             if task_log:
-                # task_log.status = status
-                task_log.status = TASK_STATUS_COMPLETED  #2 force to completed
+                task_log.status = status
                 task_log.end_time = datetime.now()
                 task_log.file_count = len(file_paths)
                 task_log.file_paths = json.dumps(file_paths)

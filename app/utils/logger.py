@@ -101,18 +101,43 @@ Centralized logging configuration for bk-robot project.
 
 
 
-# 日志功能已关闭，logger为哑对象
-class DummyLogger:
-    def debug(self, *args, **kwargs): pass
-    def info(self, *args, **kwargs): pass
-    def warning(self, *args, **kwargs): pass
-    def error(self, *args, **kwargs): pass
-    def critical(self, *args, **kwargs): pass
-    def success(self, *args, **kwargs): pass
-    def exception(self, *args, **kwargs): pass
-    def log(self, *args, **kwargs): pass
-    def remove(self, *args, **kwargs): pass
-    def add(self, *args, **kwargs): pass
+from loguru import logger
+import os
+import sys
 
-logger = DummyLogger()
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+LOGS_DIR = os.path.join(PROJECT_ROOT, "app", "logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+LOG_FILE = os.path.join(LOGS_DIR, "app.log")
+CONSOLE_LOG_LEVEL = os.environ.get("BK_ROBOT_CONSOLE_LOG_LEVEL", "INFO")
+FILE_LOG_LEVEL = os.environ.get("BK_ROBOT_FILE_LOG_LEVEL", "DEBUG")
+LOG_ROTATION = os.environ.get("BK_ROBOT_LOG_ROTATION", "20 MB")
+LOG_RETENTION = os.environ.get("BK_ROBOT_LOG_RETENTION", "30 days")
+LOG_COMPRESSION = os.environ.get("BK_ROBOT_LOG_COMPRESSION", "zip")
+LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
+
+logger.remove()
+logger.add(
+    sys.stderr,
+    format=LOG_FORMAT,
+    level=CONSOLE_LOG_LEVEL,
+    enqueue=False,
+    backtrace=False,
+    diagnose=False,
+)
+logger.add(
+    LOG_FILE,
+    rotation=LOG_ROTATION,
+    retention=LOG_RETENTION,
+    compression=LOG_COMPRESSION,
+    encoding="utf-8",
+    format=LOG_FORMAT,
+    level=FILE_LOG_LEVEL,
+    enqueue=False,
+    backtrace=True,
+    diagnose=False,
+    catch=True,
+)
+
 configured_logger = logger
