@@ -21,7 +21,7 @@
 - Linux
 - Python 
 - Flask
-- OpenCV/OBS
+- OpenCV
 
 ## 系统框图
 *All  in code*
