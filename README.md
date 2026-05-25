@@ -18,7 +18,6 @@
         - 系统设置
 
 ## 技术栈
-- Linux
 - Python 
 - Flask
 - OpenCV
