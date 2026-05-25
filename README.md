@@ -22,6 +22,7 @@
 - Python 
 - Flask
 - OpenCV
+- Sqlite
 
 ## 系统框图
 *All  in code*
