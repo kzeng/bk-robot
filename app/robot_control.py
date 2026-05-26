@@ -81,21 +81,77 @@ class RobotControl:
         self._rx_buffer = stripped_text[end_index:].lstrip().encode('utf-8')
         return response
 
-    def _receive_json_response(self, require_complete=False):
+    def _command_path(self, command):
+        if not command:
+            return ''
+        return str(command).split('?', 1)[0]
+
+    def _commands_match(self, expected_command, actual_command):
+        if not expected_command or not actual_command:
+            return True
+        expected = str(expected_command)
+        actual = str(actual_command)
+        return actual == expected or self._command_path(actual) == self._command_path(expected)
+
+    def _should_return_response(self, response, expected_command=None):
+        if not expected_command or not isinstance(response, dict):
+            return True
+
+        response_type = response.get('type')
+        actual_command = response.get('command')
+
+        if response_type == 'notification':
+            logger.info(f"Ignoring robot notification while waiting for {expected_command}: {response}")
+            return False
+
+        if response_type == 'response':
+            if self._commands_match(expected_command, actual_command):
+                return True
+            logger.warning(
+                f"Ignoring stale robot response for {actual_command} "
+                f"while waiting for {expected_command}: {response}"
+            )
+            return False
+
+        # Some robot notifications have no status field but include code/description.
+        if 'status' not in response and ('code' in response or 'description' in response):
+            logger.info(f"Ignoring robot event while waiting for {expected_command}: {response}")
+            return False
+
+        # Be compatible with older or undocumented responses that omit type/command.
+        if actual_command and not self._commands_match(expected_command, actual_command):
+            logger.warning(
+                f"Ignoring unmatched robot message for {actual_command} "
+                f"while waiting for {expected_command}: {response}"
+            )
+            return False
+
+        return True
+
+    def _receive_json_response(self, require_complete=False, expected_command=None, max_wait=None):
         """Receive and parse a JSON response from robot socket.
 
         Handles TCP packet fragmentation where UTF-8 multibyte characters
-        or JSON payload may arrive across multiple recv calls.
+        or JSON payload may arrive across multiple recv calls. The robot can
+        also interleave async notification messages on the same TCP stream, so
+        callers can pass expected_command to skip unrelated messages.
         """
         if not self.socket:
             raise ConnectionError("Socket not initialized")
 
+        deadline = time.monotonic() + max_wait if max_wait else None
+
         while True:
+            if deadline and time.monotonic() > deadline:
+                raise socket.timeout(f"Timed out waiting for response to {expected_command}")
+
             response = self._pop_json_from_buffer()
             if response is not None:
-                if require_complete and not response.get('complete', True):
+                if require_complete and isinstance(response, dict) and not response.get('complete', True):
                     continue
-                return response
+                if self._should_return_response(response, expected_command):
+                    return response
+                continue
 
             chunk = self.socket.recv(self.buffer_size)
             if not chunk:
@@ -105,9 +161,10 @@ class RobotControl:
 
         response = self._pop_json_from_buffer()
         if response is not None:
-            if require_complete and not response.get('complete', True):
+            if require_complete and isinstance(response, dict) and not response.get('complete', True):
                 raise ConnectionError("Connection closed before complete response")
-            return response
+            if self._should_return_response(response, expected_command):
+                return response
 
         raise ConnectionError("No complete JSON response received")
 
@@ -156,7 +213,11 @@ class RobotControl:
                 self.socket.sendall(cmd_bytes)
 
                 # Wait for response
-                response = self._receive_json_response(require_complete=True)
+                response = self._receive_json_response(
+                    require_complete=True,
+                    expected_command=cmd_str,
+                    max_wait=self.timeout
+                )
                 return response
             
             except socket.timeout as e:
@@ -324,7 +385,11 @@ class RobotControl:
                 # Send request
                 self.socket.sendall(api_request.encode('utf-8'))
                 # Receive response
-                response = self._receive_json_response(require_complete=False)
+                response = self._receive_json_response(
+                    require_complete=False,
+                    expected_command=api_request,
+                    max_wait=self.timeout
+                )
                 return response
             except Exception as e:
                 logger.error(f"Status check failed: {str(e)}")
