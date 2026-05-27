@@ -309,16 +309,18 @@ class RobotControl:
     def cancel_move(self):
         """Cancel current move command"""
         result = self.send_command("/api/move/cancel")
-        if result.get('status') == 'OK':
+        if result and result.get('status') == 'OK':
             return {
                 'status': 'OK',
                 'message': 'Move command cancelled successfully',
                 'results': result.get('results', {})
             }
         else:
+            message = result.get('error_message', 'Failed to cancel move') if result else 'No response from robot'
             return {
                 'status': 'ERROR',
-                'message': result.get('error_message', 'Failed to cancel move'),
+                'message': message,
+                'error_message': message,
                 'results': None
             }
     

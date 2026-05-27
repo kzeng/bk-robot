@@ -34,6 +34,11 @@ TASK_STATUS_FAILED       = 4
 # Task execution lock to prevent concurrent task execution
 task_exec_lock = Lock()
 
+MOVE_STALL_TIMEOUT_SECONDS = 90
+MOVE_STALL_RETRY_DELTA = 3
+MOVE_POSE_EPSILON = 0.02
+MOVE_CANCEL_SETTLE_TIMEOUT_SECONDS = 15
+
 
 def async_route(f):
     @wraps(f)
@@ -539,6 +544,85 @@ def run_task(task_id):
         'task_log_id': task_log.log_id  # 返回正确的task_log_id
     })
 
+def _pose_changed_enough(previous_pose, current_pose, epsilon=MOVE_POSE_EPSILON):
+    if not previous_pose or not current_pose:
+        return True
+
+    for axis in ("x", "y"):
+        try:
+            previous_value = float(previous_pose.get(axis, 0))
+            current_value = float(current_pose.get(axis, 0))
+        except (TypeError, ValueError):
+            return True
+        if abs(current_value - previous_value) >= epsilon:
+            return True
+
+    return False
+
+
+def _is_robot_busy_response(response):
+    if not response:
+        return False
+
+    status = str(response.get('status', '')).upper()
+    error_message = str(response.get('error_message') or response.get('message') or '')
+    return (
+        status == 'BUSY_NOW'
+        or 'Last move task is running' in error_message
+        or 'Robot is busy' in error_message
+        or 'busy' in error_message.lower()
+    )
+
+
+def cancel_robot_move_for_retry(robot_control, target_marker, reason):
+    logger.warning(f"Cancelling active robot move for {target_marker}: {reason}")
+
+    try:
+        cancel_result = robot_control.cancel_move()
+    except Exception as exc:
+        logger.error(f"Failed to send move cancel for {target_marker}: {exc}")
+        return False
+
+    if not cancel_result or cancel_result.get('status') != 'OK':
+        logger.error(f"Move cancel failed for {target_marker}: {cancel_result}")
+        return False
+
+    deadline = time.time() + MOVE_CANCEL_SETTLE_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        try:
+            robot_status = robot_control.send_command("/api/robot_status")
+        except Exception as exc:
+            logger.warning(f"Failed to verify move cancel for {target_marker}: {exc}")
+            time.sleep(1)
+            continue
+
+        if not robot_status or robot_status.get('status') != 'OK':
+            logger.warning(f"Robot status unavailable after move cancel for {target_marker}: {robot_status}")
+            time.sleep(1)
+            continue
+
+        results = robot_status.get('results', {})
+        move_target = results.get('move_target')
+        move_status = results.get('move_status')
+        running_status = results.get('running_status')
+
+        if move_status in ['canceled', 'failed', 'succeeded', None, ''] or running_status == 'idle':
+            logger.info(
+                f"Move cancel settled for {target_marker}: "
+                f"move_target={move_target}, move_status={move_status}, running_status={running_status}"
+            )
+            return True
+
+        logger.info(
+            f"Waiting for move cancel to settle for {target_marker}: "
+            f"move_status={move_status}, running_status={running_status}"
+        )
+        time.sleep(0.5)
+
+    logger.warning(f"Move cancel did not settle for {target_marker} within {MOVE_CANCEL_SETTLE_TIMEOUT_SECONDS}s")
+    return False
+
+
 def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_consecutive_failures=10):
     """轮询机器人状态，等待移动到目标点位完成。
 
@@ -561,6 +645,9 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
     """
     start_time = time.time()
     consecutive_failures = 0
+    last_progress_time = start_time
+    last_progress_pose = None
+    retry_count_at_last_progress = None
 
     while True:
         # 绝对超时检查——防止无限循环
@@ -595,12 +682,34 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         results = robot_status.get('results', {})
         actual_marker = results.get('move_target')
         move_status = results.get('move_status')
+        current_pose = results.get('current_pose')
+        move_retry_times = results.get('move_retry_times')
 
         if move_status == 'succeeded' and actual_marker == target_marker:
             logger.info(f"Robot successfully reached marker {target_marker}")
             return True
         elif move_status in ['failed', 'canceled']:
             raise Exception(f"Movement {move_status} at {target_marker}")
+
+        if actual_marker == target_marker and move_status in ['running', 'moving']:
+            now = time.time()
+            if _pose_changed_enough(last_progress_pose, current_pose):
+                last_progress_pose = current_pose
+                last_progress_time = now
+                retry_count_at_last_progress = move_retry_times
+            else:
+                stalled_for = now - last_progress_time
+                retry_delta = 0
+                if isinstance(move_retry_times, int) and isinstance(retry_count_at_last_progress, int):
+                    retry_delta = move_retry_times - retry_count_at_last_progress
+
+                if stalled_for >= MOVE_STALL_TIMEOUT_SECONDS and retry_delta >= MOVE_STALL_RETRY_DELTA:
+                    logger.warning(
+                        f"Movement to {target_marker} appears stuck: "
+                        f"pose={current_pose}, stalled_for={stalled_for:.0f}s, "
+                        f"move_retry_times={move_retry_times}, retry_delta={retry_delta}"
+                    )
+                    return False
         # 其他状态（如 'running'/'moving'）表示仍在移动中，继续轮询
 
         time.sleep(0.5)  # 轮询间隔，防止紧循环
@@ -701,6 +810,12 @@ def async_run_task(app, task_id):
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
+                            if _is_robot_busy_response(move_result):
+                                cancel_robot_move_for_retry(
+                                    app.robot_control,
+                                    target_marker,
+                                    "move start was rejected because another move is still active"
+                                )
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -744,6 +859,11 @@ def async_run_task(app, task_id):
                             current_marker_index += 1  # Only advance to next marker after confirmed success
                         else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            cancel_robot_move_for_retry(
+                                app.robot_control,
+                                target_marker,
+                                "move did not complete before retry"
+                            )
                             retry_count += 1
                             
                     # # Check if next marker is CD and lift needs to be lowered
@@ -785,6 +905,12 @@ def async_run_task(app, task_id):
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
+                            if _is_robot_busy_response(move_result):
+                                cancel_robot_move_for_retry(
+                                    app.robot_control,
+                                    target_marker,
+                                    "move start was rejected because another move is still active"
+                                )
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -818,6 +944,11 @@ def async_run_task(app, task_id):
                             current_marker_index += 1
                         else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            cancel_robot_move_for_retry(
+                                app.robot_control,
+                                target_marker,
+                                "move did not complete before retry"
+                            )
                             retry_count += 1
 
                     if not move_success:
@@ -864,6 +995,12 @@ def async_run_task(app, task_id):
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
+                            if _is_robot_busy_response(move_result):
+                                cancel_robot_move_for_retry(
+                                    app.robot_control,
+                                    target_marker,
+                                    "move start was rejected because another move is still active"
+                                )
                             retry_count += 1
                             time.sleep(1)
                             continue
@@ -879,6 +1016,11 @@ def async_run_task(app, task_id):
                             current_marker_index += 1  # Only advance to next marker after confirmed success
                         else:
                             logger.warning(f"Movement to {target_marker} not completed (attempt {retry_count + 1})")
+                            cancel_robot_move_for_retry(
+                                app.robot_control,
+                                target_marker,
+                                "move did not complete before retry"
+                            )
                             retry_count += 1
                             
                     if not move_success:
