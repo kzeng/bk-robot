@@ -40,6 +40,12 @@ MOVE_POSE_EPSILON = 0.02
 MOVE_CANCEL_SETTLE_TIMEOUT_SECONDS = 15
 
 
+def _status_after_cleanup_failure(status):
+    if status == TASK_STATUS_INPROGRESS:
+        return TASK_STATUS_COMPLETED
+    return status
+
+
 def async_route(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -535,7 +541,7 @@ def run_task(task_id):
     db.session.commit()
     
     # 启动后台执行线程
-    thread = Thread(target=async_run_task, args=(current_app._get_current_object(), task.task_id))
+    thread = Thread(target=async_run_task, args=(current_app._get_current_object(), task.task_id, task_log.log_id))
     thread.start()
     
     return jsonify({
@@ -623,7 +629,7 @@ def cancel_robot_move_for_retry(robot_control, target_marker, reason):
     return False
 
 
-def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_consecutive_failures=10):
+def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_consecutive_failures=10, expected_task_id=None):
     """轮询机器人状态，等待移动到目标点位完成。
 
     改进点：
@@ -684,6 +690,16 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         move_status = results.get('move_status')
         current_pose = results.get('current_pose')
         move_retry_times = results.get('move_retry_times')
+        current_task_id = results.get('task_id')
+
+        if expected_task_id and current_task_id and current_task_id != expected_task_id:
+            logger.info(
+                f"Ignoring stale move status for {target_marker}: "
+                f"expected_task_id={expected_task_id}, current_task_id={current_task_id}, "
+                f"move_status={move_status}"
+            )
+            time.sleep(0.5)
+            continue
 
         if move_status == 'succeeded' and actual_marker == target_marker:
             logger.info(f"Robot successfully reached marker {target_marker}")
@@ -715,11 +731,19 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         time.sleep(0.5)  # 轮询间隔，防止紧循环
 
 
-def async_run_task(app, task_id):
+def async_run_task(app, task_id, task_log_id=None):
     """在后台线程中执行任务"""
     with app.app_context():
+        task_log = TaskLog.query.get(task_log_id) if task_log_id else None
+        if task_log_id and not task_log:
+            logger.error(f"Task log {task_log_id} not found for task {task_id}")
+
         task = Task.query.get(task_id)
         if not task:
+            if task_log:
+                task_log.status = TASK_STATUS_FAILED
+                task_log.end_time = datetime.now()
+                db.session.commit()
             try:
                 task_exec_lock.release()
                 logger.info("Task execution lock released because task was not found")
@@ -753,23 +777,28 @@ def async_run_task(app, task_id):
 
         logger.info(f"Final marker list for task {task_id}: {marker_list}")
 
-        if not marker_list:
-            # 获取最新的任务日志并更新状态
+        if not task_log:
             task_log = TaskLog.query.filter_by(task_id=task_id)\
-                                  .order_by(TaskLog.start_time.desc())\
-                                  .first()
+                                   .order_by(TaskLog.start_time.desc())\
+                                   .first()
+
+        inventory_marker_count = len([marker for marker in marker_list if marker != 'CD'])
+        if task.action in (0, 1) and inventory_marker_count == 0:
             if task_log:
-                task_log.status = TASK_STATUS_FAILED  # 任务失败
+                task_log.status = TASK_STATUS_FAILED
                 task_log.end_time = datetime.now()
                 db.session.commit()
+            logger.error(f"Task {task_id} has no inventory markers")
+            try:
+                task_exec_lock.release()
+                logger.info("Task execution lock released because task has no inventory markers")
+            except Exception:
+                pass
             return
             
     
         status = TASK_STATUS_INPROGRESS  # 1 = in progress
         file_paths = []
-        task_log = TaskLog.query.filter_by(task_id=task_id)\
-                               .order_by(TaskLog.start_time.desc())\
-                               .first()
         
         try:
             lift_was_raised = False  # Track whether lift was raised for safe lowering
@@ -796,8 +825,15 @@ def async_run_task(app, task_id):
                     logger.info(f"Want to move target {target_marker}")
                     if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
-                        app.lift.move_to_position_one()
-                        time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
+                        try:
+                            app.lift.move_to_position_one()
+                            time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
+                        except Exception as lift_error:
+                            status = _status_after_cleanup_failure(status)
+                            logger.error(
+                                f"Inventory work finished but failed to lower lift before returning to CD: {lift_error}"
+                            )
+                            break
 
 
                     # Try moving up to 3 times
@@ -823,7 +859,8 @@ def async_run_task(app, task_id):
                         logger.info(f"Movement result: {move_result}")
 
                         # Wait for the robot to finish moving with improved timeout handling
-                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
+                        move_task_id = (move_result.get('results') or {}).get('task_id')
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker, expected_task_id=move_task_id)
 
                         if move_complete:
                             logger.info(f"Robot successfully reached marker {target_marker}")
@@ -873,6 +910,12 @@ def async_run_task(app, task_id):
                     #     # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
 
                     if not move_success:
+                        if target_marker == "CD":
+                            status = _status_after_cleanup_failure(status)
+                            logger.error(
+                                f"Inventory work finished but failed to return to CD after {max_retries} attempts"
+                            )
+                            break
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
              
 
@@ -891,8 +934,15 @@ def async_run_task(app, task_id):
                     # Check if target is CD and adjust lift position
                     if target_marker == "CD":
                         logger.info("Next marker is CD, moving lift to position one...")
-                        app.lift.move_to_position_one()
-                        time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
+                        try:
+                            app.lift.move_to_position_one()
+                            time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
+                        except Exception as lift_error:
+                            status = _status_after_cleanup_failure(status)
+                            logger.error(
+                                f"Inventory video work finished but failed to lower lift before returning to CD: {lift_error}"
+                            )
+                            break
 
 
                     # Try moving up to 3 times
@@ -916,7 +966,8 @@ def async_run_task(app, task_id):
                             continue
                             
                         # Wait for the robot to finish moving with improved timeout handling
-                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
+                        move_task_id = (move_result.get('results') or {}).get('task_id')
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker, expected_task_id=move_task_id)
 
                         if move_complete:
                             logger.info(f"Robot successfully reached marker {target_marker}")
@@ -952,6 +1003,12 @@ def async_run_task(app, task_id):
                             retry_count += 1
 
                     if not move_success:
+                        if target_marker == "CD":
+                            status = _status_after_cleanup_failure(status)
+                            logger.error(
+                                f"Inventory video work finished but failed to return to CD after {max_retries} attempts"
+                            )
+                            break
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
 
                     # Stop recording before the last marker (which should be CD)
@@ -1008,7 +1065,8 @@ def async_run_task(app, task_id):
                         logger.info(f"Movement result: {move_result}")
 
                         # Wait for the robot to finish moving with improved timeout handling
-                        move_complete = wait_for_robot_move(app.robot_control, target_marker)
+                        move_task_id = (move_result.get('results') or {}).get('task_id')
+                        move_complete = wait_for_robot_move(app.robot_control, target_marker, expected_task_id=move_task_id)
 
                         if move_complete:
                             logger.info(f"Robot successfully reached marker {target_marker}")
@@ -1026,13 +1084,13 @@ def async_run_task(app, task_id):
                     if not move_success:
                         raise Exception(f"Failed to move to {target_marker} after {max_retries} attempts")
             else:
-                status = 4
+                status = TASK_STATUS_FAILED
                 raise Exception(f"Unknown action type: {task.action}")
             
             if status == TASK_STATUS_INPROGRESS:
                 status = TASK_STATUS_COMPLETED
         except Exception as e:
-            status = 4
+            status = TASK_STATUS_FAILED
             logger.error(f"Error executing task {task_id}: {str(e)}")
             # 安全降柱：只在升降柱确实升起过的情况下执行
             try:

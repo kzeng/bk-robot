@@ -58,6 +58,22 @@
 
         let currentPage = 1;
         const pageSize = 5;
+
+        function getStatusBadge(status) {
+            if (status === 1) {
+                return { className: 'bg-warning', text: '进行中' };
+            }
+            if (status === 2) {
+                return { className: 'bg-success', text: '已完成' };
+            }
+            if (status === 3) {
+                return { className: 'bg-primary', text: '部分完成' };
+            }
+            if (status === 4) {
+                return { className: 'bg-danger', text: '失败' };
+            }
+            return { className: 'bg-secondary', text: '未知' };
+        }
         
         function loadLogs() {
             fetch(`/api/task-logs?page=${currentPage}&size=${pageSize}`)
@@ -69,6 +85,7 @@
                     
                     data.data.forEach(log => {
                         const row = document.createElement('tr');
+                        const statusBadge = getStatusBadge(log.status);
                         row.innerHTML = `
                             <td>${log.log_id}</td>
                             <td>${log.task_id}</td>
@@ -77,8 +94,8 @@
                             <td>${log.file_count}</td>
                             <td>
                                 <h3>
-                                <span class="badge rounded-pill ${log.status === 1 ? 'bg-warning' : log.status === 2 ? 'bg-success' : log.status === 3 ? 'bg-primary' : 'bg-danger'}">
-                                    ${log.status === 1 ? '进行中' : log.status === 2 ? '已完成' : log.status === 3 ? '部分完成' : '失败'}
+                                <span class="badge rounded-pill ${statusBadge.className}">
+                                    ${statusBadge.text}
                                 </span>
                                 </h3>
                             </td>
