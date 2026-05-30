@@ -62,6 +62,12 @@
             background-color: #ddd;
             z-index: -1;
         }
+
+        #allMarkersTextarea {
+            white-space: pre-wrap;
+            overflow-y: auto;
+            resize: vertical;
+        }
     </style>
 {% endblock %}
 
@@ -131,12 +137,35 @@
             </div>
         </div>
 
+        <div class="modal fade" id="markerDetailModal" tabindex="-1" aria-labelledby="markerDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="markerDetailModalLabel">所有标记点</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="allMarkersTextarea" class="form-control" rows="12" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 {% endblock %}
 
 {% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const markerDetailModalEl = document.getElementById('markerDetailModal');
+            const markerDetailModal = new bootstrap.Modal(markerDetailModalEl);
+
+            markerDetailModalEl.addEventListener('hidden.bs.modal', () => {
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            });
+
             const logId = new URLSearchParams(window.location.search).get('log_id') || 
                           window.location.pathname.split('/').pop();
             
@@ -148,9 +177,31 @@
                     document.getElementById('taskId').textContent = log.task_id;
                     document.getElementById('description').textContent = log.description || '';
 
-                    document.getElementById('marker').textContent = log.marker;
+                    const allMarkers = (log.marker || '').split(',').map(m => m.trim()).filter(Boolean);
+                    const markerContainer = document.getElementById('marker');
+                    markerContainer.textContent = '';
+
+                    if (allMarkers.length > 10) {
+                        const shortText = document.createElement('span');
+                        shortText.textContent = allMarkers.slice(0, 10).join(',') + '... ';
+
+                        const detailLink = document.createElement('a');
+                        detailLink.href = '#';
+                        detailLink.textContent = '详情';
+                        detailLink.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            document.getElementById('allMarkersTextarea').value = allMarkers.join(',');
+                            markerDetailModal.show();
+                        });
+
+                        markerContainer.appendChild(shortText);
+                        markerContainer.appendChild(detailLink);
+                    } else {
+                        markerContainer.textContent = allMarkers.join(',');
+                    }
+
                     document.getElementById('action').textContent = 
-                        log.action === 0 ? '拍照' : '录像';
+                        log.action === 0 ? '拍照' : (log.action === 1 ? '录像' : '仅是移动');
                     document.getElementById('startTime').textContent = log.start_time;
                     document.getElementById('endTime').textContent = log.end_time;
                     
@@ -172,7 +223,9 @@
                     statusBadge.className = `badge ${statusClass[log.status] || 'bg-secondary'}`;
                     
                     // Build marker timeline
-                    const markers = log.marker.split(',');
+                    const markers = allMarkers.length > 10
+                        ? [...allMarkers.slice(0, 5), allMarkers[allMarkers.length - 1]]
+                        : allMarkers;
                     const timeline = document.getElementById('markerTimeline');
                     
                     markers.forEach((marker, index) => {
@@ -193,7 +246,9 @@
                         if(index === 0) markerDot.classList.add('active');
                         
                         const markerLabel = document.createElement('div');
-                        markerLabel.textContent = marker;
+                        markerLabel.textContent = (allMarkers.length > 10 && index === markers.length - 1)
+                            ? '... ' + marker
+                            : marker;
                         
                         markerPoint.appendChild(markerDot);
                         markerPoint.appendChild(markerLabel);

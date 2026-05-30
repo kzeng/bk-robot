@@ -69,6 +69,12 @@
                             word-break: break-word;
                             max-width: 200px;
                         }
+
+                        #allMarkersTextarea {
+                            white-space: pre-wrap;
+                            overflow-y: auto;
+                            resize: vertical;
+                        }
                     </style>
                     <tbody id="tasksTable">
                         <!-- Tasks will be populated here -->
@@ -88,6 +94,21 @@
                         </li>
                     </ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标记点详情模态框 -->
+    <div class="modal fade" id="markerDetailModal" tabindex="-1" aria-labelledby="markerDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="markerDetailModalLabel">所有标记点</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="allMarkersTextarea" class="form-control" rows="12" readonly></textarea>
+                </div>
             </div>
         </div>
     </div>
@@ -211,6 +232,17 @@
         // Load tasks when page loads
         document.addEventListener('DOMContentLoaded', loadTasks);
 
+        // 兜底清理，避免模态框关闭后页面残留 modal-open/backdrop
+        document.addEventListener('DOMContentLoaded', () => {
+            const markerDetailModal = document.getElementById('markerDetailModal');
+            if (!markerDetailModal) return;
+            markerDetailModal.addEventListener('hidden.bs.modal', () => {
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            });
+        });
+
         // Save edited task
         document.getElementById('saveTaskBtn').addEventListener('click', saveTask);
 
@@ -225,12 +257,16 @@
                     const tableBody = document.getElementById('tasksTable');
                     tableBody.innerHTML = '';
                     document.getElementById('currentPage').textContent = currentPage;
-                    
                     data.data.forEach(task => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${task.task_id}</td>
-                            <td class="marker-cell">${task.marker}</td>
+                            <td class="marker-cell">
+                                <span class="marker-short"></span>
+                                <span class="marker-detail-btn" style="display:none;">
+                                    <a href="#" class="show-marker-detail">详情</a>
+                                </span>
+                            </td>
                             <td>${getActionText(task.action)}</td>
                             <td>${task.lift || 'L2'}</td>
                             <td>${task.description}</td>
@@ -245,6 +281,26 @@
 </button>
                             </td>
                         `;
+                        // 处理标记点显示
+                        const markerCell = row.querySelector('.marker-cell');
+                        const markerShort = markerCell.querySelector('.marker-short');
+                        const markerDetailBtn = markerCell.querySelector('.marker-detail-btn');
+                        let markers = (task.marker || '').split(',').map(m => m.trim()).filter(m => m);
+                        if (markers.length > 10) {
+                            markerShort.textContent = markers.slice(0, 10).join(',') + '...';
+                            markerDetailBtn.style.display = '';
+                        } else {
+                            markerShort.textContent = markers.join(',');
+                            markerDetailBtn.style.display = 'none';
+                        }
+                        // 详情按钮事件
+                        markerDetailBtn.querySelector('.show-marker-detail').onclick = function(e) {
+                            e.preventDefault();
+                            const modal = new bootstrap.Modal(document.getElementById('markerDetailModal'));
+                            const allMarkersTextarea = document.getElementById('allMarkersTextarea');
+                            allMarkersTextarea.value = markers.join(',');
+                            modal.show();
+                        };
                         tableBody.appendChild(row);
                     });
                 });
