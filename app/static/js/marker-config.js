@@ -1,4 +1,9 @@
 let selectedMarkersOrder = [];
+let currentPage = 1;
+let pageSize = 20;
+let totalPages = 1;
+let totalCount = 0;
+let currentSearchTerm = '';
 
 function updateSelectedMarkersDisplay() {
     // 确保所有以CD开头的点位在最后
@@ -95,13 +100,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Search functionality
     document.getElementById('searchButton').addEventListener('click', function() {
+        currentPage = 1;
         loadMarkerConfigs();
     });
 
     document.getElementById('searchInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
+            currentPage = 1;
             loadMarkerConfigs();
         }
+    });
+
+    document.getElementById('pageSizeSelect').addEventListener('change', function(e) {
+        pageSize = parseInt(e.target.value, 10);
+        currentPage = 1;
+        loadMarkerConfigs();
+    });
+
+    document.getElementById('pagePrevButton').addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage -= 1;
+            loadMarkerConfigs(true);
+        }
+    });
+
+    document.getElementById('pageNextButton').addEventListener('click', function() {
+        if (currentPage < totalPages) {
+            currentPage += 1;
+            loadMarkerConfigs(true);
+        }
+    });
+
+    document.getElementById('scrollTopButton').addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     // Save button click handler
@@ -133,7 +164,7 @@ document.getElementById('createTaskButton').addEventListener('click', function()
     }
 
     // 1. 查询所有点位配置
-    fetch('/api/marker-config')
+    fetch('/api/marker-config?all=1')
         .then(response => {
             if (!response.ok) {
                 throw new Error('获取点位配置失败');
@@ -205,18 +236,129 @@ document.getElementById('createTaskButton').addEventListener('click', function()
         });
 });
 
-function loadMarkerConfigs() {
-    const searchTerm = document.getElementById('searchInput').value;
-    fetch(`/api/marker-config?search=${encodeURIComponent(searchTerm)}`)
+function updatePageControls() {
+    document.getElementById('pagePrevButton').disabled = currentPage <= 1;
+    document.getElementById('pageNextButton').disabled = currentPage >= totalPages;
+}
+
+function updateSelectAllState() {
+    const checkboxes = document.querySelectorAll('.marker-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+
+    if (checkboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+
+    const checkedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+    selectAllCheckbox.checked = checkedCount === checkboxes.length;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+}
+
+function renderPagination() {
+    const ul = document.getElementById('markerPagination');
+    const summary = document.getElementById('markerPaginationSummary');
+    ul.innerHTML = '';
+
+    if (totalCount === 0) {
+        summary.textContent = '当前没有点位数据';
+        updatePageControls();
+        return;
+    }
+
+    summary.textContent = `第 ${currentPage} / ${totalPages} 页，共 ${totalCount} 条点位`;
+
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    if (currentPage <= 3) {
+        endPage = Math.min(maxVisiblePages, totalPages);
+    } else if (currentPage >= totalPages - 2) {
+        startPage = Math.max(1, totalPages - maxVisiblePages + 1);
+    }
+
+    const addPageButton = (label, targetPage, options = {}) => {
+        const li = document.createElement('li');
+        li.className = 'page-item';
+        if (options.disabled) {
+            li.classList.add('disabled');
+        }
+        if (options.active) {
+            li.classList.add('active');
+        }
+
+        const link = document.createElement(options.disabled ? 'span' : 'a');
+        link.className = 'page-link';
+        link.textContent = label;
+        if (!options.disabled) {
+            link.href = '#';
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (targetPage === currentPage) {
+                    return;
+                }
+                currentPage = targetPage;
+                loadMarkerConfigs(true);
+            });
+        }
+        li.appendChild(link);
+        ul.appendChild(li);
+    };
+
+    addPageButton('上一页', currentPage - 1, { disabled: currentPage === 1 });
+
+    if (startPage > 1) {
+        addPageButton('1', 1);
+        if (startPage > 2) {
+            addPageButton('...', currentPage, { disabled: true });
+        }
+    }
+
+    for (let pageNumber = startPage; pageNumber <= endPage; pageNumber += 1) {
+        addPageButton(String(pageNumber), pageNumber, { active: pageNumber === currentPage });
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            addPageButton('...', currentPage, { disabled: true });
+        }
+        addPageButton(String(totalPages), totalPages);
+    }
+
+    addPageButton('下一页', currentPage + 1, { disabled: currentPage === totalPages });
+    updatePageControls();
+}
+
+function loadMarkerConfigs(shouldScrollIntoView = false) {
+    currentSearchTerm = document.getElementById('searchInput').value.trim();
+    const status = document.getElementById('markerConfigStatus');
+    status.textContent = '正在加载点位数据...';
+
+    fetch(`/api/marker-config?search=${encodeURIComponent(currentSearchTerm)}&page=${currentPage}&size=${pageSize}`)
         .then(response => response.json())
         .then(data => {
             const tbody = document.getElementById('markerConfigTable');
             tbody.innerHTML = '';
-            
-            data.forEach(config => {
+
+            const configs = data.items || [];
+            const pagination = data.pagination || {};
+            currentPage = pagination.page || currentPage;
+            pageSize = pagination.size || pageSize;
+            totalPages = pagination.pages || 1;
+            totalCount = pagination.total || 0;
+
+            document.getElementById('pageSizeSelect').value = String(pageSize);
+
+            if (configs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="14" class="empty-state">没有找到匹配的点位，请调整搜索条件。</td></tr>';
+            }
+
+            configs.forEach(config => {
                 const tr = document.createElement('tr');
+                const isChecked = selectedMarkersOrder.includes(config.mid_short);
                 tr.innerHTML = `
-                    <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}"></td>
+                    <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}" ${isChecked ? 'checked' : ''}></td>
                     <td>${config.id}</td>
                     <td>${config.mid}</td>
                     
@@ -243,9 +385,23 @@ function loadMarkerConfigs() {
                 `;
                 tbody.appendChild(tr);
             });
+
+            const startIndex = totalCount === 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+            const endIndex = Math.min(currentPage * pageSize, totalCount);
+            status.textContent = totalCount === 0
+                ? '当前没有可显示的点位数据'
+                : `当前显示第 ${startIndex} - ${endIndex} 条，共 ${totalCount} 条点位`;
+
+            renderPagination();
+            updateSelectAllState();
+
+            if (shouldScrollIntoView) {
+                document.getElementById('markerTableViewport').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         })
         .catch(error => {
             console.error('Error loading marker configs:', error);
+            document.getElementById('markerConfigStatus').textContent = '加载点位配置失败';
             alert('加载点位配置失败');
         });
 }

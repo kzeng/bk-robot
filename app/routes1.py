@@ -674,14 +674,40 @@ def api_marker_configs():
     """标记点位配置API"""
     if request.method == 'GET':
         search = request.args.get('search', '')
-        query = MarkerConfig.query
+        load_all = request.args.get('all', '').lower() in ('1', 'true', 'yes')
+        page = max(1, request.args.get('page', 1, type=int) or 1)
+        page_size = max(1, min(500, request.args.get('size', 20, type=int) or 20))
+
+        query = MarkerConfig.query.order_by(MarkerConfig.id.asc())
         if search:
             query = query.filter(
                 (MarkerConfig.mid.ilike(f'%{search}%')) |
                 (MarkerConfig.mid_short.ilike(f'%{search}%'))
             )
-        configs = query.all()
-        return jsonify([{
+
+        if load_all:
+            configs = query.all()
+            return jsonify([{
+                'id': c.id,
+                'mid': c.mid,
+                'mid2': c.mid2,
+                'mid_short': c.mid_short,
+                'x': c.x,
+                'y': c.y,
+                'w': c.w,
+                'h': c.h,
+                'x2': c.x2,
+                'y2': c.y2,
+                'w2': c.w2,
+                'h2': c.h2
+            } for c in configs])
+
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+        if pagination.pages > 0 and page > pagination.pages:
+            pagination = query.paginate(page=pagination.pages, per_page=page_size, error_out=False)
+
+        return jsonify({
+            'items': [{
             'id': c.id,
             'mid': c.mid,
             'mid2': c.mid2,
@@ -694,7 +720,16 @@ def api_marker_configs():
             'y2': c.y2,
             'w2': c.w2,
             'h2': c.h2
-        } for c in configs])
+            } for c in pagination.items],
+            'pagination': {
+                'page': pagination.page,
+                'size': page_size,
+                'total': pagination.total,
+                'pages': pagination.pages or 1,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next
+            }
+        })
     
     data = request.json
     config = MarkerConfig(
