@@ -1,0 +1,10 @@
+# V1ActionsBody
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**action_name** | **str** | * &#x60;slamtec.agent.actions.MoveToAction&#x60; 自主导航移动，对应参数为MoveToActionOptions * &#x60;slamtec.agent.actions.SeriesMoveToAction&#x60; 包含多个目标点的自主导航移动，对应参数为SeriesMoveToActionOptions * &#x60;slamtec.agent.actions.MoveByAction&#x60; 遥控移动, 需要定时调用以达到连续运动效果，对应参数为MoveByActionOptions * &#x60;slamtec.agent.actions.GoHomeAction&#x60; 自主回桩，对应参数为GoHomeActionOptions * &#x60;slamtec.agent.actions.RotateToAction&#x60; 原地旋转，转到指定角度，对应参数为RotateToActionOptions * &#x60;slamtec.agent.actions.RotateAction&#x60; 原地旋转，转动指定角度，对应参数为RotateActionOptions * &#x60;slamtec.agent.actions.MoveToTagAction&#x60; 通过标签进行精准对接，对应参数为MoveToTagActionOptions * &#x60;slamtec.agent.actions.BackOffFromTagAction&#x60; 从二维码前后退，对应参数为BackOffFromTagActionOptions * &#x60;slamtec.agent.actions.RecoverLocalizationAction&#x60; 重定位，对应参数为RecoverLocalizationActionOptions * &#x60;slamtec.agent.actions.ManualRelocalizationAction&#x60; 手动重定位，机器人在被推动的同时尝试找回定位，在重定位成功或机器人被推到桩上时action结束，对应参数为空 * &#x60;slamtec.agent.actions.MultiFloorMoveAction&#x60; 跨楼层移动，对应参数为MultiFloorMoveActionOptions，依赖slamware.agent.multi_floor能力                * &#x60;slamtec.agent.actions.MultiFloorBackHomeAction&#x60; 跨楼层自主回桩，对应参数也是GoHomeActionOptions，依赖slamware.agent.multi_floor能力 * &#x60;slamtec.agent.actions.ReturnToParkingAction&#x60; 自主返航回到待命点（POI类型为PARKING），支持多机避障和排队功能（需要Lora模块），对应参数是ReturnToParkingActionOptions,依赖slamware.agent.multi_floor能力，所需固件版本为4.5.5 * &#x60;slamtec.agent.actions.FollowPathPointsAction&#x60; 跟随路径点的导航移动，对应参数为FollowPathPointsActionOptions，所需最低固件版本为5.1.1  * &#x60;slamtec.agent.actions.EnterElevatorAction&#x60; 机器人进电梯，对应参数为EnterElevatorActionOptions，所需最低固件版本为5.1.1  *&#x60;slamtec.agent.actions.LeaveElevatorAction&#x60;  机器人出电梯，对应参数为LeaveElevatorActionOptions，所需最低固件版本为5.1.1   | [optional] 
+**options** | **OneOfv1ActionsBodyOptions** |  | [optional] 
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
