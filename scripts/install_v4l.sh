@@ -15,15 +15,6 @@ else
     echo "Skipping v4l-utils installation"
 fi
 
-# 2. Ask about ffmpeg installation
-read -p "Do you want to install ffmpeg? (y/n) " answer
-if [[ $answer == "y" ]] || [[ $answer == "Y" ]]; then
-    echo "Installing ffmpeg..."
-    sudo apt-get update && sudo apt-get install -y ffmpeg
-else
-    echo "Skipping ffmpeg installation"
-fi
-
 echo "Installation completed successfully!"
 
 

@@ -99,48 +99,6 @@
                 </div>
             </div>
 
-            <div class="col-md-3">
-                <div class="control-panel">
-                    <h5>升降柱控制</h5>
-
-                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_to_position_three')">
-                        移动到三号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                        </button>
-                        <br><br><br>
-                        
-                        <button class="btn btn-lg btn-primary w-100 mb-2 lift" onclick="sendCommand('move_to_position_two')">
-                        移动到二号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                        </button>
-                        <br><br><br>
-
-                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_to_position_one')">
-                        移动到一号位 <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                        </button>
-
-                   
-                        <!--
-                        <button class="btn btn-lg btn-success w-100 mb-2 lift" onclick="sendCommand('move_up')">上升
-                        <i class="bi bi-arrow-up ms-2"></i>
-                        </button>
-                        <button class="btn btn-lg btn-danger w-100 mb-2 lift" onclick="sendCommand('move_down')">下降
-                        <i class="bi bi-arrow-down ms-2"></i>
-                        </button>
-                        <button class="btn btn-lg btn-warning w-100 mb-2 lift" onclick="sendCommand('reset')">复位
-
-                        <i class="bi bi-arrow-counterclockwise ms-2"></i>
-                        </button>
-                        <button class="btn btn-lg btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_up')">停止上升
-
-                        <i class="bi bi-align-top ms-2"></i>
-                        </button>
-                        <button class="btn btn-lg btn-info w-100 mb-2 lift" onclick="sendCommand('stop_moving_down')">停止下降
-
-                        <i class="bi bi-align-bottom ms-2"></i>
-                        </button>
-                    -->
-                  
-                </div>
-            </div>
         </div>
         
         <div class="row">
@@ -240,44 +198,6 @@
         }
         // ---------------------------------------------------------------------------
 
-        // 发送升降柱控制命令 ------------------------------------------------------------
-        function sendCommand(command) {
-            const buttons = document.querySelectorAll('button.lift');
-            buttons.forEach(btn => btn.disabled = true);
-            
-            fetch(`/api/lift/${command}`, {
-                method: 'POST'
-            }).then(response => {
-                if (response.ok) {
-                    return response.json().then(data => {
-                        //showToast(`${command} command succeeded`, 'success');
-                        updateOperationResult({
-                            ...data,
-                            container: 'opt-info',
-                            command: command 
-                        });
-                    });
-                } else {
-                    return response.json().then(data => {
-                        updateOperationResult({
-                            ...data,
-                            container: 'opt-info',
-                            command: command 
-                        });
-                    });
-                }
-            }).catch(error => {
-                updateOperationResult({
-                    container: 'opt-info',
-                    command: command,
-                    error_message: `Network error: ${error.message}`
-                });
-                console.error('Error:', error);
-            }).finally(() => {
-                buttons.forEach(btn => btn.disabled = false);
-            });
-        }
-        // ---------------------------------------------------------------------------
 
 
         async function doRobotCmd() {
@@ -297,7 +217,7 @@
         }
         
         async function startRecording() {
-            const response = await fetch('/api/obs/start_recording', {
+            const response = await fetch('/api/camera/start_recording', {
                 method: 'POST'
             });
             const result = await response.json();
@@ -309,7 +229,7 @@
         }
         
         async function stopRecording() {
-            const response = await fetch('/api/obs/stop_recording', {
+            const response = await fetch('/api/camera/stop_recording', {
                 method: 'POST'
             });
             const result = await response.json();
@@ -321,7 +241,7 @@
         }
         
         async function takeScreenshot(position_info = '') {
-            const response = await fetch('/api/obs/screenshot', {
+            const response = await fetch('/api/camera/screenshot', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

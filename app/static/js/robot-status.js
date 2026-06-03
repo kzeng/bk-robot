@@ -15,14 +15,6 @@ const runningStatusMap = {
     'idle': '可接受任务',
     'leave_charging_pile': '离开充电桩',
     'dock_to_charging_pile': '对接充电桩',
-    'goto_lift': '前往电梯',
-    'wait_lift_unlock': '等待解锁',
-    'wait_lift_outside': '等候电梯',
-    'enter_lift': '进入电梯',
-    'avoid_lift': '避让电梯',
-    'take_lift': '乘坐电梯',
-    'exit_lift': '正在出梯',
-    'back_to_lift': '返回电梯',
     'running': '正常移动中'
 };
 

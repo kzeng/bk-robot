@@ -1,34 +1,32 @@
+# Development Log
 
-● 问题根因
+## 2026-06 Cleanup
 
-  升降柱控制时序缺陷导致设备在拍照过程中提前降柱，撞到正在拍摄的物体（书架、展品等）。
+- Standardized camera operations on OpenCV plus RTSP streams.
+- Removed stale capture and auxiliary hardware paths from code,
+  configuration, scripts, and task data.
+- Updated task management so tasks contain marker, action, description, and
+  timestamp data only.
+- Cleared runtime log output after cleanup.
 
-  两个核心问题：
+## Current Architecture Notes
 
-  异常处理无条件降柱 — 任何偶发错误（拍照超时、网络抖动、状态轮询异常）都会触发 except 块中的 move_to_position_one()，无论任务执行到多少百分比，升降柱立即下降。
-  状态轮询超时设计缺陷 — 两处设计问题叠加：
-    - max_status_checks = 30（30 秒）对远距离移动不够用，超时后触发 3 次重试，全部失败→任务异常→无条件降柱
-    - "移动中"状态下没有绝对超时保护，如果机器人 API 卡住可能无限循环
+The robot control surface now has two main responsibilities:
 
-  修复方案（四个修改）
+- Robot movement and task execution through the robot HTTP API.
+- Camera recording and screenshots through `OpenCVControl`.
 
-  修复 1：任务执行锁 (routes.py:35, 510, 917)
-  - 新增 task_exec_lock = Lock()
-  - 防止同时执行多个任务
-  - 第二个任务请求直接返回错误，不干扰正在执行的任务
+The web UI should call camera endpoints under `/api/camera/*`. New UI, database,
+or configuration work should follow the current OpenCV/RTSP camera path and the
+current deployed robot hardware.
 
-  修复 2：异常降柱加条件判断 (routes.py:594, 602, 900-904)
-  - 新增 lift_was_raised 标志位
-  - 升柱成功后标记为 True
-  - 异常处理中只在该标志为 True 时才降柱
+## Validation
 
-  修复 3：降柱后物理等待 (routes.py:696, 780)
-  - move_to_position_one() 后增加 time.sleep(LIFT_WAIT_TIME)
-  - 确保升降柱物理到位后再移动机器人去 CD
+Use:
 
-  修复 4：重构状态轮询为共享函数 (routes.py:542-616)
-  - 提取 wait_for_robot_move() 辅助函数
-  - 绝对超时 5 分钟（代替旧的 30 次计数）
-  - 连续失败上限 10 次（网络断连检测）
-  - "移动中"状态不消耗任何计数器
-  - 三处重复的 55 行轮询统一为单行调用
+```powershell
+conda run -n venv-pyside2 python -m compileall app
+```
+
+Also check for stale implementation terms before release using a project-wide
+search.

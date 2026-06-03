@@ -44,10 +44,8 @@ pip install \
     Flask-SocketIO \
     Flask-SQLAlchemy \
     loguru \
-    obs-websocket-py \
     opencv-python \
     pillow \
-    pyserial \
     python-engineio \
     python-socketio \
     simple-websocket \

@@ -89,7 +89,6 @@
 
 # 安装依赖
 # pip install pydub
-# sudo apt install ffmpeg  # Linux
 
 # from pydub import AudioSegment
 # from pydub.playback import play

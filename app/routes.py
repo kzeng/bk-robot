@@ -13,11 +13,7 @@ from threading import Thread, Lock
 import ftplib
 from ftplib import FTP
 import logging
-import serial
-import platform
-import psutil
 import subprocess
-from .lift_control import Lift
 from dotenv import load_dotenv, set_key
 from loguru import logger
 import os
@@ -167,11 +163,6 @@ robot_all_apis_options = [
             "cmd": "/api/get_planned_path"
         },
         # {
-        #     "title": "21.获取电梯状态接口",
-        #     "url": "#",
-        #     "cmd": "/api/lift_status"
-        # },
-        # {
         #     "title": "22.获取两点间路径接口",
         #     "url": "#",
         #     "cmd": "/api/make_plan"
@@ -265,10 +256,11 @@ def poll_robot_status():
 
 
 
-@bp.route('/api/obs/start_recording', methods=['POST'])
+@bp.route('/api/camera/start_recording', methods=['POST'])
 def start_recording():
     """开始录制API"""
     camera_control = current_app.camera_control
+    data = request.get_json(silent=True) or {}
     
     try:
         # Only connect if not already connected
@@ -278,7 +270,11 @@ def start_recording():
                 return jsonify(connect_result), 500
         
         # Start recording and return result
-        result = camera_control.start_recording()
+        result = camera_control.start_recording(
+            camera_id=int(data.get('camera_id', 1)),
+            task_id=data.get('task_id'),
+            marker=data.get('marker')
+        )
         if result["status"] != "OK":
             return jsonify(result), 500
             
@@ -292,10 +288,11 @@ def start_recording():
             "message": f"Failed to start recording: {str(e)}"
         }), 500
 
-@bp.route('/api/obs/stop_recording', methods=['POST'])
+@bp.route('/api/camera/stop_recording', methods=['POST'])
 def stop_recording():
     """停止录制API"""
     camera_control = current_app.camera_control
+    data = request.get_json(silent=True) or {}
 
     try:
         # Only connect if not already connected
@@ -305,7 +302,13 @@ def stop_recording():
                 return jsonify(connect_result), 500
         
         # Stop recording and get result
-        result = camera_control.stop_recording()
+        result = camera_control.stop_recording(
+            camera_id=int(data.get('camera_id', 1)),
+            task_id=data.get('task_id'),
+            start_marker=data.get('start_marker'),
+            start_timestamp=data.get('start_timestamp'),
+            end_marker=data.get('end_marker')
+        )
         logger.info(f"Stop recording result: {result}")
         
         if result["status"] != "OK":
@@ -317,8 +320,7 @@ def stop_recording():
             # For OpenCV control that returns multiple file paths
             file_path = result["file_paths"][0]
         else:
-            # For OBS control that returns a single file path
-            file_path = result.get("file_path", "")
+            file_path = result.get("file_path", result.get("filepath", ""))
             
         return jsonify({
             "status": "OK",
@@ -335,7 +337,7 @@ def stop_recording():
 
 
 
-@bp.route('/api/obs/screenshot', methods=['POST'])
+@bp.route('/api/camera/screenshot', methods=['POST'])
 def take_screenshot():
     """拍摄截图API
     
@@ -401,8 +403,7 @@ def list_tasks():
                 'action': task.action,
                 'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
                 'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
-                'description': task.description,
-                'lift': task.lift
+                'description': task.description
             } for task in tasks.items],
             'pagination': {
                 'page': page,
@@ -441,7 +442,6 @@ def create_task():
             marker=data.get('marker', ''),
             action=data.get('action', 0),
             description=data.get('description', ''),
-            lift=data.get('lift', 'L2'),
             create_at=datetime.now(timezone(timedelta(hours=8)))  # Use Shanghai timezone
         )
 
@@ -482,7 +482,6 @@ def get_task(task_id):
         'create_at': task.create_at.strftime("%Y-%m-%d %H:%M:%S") if task.create_at else None,
         'update_at': task.update_at.strftime("%Y-%m-%d %H:%M:%S") if task.update_at else None,
         'description': task.description,
-        'lift': task.lift,
         'status': status
     })
 
@@ -496,7 +495,6 @@ def update_task(task_id):
     task.marker = data.get('marker', task.marker)
     task.action = data.get('action', task.action)
     task.description = data.get('description', task.description)
-    task.lift = data.get('lift', task.lift)
     task.update_at = datetime.now()
     
     db.session.commit()
@@ -801,20 +799,6 @@ def async_run_task(app, task_id, task_log_id=None):
         file_paths = []
         
         try:
-            lift_was_raised = False  # Track whether lift was raised for safe lowering
-
-            # move lift to per-task configured height before starting the task
-            if app.lift:
-                logger.info(f"Moving lift to position for task lift={task.lift} ...")
-                if not move_lift_to_configured_height(task.lift):
-                    raise Exception("Failed to move lift to configured height")
-                time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # wait for lift to reach position
-                lift_was_raised = True  # Mark lift as raised
-            else:
-                logger.error("Lift control not initialized, please check")
-                raise Exception("Lift control not initialized, please check")
-
-
             if task.action == 0:  # 拍照
                 logger.info("Starting movement through markers for photo task ......")
                 current_marker_index = 0
@@ -823,18 +807,6 @@ def async_run_task(app, task_id, task_log_id=None):
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
 
                     logger.info(f"Want to move target {target_marker}")
-                    if target_marker == "CD":
-                        logger.info("Next marker is CD, moving lift to position one...")
-                        try:
-                            app.lift.move_to_position_one()
-                            time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
-                        except Exception as lift_error:
-                            status = _status_after_cleanup_failure(status)
-                            logger.error(
-                                f"Inventory work finished but failed to lower lift before returning to CD: {lift_error}"
-                            )
-                            break
-
 
                     # Try moving up to 3 times
                     max_retries = 3
@@ -903,12 +875,6 @@ def async_run_task(app, task_id, task_log_id=None):
                             )
                             retry_count += 1
                             
-                    # # Check if next marker is CD and lift needs to be lowered
-                    # if current_marker_index == len(marker_list) - 2:  # Second last marker (before CD)
-                    #     logger.info("Next marker is CD, moving lift to position one...")
-                    #     app.lift.move_to_position_one()
-                    #     # time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))
-
                     if not move_success:
                         if target_marker == "CD":
                             status = _status_after_cleanup_failure(status)
@@ -930,20 +896,6 @@ def async_run_task(app, task_id, task_log_id=None):
                 while current_marker_index < len(marker_list):
                     target_marker = marker_list[current_marker_index]
                     logger.info(f"Moving to target marker: {target_marker} (sequence {current_marker_index+1}/{len(marker_list)})")
-
-                    # Check if target is CD and adjust lift position
-                    if target_marker == "CD":
-                        logger.info("Next marker is CD, moving lift to position one...")
-                        try:
-                            app.lift.move_to_position_one()
-                            time.sleep(current_app.config.get('LIFT_WAIT_TIME', 0))  # Wait for lift to physically reach position one before moving robot
-                        except Exception as lift_error:
-                            status = _status_after_cleanup_failure(status)
-                            logger.error(
-                                f"Inventory video work finished but failed to lower lift before returning to CD: {lift_error}"
-                            )
-                            break
-
 
                     # Try moving up to 3 times
                     max_retries = 3
@@ -1093,20 +1045,6 @@ def async_run_task(app, task_id, task_log_id=None):
             status = TASK_STATUS_FAILED
             logger.error(f"Error executing task {task_id}: {str(e)}")
             # 安全降柱：只在升降柱确实升起过的情况下执行
-            try:
-                if app.lift and lift_was_raised:
-                    logger.info("Moving lift to position one due to task failure...")
-                    app.lift.move_to_position_one()
-            except Exception as lift_error:
-                logger.error(f"Failed to move lift to position one in error handler: {str(lift_error)}")
-            
-            # if task.action == 1 and 'recording_started' in locals() and recording_started:
-            #     try:
-            #         stop_result = app.obs_control.stop_recording()
-            #         if stop_result.get('status') == 'OK':
-            #             file_paths.extend(stop_result.get('file_paths', []))
-            #     except Exception as stop_error:
-            #         logger.error(f"Error stopping recording after failure: stop_error")
         finally:
             # Release task execution lock
             try:
@@ -1228,73 +1166,6 @@ def get_task_log_detail(log_id):
     })
 
 
-### LIFT  ROUTES ###########################################################################################
-
-def get_lift():
-    """获取Lift实例，按需初始化，避免全局current_app错误"""
-    from .lift_control import Lift
-    port = current_app.config.get('LIFT_PORT', '/dev/ttyUSB0')
-    baudrate = 115200
-    try:
-        return Lift(port=port, baudrate=baudrate)
-    except Exception as e:
-        logger.error(f"Failed to initialize Lift: {e}")
-        return None
-
-@bp.route('/api/lift/status', methods=['GET'])
-def lift_status():
-    """Check lift connection status"""
-    lift = get_lift()
-    if lift is None:
-        return jsonify({
-            'status': 'error',
-            'message': 'Lift not initialized',
-            'connected': False
-        }), 503
-    try:
-        connected = lift.serial_connection.is_open
-        return jsonify({
-            'status': 'success',
-            'message': 'Lift is connected' if connected else 'Lift is disconnected',
-            'connected': connected
-        })
-    except Exception as e:
-        logger.error(f"Error checking lift status: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'connected': False
-        }), 500
-
-@bp.route('/api/lift/<command>', methods=['POST'])
-def lift_command(command):
-    lift = get_lift()
-    if lift is None:
-        return jsonify({'error': 'Lift not initialized'}), 503
-    try:
-        if command == 'move_to_position_one':
-            lift.move_to_position_one()
-        elif command == 'move_to_position_two':
-            lift.move_to_position_two()
-        elif command == 'move_to_position_three':
-            lift.move_to_position_three()
-        elif command == 'move_up':
-            lift.move_up()
-        elif command == 'move_down':
-            lift.move_down()
-        elif command == 'reset':
-            lift.reset()
-        elif command == 'stop_moving_up':
-            lift.stop_moving_up()
-        elif command == 'stop_moving_down':
-            lift.stop_moving_down()
-        else:
-            return jsonify({'error': 'Invalid command'}), 400
-        return jsonify({'status': 'success', 'command': command})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -1355,7 +1226,6 @@ def settings():
         'CAMERA_FPS': str(current_app.config['CAMERA_CONFIG']['fps']),
         'CAMERA_JPEG_QUALITY': str(current_app.config['CAMERA_CONFIG']['jpeg_quality']),
         'CAMERA_BUFFER_SIZE': str(current_app.config['CAMERA_CONFIG']['buffer_size']),
-        'PHOTO_MODE': str(current_app.config.get('PHOTO_MODE', '0')),
         'CAMERA_URLS': '',
 
         # 高级相机参数
@@ -1380,17 +1250,11 @@ def settings():
         # 其他配置
         'ROBOT_IP': str(current_app.config['ROBOT_IP']),
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
-        'OBS_WS_URL': str(current_app.config['OBS_WS_URL']),
-        'OBS_PASSWORD': str(current_app.config['OBS_PASSWORD']),
-        'OBS_FOCUS_TIME': str(float(current_app.config.get('OBS_FOCUS_TIME', 1.0))),
         'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
         'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
-        'LIFT_PORT': str(current_app.config.get('LIFT_PORT', '')),
-        'LIFT_WAIT_TIME': int(current_app.config.get('LIFT_WAIT_TIME', '15')),
-        'LIFT_HEIGHT': str(current_app.config.get('LIFT_HEIGHT', 'L2')),
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1428,8 +1292,7 @@ def update_settings():
             # 基础配置
             'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
-            'ROBOT_PORT', 'OBS_WS_URL', 'OBS_PASSWORD', 'LIFT_PORT',
-            'PHOTO_MODE',
+            'ROBOT_PORT',
             # 学校配置
             'CCODE',
             # 相机控制参数
@@ -1463,8 +1326,7 @@ def update_settings():
             'CAMERA_WB_AUTO': (0, 1),
             'CAMERA_FOCUS_AUTO': (0, 1),
             'CAMERA_BACKLIGHT': (0, 1),
-            'CAMERA_POWERLINE_FREQ': (1, 2),
-            'PHOTO_MODE': (0, 2)  # 添加 PHOTO_MODE 的验证范围
+            'CAMERA_POWERLINE_FREQ': (1, 2)
         }
         
         for field, (min_val, max_val) in validations.items():
@@ -1631,231 +1493,6 @@ def update_init_timestamp():
     except Exception as e:
         logger.error(f"Failed to update __init__.py timestamp: {str(e)}")
         return False
-
-import psutil
-import subprocess
-
-def get_obs_executable():
-    """获取OBS可执行文件路径"""
-    import platform
-    system = platform.system().lower()
-    
-    if system == 'windows':
-        # Windows路径
-        default_path = r'C:\Program Files\obs-studio\bin\64bit\obs64.exe'
-    else:
-        # Linux路径
-        default_path = '/usr/bin/obs'
-    
-    return os.environ.get('OBS_PATH', default_path)
-
-def check_obs_process():
-    """检查OBS进程状态"""
-    import platform
-    system = platform.system().lower()
-    
-    for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'environ']):
-        try:
-            proc_name = proc.info['name'].lower() if proc.info['name'] else ''
-            
-            # 根据系统检查进程名
-            if system == 'windows' and proc_name in ['obs.exe', 'obs64.exe']:
-                is_obs = True
-            elif system != 'windows' and proc_name in ['obs', 'obs-studio']:
-                is_obs = True
-            else:
-                is_obs = False
-                
-            if is_obs:
-                cmdline = proc.info['cmdline'] or []
-                env = proc.info['environ'] or {}
-                # 检查是否为后台模式
-                is_headless = (
-                    any(flag in cmdline for flag in [
-                        '--minimize-to-tray', 
-                        '--startstreaming', 
-                        '--startvirtualcam', 
-                        '--headless',
-                        '--disable-gpu'
-                    ]) or
-                    env.get('OBS_USE_HEADLESS') == '1' or
-                    env.get('QT_QPA_PLATFORM') == 'offscreen'
-                )
-                return {
-                    'running': True,
-                    'headless': is_headless,
-                    'pid': proc.pid,
-                    'cmdline': cmdline,
-                    'environ': env  # 添加环境变量信息用于调试
-                }
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
-            
-    return {'running': False, 'headless': False, 'pid': None}
-
-@bp.route('/api/obs/status')
-def obs_status():
-    """获取OBS运行状态"""
-    try:
-        status = check_obs_process()
-        return jsonify(status)
-    except Exception as e:
-        logger.error(f"检查OBS状态时出错: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/api/obs/start', methods=['POST'])
-def start_obs():
-    """启动OBS"""
-    try:
-        data = request.get_json()
-        headless = data.get('headless', False)
-        
-        # 检查OBS是否已经在运行
-        status = check_obs_process()
-        if status['running']:
-            return jsonify({'error': 'OBS已经在运行中'}), 400
-            
-        # 获取OBS可执行文件路径
-        obs_path = get_obs_executable()
-        if not os.path.exists(obs_path):
-            return jsonify({'error': f'OBS可执行文件未找到: {obs_path}'}), 404
-            
-        # 准备命令行参数
-        cmd = [obs_path]
-        if headless:
-            # 后台模式启动
-            if platform.system().lower() == 'windows':
-                cmd.extend([
-                    '--startvirtualcam',
-                    '--minimize-to-tray',
-                    '--headless',
-                    '--disable-shutdown-check',
-                    '--disable-updater',
-                    '--disable-gpu'
-                ])
-            else:
-                # Linux下的后台启动参数
-                cmd.extend([
-                    '--startvirtualcam',
-                    '--headless',
-                    '--disable-shutdown-check',
-                    '--disable-updater',
-                    '--disable-gpu'
-                ])
-                
-            # 确保不会启动GUI
-            os.environ['OBS_USE_HEADLESS'] = '1'
-            os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # 强制使用offscreen渲染
-            os.environ['DISABLE_QT_COMPAT'] = '1'  # 禁用Qt兼容模式
-                
-        try:
-            # 根据系统使用不同的启动方式
-            if platform.system().lower() == 'windows':
-                # Windows下的启动方式
-                startupinfo = None
-                if headless:
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startupinfo.wShowWindow = subprocess.SW_HIDE
-                
-                process = subprocess.Popen(
-                    cmd,
-                    startupinfo=startupinfo,
-                    creationflags=subprocess.CREATE_NO_WINDOW if headless else 0
-                )
-            else:
-                # Linux下的启动方式
-                env = os.environ.copy()
-                if headless:
-                    # 确保有显示服务器
-                    if 'DISPLAY' not in env:
-                        env['DISPLAY'] = ':0'
-                    process = subprocess.Popen(
-                        cmd,
-                        env=env,
-                        start_new_session=True,
-                        stdout=subprocess.PIPE if headless else None,
-                        stderr=subprocess.PIPE if headless else None
-                    )
-                else:
-                    process = subprocess.Popen(cmd, env=env)
-                    
-        except subprocess.CalledProcessError as e:
-            logger.error(f"启动OBS失败: {str(e)}")
-            return jsonify({'error': f'启动失败: {str(e)}'}), 500
-            
-        # 等待进程启动
-        time.sleep(3)
-        status = check_obs_process()
-        if status['running']:
-            return jsonify({'success': True, 'message': '启动成功'})
-        else:
-            return jsonify({'error': '启动失败'}), 500
-            
-    except Exception as e:
-        logger.error(f"启动OBS时出错: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/api/obs/stop', methods=['POST'])
-def stop_obs():
-    """停止OBS并确保完全清理"""
-    try:
-        status = check_obs_process()
-        if not status['running']:
-            return jsonify({'success': True, 'message': 'OBS未在运行'})
-            
-        # 获取OBS进程
-        pid = status['pid']
-        if pid:
-            try:
-                process = psutil.Process(pid)
-                # 终止所有子进程
-                for child in process.children(recursive=True):
-                    try:
-                        child.terminate()
-                    except psutil.NoSuchProcess:
-                        continue
-                
-                # 终止主进程
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except psutil.TimeoutExpired:
-                    process.kill()
-                
-                # 额外检查确保进程已终止
-                time.sleep(1)
-                if not psutil.pid_exists(pid):
-                    return jsonify({'success': True, 'message': 'OBS已完全停止'})
-                else:
-                    return jsonify({'error': '未能完全停止OBS'}), 500
-                    
-            except psutil.NoSuchProcess:
-                return jsonify({'success': True, 'message': 'OBS进程已不存在'})
-        else:
-            return jsonify({'error': '无法获取OBS进程ID'}), 500
-            
-    except Exception as e:
-        logger.error(f"停止OBS时出错: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-def move_lift_to_configured_height(lift_height):
-    """Move the lift to the specified height position (L2/L3)"""
-    try:
-        if current_app.lift:
-            if lift_height == 'L3':
-                current_app.lift.move_to_position_three()
-                logger.info("Moving lift to position three (L3)")
-            else:  # Default to L2
-                current_app.lift.move_to_position_two()
-                logger.info("Moving lift to position two (L2)")
-            return True
-        return False
-    except Exception as e:
-        logger.error(f"Error moving lift: {str(e)}")
-        return False
-
 
 @bp.route('/ipcams')
 @login_required

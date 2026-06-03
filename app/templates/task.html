@@ -5,14 +5,14 @@
 {% block content %}
 
     <div class="container mt-4">
-        <h3 class="mb-4">盘点任务管理         
+        <h3 class="mb-4">盘点任务管理
             {% if session.role == 'super_user' %}
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createTaskModal">
-                <i class="fas fa-plus me-1"></i>新任务 
+                <i class="fas fa-plus me-1"></i>新任务
             </button>
-            {% endif %}     
+            {% endif %}
         </h3>
-    
+
         <!-- Enhanced Task Status Panel -->
         <div class="card mt-4 shadow-sm" id="taskPanel" style="display: none;">
             <div class="card-header py-3">
@@ -26,10 +26,10 @@
                                 <tr>
                                     <td class="text-muted " style="width: 80px">任务ID</td>
                                     <td><span id="taskId" class="badge bg-dark fs-6">-</span></td>
-                          
+
                                     <td class="text-muted ">操作类型</td>
                                     <td><span id="action" class="badge bg-info fs-6">-</span></td>
-                         
+
                                     <td class="text-muted ">描述</td>
                                     <td><span id="description" class="badge bg-success fs-6">-</span></td>
                                 </tr>
@@ -49,7 +49,7 @@
         </div>
 
         <div class="card">
-       
+
             <div class="card-body">
                 <table class="table table-striped">
                     <thead>
@@ -57,7 +57,6 @@
                             <th>ID</th>
                             <th width="30%">标记点</th>
                             <th>操作类型</th>
-                            <th>升降柱高度</th>
                             <th>描述</th>
                             <th>创建时间</th>
                             <th>操作</th>
@@ -80,7 +79,7 @@
                         <!-- Tasks will be populated here -->
                     </tbody>
                 </table>
-                
+
                 <nav aria-label="Page navigation" class="mt-4">
                     <ul class="pagination justify-content-center">
                         <li class="page-item">
@@ -146,13 +145,6 @@
                                 <option value="99">仅是移动</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="lift" class="form-label">升降柱高度</label>
-                            <select class="form-select" id="lift">
-                                <option value="L2" selected>L2</option>
-                                <option value="L3">L3</option>
-                            </select>
-                        </div>
 
                         <div class="mb-3">
                             <label for="description" class="form-label">描述</label>
@@ -203,13 +195,6 @@
                                 <option value="99">仅是移动</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="editLift" class="form-label">升降柱高度</label>
-                            <select class="form-select" id="editLift">
-                                <option value="L2">L2</option>
-                                <option value="L3">L3</option>
-                            </select>
-                        </div>
 
                         <div class="mb-3">
                             <label for="editDescription" class="form-label">描述</label>
@@ -248,7 +233,7 @@
 
         let currentPage = 1;
         const pageSize = 5;
-        
+
          // <td>${task.description}</td>
         function loadTasks() {
             fetch(`/api/tasks?page=${currentPage}&size=${pageSize}`)
@@ -268,14 +253,13 @@
                                 </span>
                             </td>
                             <td>${getActionText(task.action)}</td>
-                            <td>${task.lift || 'L2'}</td>
                             <td>${task.description}</td>
                             <td>${task.create_at ? task.create_at.slice(0,10) : ''}</td>
                             <td>
                                 {% if session.role == 'super_user' %}
                                     <button class="btn btn-lg btn-primary" onclick="editTask(${task.task_id})">编辑</button>
                                     <button class="btn btn-lg btn-danger" onclick="deleteTask(${task.task_id})">删除</button>
-                                {% endif %}                                
+                                {% endif %}
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <button class="btn btn-lg btn-success" onclick="runTask(${task.task_id})">执行 <i class="fa fa-paper-plane" aria-hidden="true"></i>
 </button>
@@ -305,7 +289,7 @@
                     });
                 });
         }
-        
+
         document.getElementById('prevPage').addEventListener('click', (e) => {
             e.preventDefault();
             if (currentPage > 1) {
@@ -360,7 +344,7 @@
             }
 
             const points = marker.split(',').map(p => p.trim());
-            
+
             if (points.length < 2) {
                 alert('至少需要输入两个点位');
                 return false;
@@ -372,20 +356,20 @@
         function createTask() {
             const form = document.getElementById('taskForm');
             const markerInput = form.querySelector('#marker');
-            
+
             if (!validateMarker(markerInput.value)) {
                 return;
             }
 
             const actionSelect = form.querySelector('#action');
             const descriptionTextarea = form.querySelector('#description');
-            
+
             const taskData = {
                 marker: form.querySelector('#marker').value,
                 action: actionSelect ? parseInt(actionSelect.value) : 0,
                 description: descriptionTextarea ? descriptionTextarea.value : ''
             };
-            
+
             console.log('Form elements:', {
                 actionSelect: actionSelect,
                 descriptionTextarea: descriptionTextarea
@@ -411,7 +395,7 @@
                     const modal = bootstrap.Modal.getInstance(document.getElementById('createTaskModal'));
                     modal.hide();
                     loadTasks();
-                    
+
                     // Clear form
                     document.getElementById('taskForm').reset();
                 } else {
@@ -423,7 +407,7 @@
                 alert('创建任务时出错: ' + error.message);
             });
         }
-    
+
 
 
         function editTask(taskId) {
@@ -434,7 +418,6 @@
                     document.getElementById('editMarker').value = task.marker;
                     document.getElementById('editAction').value = task.action;
                     document.getElementById('editDescription').value = task.description;
-                    document.getElementById('editLift').value = task.lift || 'L2';
                     const modal = new bootstrap.Modal(document.getElementById('editTaskModal'));
                     modal.show();
                 });
@@ -443,7 +426,7 @@
         function saveTask() {
             const taskId = document.getElementById('editTaskId').value;
             const markerValue = document.getElementById('editMarker').value;
-            
+
             if (!validateMarker(markerValue)) {
                 return;
             }
@@ -452,7 +435,6 @@
                 marker: markerValue,
                 action: parseInt(document.getElementById('editAction').value),
                 description: document.getElementById('editDescription').value,
-                lift: document.getElementById('editLift').value
             };
 
             fetch(`/api/tasks/${taskId}`, {
@@ -510,7 +492,7 @@
         // }
 
         // function updateTaskStatus(task) {
-        //     document.getElementById('taskStatus').innerHTML = 
+        //     document.getElementById('taskStatus').innerHTML =
         //         `<span>${getStatusText(task.status)}</span>`;
         // }
 
@@ -518,10 +500,10 @@
         function pollTaskStatus(taskId) {
             let attempts = 0;
             const maxAttempts = 60; // 最多等待60秒
-            
+
             const interval = setInterval(() => {
                 attempts++;
-                
+
                 fetch(`/api/tasks/${taskId}`)
                     .then(response => {
                         if (!response.ok) {
@@ -532,7 +514,7 @@
                     .then(task => {
                         // 更新当前状态显示
                         updateTaskStatus(task);
-                        
+
                         // 检查是否需要停止轮询
                         if (task.status && task.status !== 1) { // 1=进行中
                             clearInterval(interval);
@@ -543,14 +525,14 @@
                         console.error('Error polling task status:', error);
                         clearInterval(interval);
                         // 显示错误状态
-                        document.getElementById('taskStatus').innerHTML = 
+                        document.getElementById('taskStatus').innerHTML =
                             `<span class="text-danger">状态更新失败</span>`;
                     });
-                    
+
                 // 超时处理
                 if (attempts >= maxAttempts) {
                     clearInterval(interval);
-                    document.getElementById('taskStatus').innerHTML = 
+                    document.getElementById('taskStatus').innerHTML =
                         `<span class="text-warning">状态更新超时</span>`;
                 }
             }, 1000);
@@ -559,7 +541,7 @@
         function updateTaskStatus(task) {
             const statusElement = document.getElementById('taskStatus');
             const statusText = getStatusText(task.status);
-            
+
             // 根据不同状态显示不同样式
             let statusClass = 'text-primary';
             if (task.status === 2) statusClass = 'text-success'; // 完成

@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+﻿from dotenv import load_dotenv
 import os
 from loguru import logger
 
@@ -6,7 +6,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 env_path = os.path.join(basedir, '.env')
 
 
-load_dotenv(env_path, override=True)  # 添加 override=True 确保重载
+load_dotenv(env_path, override=True)  # æ·»åŠ  override=True ç¡®ä¿é‡è½½
 
 #-------------------------------------------------------------------------------------------
 # you  can change these variables in .env file
@@ -23,13 +23,6 @@ class Config:
     SUPER_USER_PASSWORD = os.environ.get('SUPER_USER_PASSWORD', '4148d4c33f1809dc66c039dd44c0db4a7db76325' )
 
 
-    # Camera control configuration
-    PHOTO_MODE = os.environ.get('PHOTO_MODE')
-    # logger.debug(f"[Config] Config class reading PHOTO_MODE directly from environ: {PHOTO_MODE}")
-    # 如果没有值，设置默认值为'0'(OBS模式)
-    if PHOTO_MODE is None:
-        PHOTO_MODE = '0'
-    # logger.debug(f"[Config] Config class final PHOTO_MODE={PHOTO_MODE}")
 
     # Camera configuration
     CAMERA_CONFIG = {
@@ -59,9 +52,9 @@ class Config:
         }
     }
 
-    # Flask配置
+    # Flaské…ç½®
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
-      # 机器人底座配置
+      # æœºå™¨äººåº•åº§é…ç½®
     ROBOT_MOCK_MODE = os.environ.get('ROBOT_MOCK_MODE', False)
     if ROBOT_MOCK_MODE == 'true' or ROBOT_MOCK_MODE == 'True' or ROBOT_MOCK_MODE == True or ROBOT_MOCK_MODE == '1':
         ROBOT_MOCK_MODE = True
@@ -71,11 +64,6 @@ class Config:
     ROBOT_IP = os.environ.get('ROBOT_IP', '192.168.10.10')
     ROBOT_PORT = int(os.environ.get('ROBOT_PORT', '31001'))
     
-    # OBS WebSocket配置
-    # My Ubuntu
-    OBS_WS_URL = os.environ.get('OBS_WS_URL', 'ws://192.168.0.109:4455')
-    OBS_PASSWORD = os.environ.get('OBS_PASSWORD', '123456')
-    OBS_FOCUS_TIME = float(os.environ.get('OBS_FOCUS_TIME', '1.0'))  # Default focus time in seconds
 
     # FTP Server configuration
     FTP_HOST = os.environ.get('FTP_HOST', 'ftp.example.com')
@@ -88,15 +76,9 @@ class Config:
     else:
         FTP_MOCK_MODE = False
 
-    # Add Lift configuration
-    LIFT_PORT = os.environ.get('LIFT_PORT', '/dev/ttyUSB0')  # Serial port for lift control
-    LIFT_BAUD_RATE = int(os.environ.get('LIFT_BAUD_RATE', '115200'))
 
-    LIFT_WAIT_TIME = int(os.environ.get('LIFT_WAIT_TIME', '15'))  # Time to wait after sending lift command
-    LIFT_HEIGHT = os.environ.get('LIFT_HEIGHT', 'L2')
-
-    # 学校配置
-    CCODE = os.environ.get('CCODE', '01')  # 校区代码，默认值为 01
+    # å­¦æ ¡é…ç½®
+    CCODE = os.environ.get('CCODE', '01')  # æ ¡åŒºä»£ç ï¼Œé»˜è®¤å€¼ä¸º 01
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'instance/tasks.db'))
