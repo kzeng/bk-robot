@@ -1,405 +1,359 @@
-import socket
-import json
-from config import Config
 import time
-import struct
-import random
 from threading import RLock
+from urllib.parse import parse_qs, urlsplit
+
+import requests
+
+from config import Config
 from app.utils.logger import configured_logger as logger
 
+
 class RobotControl:
-    def __init__(self, host=Config.ROBOT_IP, port=Config.ROBOT_PORT):
-        """Initialize robot control with TCP connection parameters
-        
-        Args:
-            host (str): Robot server IP address
-            port (int): Robot server port
-        """
-        self.host = host
-        self.port = port
-        self.socket = None
-        self.connected = False
-        self.timeout = 5  # seconds
-        self.buffer_size = 4096
+    """Slamtec REST adapter with the legacy app-facing response shape.
+
+    The rest of the application expects a small set of robot operations:
+    move to a named point, cancel movement, read status, and sync points. This
+    adapter keeps those semantics while talking to Slamware REST APIs.
+    """
+
+    ACTION_MOVE = "slamtec.agent.actions.MultiFloorMoveAction"
+    ACTION_GO_HOME = "slamtec.agent.actions.GoHomeAction"
+
+    def __init__(self, base_url=None, timeout=None):
+        self.base_url = (base_url or Config.ROBOT_BASE_URL).rstrip("/")
+        self.timeout = timeout or Config.ROBOT_API_TIMEOUT
         self.app = None
         self._command_lock = RLock()
-        self._rx_buffer = b''
+        self._last_action_id = None
+        self.connected = True
 
     def init_app(self, app):
-        """Initialize with Flask application"""
         self.app = app
 
-    def connect(self):
-        """Establish TCP connection to robot server"""
+    def _url(self, path):
+        return f"{self.base_url}{path}"
+
+    def _request(self, method, path, **kwargs):
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(self.timeout)
-            self.socket.connect((self.host, self.port))
-            self.connected = True
-            self._rx_buffer = b''
-            logger.info(f"Connected to robot at {self.host}:{self.port}")
-            return True
-        except Exception as e:
-            logger.error(f"Connection failed: {str(e)}")
-            self.disconnect()
-            return False
-
-    def disconnect(self):
-        """Close TCP connection"""
-        if self.socket:
-            try:
-                self.socket.close()
-            except:
-                pass
-            finally:
-                self.socket = None
-                self._rx_buffer = b''
-        self.connected = False
-
-    def _pop_json_from_buffer(self):
-        if not self._rx_buffer:
-            return None
-
-        try:
-            text = self._rx_buffer.decode('utf-8')
-        except UnicodeDecodeError:
-            return None
-
-        if not text.strip():
-            self._rx_buffer = b''
-            return None
-
-        decoder = json.JSONDecoder()
-        stripped_text = text.lstrip()
-
-        try:
-            response, end_index = decoder.raw_decode(stripped_text)
-        except json.JSONDecodeError:
-            return None
-
-        # Preserve any bytes that belong to the next response on the same TCP stream.
-        self._rx_buffer = stripped_text[end_index:].lstrip().encode('utf-8')
-        return response
-
-    def _command_path(self, command):
-        if not command:
-            return ''
-        return str(command).split('?', 1)[0]
-
-    def _commands_match(self, expected_command, actual_command):
-        if not expected_command or not actual_command:
-            return True
-        expected = str(expected_command)
-        actual = str(actual_command)
-        return actual == expected or self._command_path(actual) == self._command_path(expected)
-
-    def _should_return_response(self, response, expected_command=None):
-        if not expected_command or not isinstance(response, dict):
-            return True
-
-        response_type = response.get('type')
-        actual_command = response.get('command')
-
-        if response_type == 'notification':
-            logger.info(f"Ignoring robot notification while waiting for {expected_command}: {response}")
-            return False
-
-        if response_type == 'response':
-            if self._commands_match(expected_command, actual_command):
-                return True
-            logger.warning(
-                f"Ignoring stale robot response for {actual_command} "
-                f"while waiting for {expected_command}: {response}"
+            response = requests.request(
+                method,
+                self._url(path),
+                timeout=self.timeout,
+                **kwargs,
             )
-            return False
+            response.raise_for_status()
+            if not response.content:
+                return None
+            return response.json()
+        except requests.RequestException as exc:
+            logger.error(f"Slamtec request failed: {method} {path}: {exc}")
+            raise
+        except ValueError as exc:
+            logger.error(f"Slamtec returned non-JSON response: {method} {path}: {exc}")
+            raise
 
-        # Some robot notifications have no status field but include code/description.
-        if 'status' not in response and ('code' in response or 'description' in response):
-            logger.info(f"Ignoring robot event while waiting for {expected_command}: {response}")
-            return False
+    def _ok(self, command, results=None, message=""):
+        return {
+            "type": "response",
+            "command": command,
+            "status": "OK",
+            "error_message": "",
+            "message": message,
+            "results": results or {},
+        }
 
-        # Be compatible with older or undocumented responses that omit type/command.
-        if actual_command and not self._commands_match(expected_command, actual_command):
-            logger.warning(
-                f"Ignoring unmatched robot message for {actual_command} "
-                f"while waiting for {expected_command}: {response}"
-            )
-            return False
+    def _error(self, command, message, error_type="robot_api_error"):
+        return {
+            "type": "response",
+            "command": command,
+            "status": "ERROR",
+            "error_message": str(message),
+            "message": str(message),
+            "error_type": error_type,
+            "results": None,
+        }
 
-        return True
+    def _normalize_action_status(self, action):
+        state = (action or {}).get("state") or {}
+        status = state.get("status")
+        result = state.get("result")
+        reason = state.get("reason") or ""
 
-    def _receive_json_response(self, require_complete=False, expected_command=None, max_wait=None):
-        """Receive and parse a JSON response from robot socket.
+        if status == 4:
+            if result == 0:
+                move_status = "succeeded"
+                running_status = "idle"
+            elif result == -2:
+                move_status = "canceled"
+                running_status = "idle"
+            else:
+                move_status = "failed"
+                running_status = "error"
+        elif status == 3:
+            move_status = "paused"
+            running_status = "paused"
+        elif status in (0, 1):
+            move_status = "running"
+            running_status = "running"
+        else:
+            move_status = ""
+            running_status = "idle"
 
-        Handles TCP packet fragmentation where UTF-8 multibyte characters
-        or JSON payload may arrive across multiple recv calls. The robot can
-        also interleave async notification messages on the same TCP stream, so
-        callers can pass expected_command to skip unrelated messages.
-        """
-        if not self.socket:
-            raise ConnectionError("Socket not initialized")
+        return {
+            "task_id": action.get("action_id"),
+            "action_id": action.get("action_id"),
+            "action_name": action.get("action_name"),
+            "stage": action.get("stage"),
+            "move_status": move_status,
+            "running_status": running_status,
+            "error_message": reason,
+        }
 
-        deadline = time.monotonic() + max_wait if max_wait else None
+    def _marker_config_by_name(self, marker):
+        from app.models import MarkerConfig
 
-        while True:
-            if deadline and time.monotonic() > deadline:
-                raise socket.timeout(f"Timed out waiting for response to {expected_command}")
+        return (
+            MarkerConfig.query.filter_by(mid_short=marker).first()
+            or MarkerConfig.query.filter_by(poi_name=marker).first()
+            or MarkerConfig.query.filter_by(mid=marker).first()
+        )
 
-            response = self._pop_json_from_buffer()
-            if response is not None:
-                if require_complete and isinstance(response, dict) and not response.get('complete', True):
-                    continue
-                if self._should_return_response(response, expected_command):
-                    return response
-                continue
-
-            chunk = self.socket.recv(self.buffer_size)
-            if not chunk:
-                break
-
-            self._rx_buffer += chunk
-
-        response = self._pop_json_from_buffer()
-        if response is not None:
-            if require_complete and isinstance(response, dict) and not response.get('complete', True):
-                raise ConnectionError("Connection closed before complete response")
-            if self._should_return_response(response, expected_command):
-                return response
-
-        raise ConnectionError("No complete JSON response received")
-
-    def send_command(self, cmd_str):
-        """Send command to robot and handle response
-        
-        Handles the full command cycle:
-        1. Ensures connection is established
-        2. Sends command via TCP socket
-        3. Waits for and parses response
-        4. Handles errors and connection drops
-        
-        Args:
-            cmd_str (str): API command string (e.g. '/api/move')
-            
-        Returns:
-            dict: {
-                'status': 'ok'|'error',
-                'message': str,      # Status message
-                'command': str,       # Original command sent
-                'response': dict      # Optional response data
-            }
-            
-        Note:
-            Automatically reconnects if connection is lost
-        """
-        with self._command_lock:
-            if not self.connected and not self.connect():
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': 'Connection failed',
-                    'error_type': 'connection_failed',
-                    'results': None
-                }
-
-            try:
-                if not self.socket:
-                    raise ConnectionError("Socket not initialized")
-
-                logger.info(f"Sending command: {cmd_str}")
-                
-                # Send command
-                cmd_bytes = cmd_str.encode('utf-8')
-                self.socket.sendall(cmd_bytes)
-
-                # Wait for response
-                response = self._receive_json_response(
-                    require_complete=True,
-                    expected_command=cmd_str,
-                    max_wait=self.timeout
-                )
-                return response
-            
-            except socket.timeout as e:
-                error_msg = f"Command timeout: {str(e)}"
-                logger.error(error_msg)
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': error_msg,
-                    'error_type': 'connection_timeout',
-                    'results': None
-                }
-            except ConnectionError as e:
-                error_msg = f"Connection error: {str(e)}"
-                logger.error(error_msg)
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': error_msg,
-                    'error_type': 'connection_failed',
-                    'results': None
-                }
-            except json.JSONDecodeError as e:
-                error_msg = f"Invalid response format: {str(e)}"
-                logger.error(error_msg)
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': error_msg,
-                    'error_type': 'invalid_response',
-                    'results': None
-                }
-            except UnicodeDecodeError as e:
-                error_msg = f"Invalid UTF-8 response: {str(e)}"
-                logger.error(error_msg)
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': error_msg,
-                    'error_type': 'invalid_response',
-                    'results': None
-                }
-            except Exception as e:
-                error_msg = f"Unexpected error: {str(e)}"
-                logger.error(error_msg)
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': cmd_str,
-                    'status': 'ERROR',
-                    'error_message': error_msg,
-                    'error_type': 'unexpected_error',
-                    'results': None
-                }
-    
-
-
-    def __del__(self):
-        """Destructor to ensure clean disconnect"""
-        self.disconnect()
-
-    def _get_logger(self):
-        """Get logger from Flask app or current_app"""
-        return logger
-
-    def recharge(self):
-        """Move robot to charging station (marker=CD)"""
-        result = self.send_command("/api/move?marker=CD")
-        # if result.get('status') == 'OK':
-        #     # Check if robot is already at charging station
-        #     status = self.get_status()
-        #     if status.get('results', {}).get('move_target') == 'CD' and \
-        #        status.get('results', {}).get('move_status') == 'succeeded':
-        #         return {
-        #             'status': 'OK',
-        #             'message': 'Already at charging station',
-        #             'results': status.get('results', {})
-        #         }
-        return result
-
-    def cancel_move(self):
-        """Cancel current move command"""
-        result = self.send_command("/api/move/cancel")
-        if result and result.get('status') == 'OK':
-            return {
-                'status': 'OK',
-                'message': 'Move command cancelled successfully',
-                'results': result.get('results', {})
+    def _target_from_marker_config(self, config):
+        has_pose = config and config.pose_x is not None and config.pose_y is not None
+        if has_pose and config.floor:
+            target = {
+                "building": config.building or "",
+                "floor": config.floor,
+                "pose": {
+                    "x": float(config.pose_x),
+                    "y": float(config.pose_y),
+                    "yaw": float(config.pose_yaw or 0),
+                },
             }
         else:
-            message = result.get('error_message', 'Failed to cancel move') if result else 'No response from robot'
-            return {
-                'status': 'ERROR',
-                'message': message,
-                'error_message': message,
-                'results': None
-            }
-    
+            target = {"poi_name": config.poi_name if config else None}
+        return target
 
+    def create_action(self, action_name, options=None):
+        command = "/api/core/motion/v1/actions"
+        body = {"action_name": action_name, "options": options or {}}
+        with self._command_lock:
+            try:
+                action = self._request("POST", command, json=body)
+                action_id = (action or {}).get("action_id")
+                self._last_action_id = action_id
+                results = self._normalize_action_status(action or {})
+                return self._ok(command, results)
+            except Exception as exc:
+                return self._error(command, exc)
+
+    def move_to_marker(self, marker):
+        config = self._marker_config_by_name(marker)
+        if not config:
+            return self._error("/api/core/motion/v1/actions", f"Unknown marker: {marker}", "unknown_marker")
+
+        target = self._target_from_marker_config(config)
+        options = {"target": target}
+        result = self.create_action(self.ACTION_MOVE, options)
+        if result.get("status") == "OK":
+            result["command"] = f"move_to_marker:{marker}"
+            result["results"]["move_target"] = marker
+            result["results"]["poi_name"] = config.poi_name
+            result["results"]["floor"] = config.floor
+            result["results"]["building"] = config.building
+        return result
+
+    def go_home(self):
+        return self.create_action(self.ACTION_GO_HOME, {"gohome_options": {"flags": "dock"}})
+
+    def cancel_move(self):
+        command = "/api/core/motion/v1/actions/:current"
+        with self._command_lock:
+            try:
+                self._request("DELETE", command)
+                return self._ok(command, message="Move command cancelled successfully")
+            except Exception as exc:
+                return self._error(command, exc)
+
+    def set_emergency_stop(self, enabled):
+        command = "/api/core/system/v1/parameter"
+        body = {
+            "param": "base.emergency_stop",
+            "value": "on" if enabled else "off",
+        }
+        with self._command_lock:
+            try:
+                result = self._request("PUT", command, json=body)
+                return self._ok(
+                    command,
+                    {
+                        "emergency_stop": bool(enabled),
+                        "raw": result,
+                    },
+                    message="Emergency stop enabled" if enabled else "Emergency stop cleared",
+                )
+            except Exception as exc:
+                return self._error(command, exc)
+
+    def get_action_status(self, action_id=None):
+        action_id = action_id or self._last_action_id
+        command = f"/api/core/motion/v1/actions/{action_id}" if action_id else "/api/core/motion/v1/actions/:current"
+        try:
+            action = self._request("GET", command)
+            return self._ok(command, self._normalize_action_status(action or {}))
+        except Exception as exc:
+            return self._error(command, exc)
 
     def get_status(self):
-        # returns the current status of the robot.
-        # OK:
-        #     {
-        #     "type": "response",
-        #     "command": "/api/robot_status",
-        #     "uuid": "",
-        #     "status": "OK",
-        #     "error_message": "",
-        #     "results": {
-        #     "move_target": "target_name", // 移动指令指定的目标点位名称
-        #     "move_status": "running", // 移动指令的执行状态。详细解释见后边
-        #     "running_status": "running", // v0.7.12新增，移动任务的具体状态， 详细见后面解释
-        #     "move_retry_times": 3, //此次数每增加1，表示机器人进行了新一轮的路径重试；路径规划
-        #     "charge_state": bool, //true->充电中状态。false->未充电状态。
-        #     "soft_estop_state": bool, // 通过API接口设置的软急停状态, true->急停中，false->非急
-        #     "hard_estop_state": bool, // 通过硬件急停按钮设置的硬急停状态, true->急停中，false
-        #     "estop_state": bool, // hard_estop_state || sofpt_estop_state, true->急停中，false
-        #     "power_percent": 100, //电量百分比，单位：%
-        #     "current_pose": {
-        #     "x": 11.0,
-        #     // 单位：m
-        #     "y": 11.0,
-        #     // 单位：m
-        #     "theta": 0.5, //单位：rad
-        #     }
-        #     "current_floor": 16,
-        #     "chargepile_id": "1234", // v0.9.6新增。充电状态下表示当前正在充电的充电桩ID，非充
-        #     "error_code": "00000000"
-        #     // v0.7.7新增，16进制错误码，总共8个字节表示，非0表示机
-        #     }
-        #     }
-
-        # ERROR:        
-        #     {
-        #     "type": "response",
-        #     "command": "/api/robot_status",
-        #     "uuid": "",
-        #     "status": "UNKNOWN_ERROR",
-        #     "error_message": "Can't catch current robot status"
-        #     "results"
-        #     }
-
-        """Get current robot status"""
-        with self._command_lock:
-            if not self.connected and not self.connect():
-                return {
-                    'type': 'response',
-                    'command': '/api/robot_status',
-                    'status': 'ERROR',
-                    'error_message': 'Connection failed',
-                    'results': None
-                }
-
+        command = "/api/robot_status"
+        try:
+            current_action = None
             try:
-                # Call actual robot status API
-                api_request = '/api/robot_status'
-                logger.debug(f"Sending status request: {api_request}")
-                # Send request
-                self.socket.sendall(api_request.encode('utf-8'))
-                # Receive response
-                response = self._receive_json_response(
-                    require_complete=False,
-                    expected_command=api_request,
-                    max_wait=self.timeout
-                )
-                return response
-            except Exception as e:
-                logger.error(f"Status check failed: {str(e)}")
-                self.disconnect()
-                return {
-                    'type': 'response',
-                    'command': '/api/robot_status',
-                    'status': 'ERROR',
-                    'error_message': str(e),
-                    'results': None
-                }
+                current_action = self._request("GET", "/api/core/motion/v1/actions/:current")
+            except Exception:
+                current_action = None
+
+            power = {}
+            try:
+                power = self._request("GET", "/api/core/system/v1/power/status") or {}
+            except Exception:
+                pass
+
+            health = {}
+            try:
+                health = self._request("GET", "/api/core/system/v1/robot/health") or {}
+            except Exception:
+                pass
+
+            floor = {}
+            try:
+                floor = self._request("GET", "/api/multi-floor/map/v1/floors/:current") or {}
+            except Exception:
+                pass
+
+            results = self._normalize_action_status(current_action or {})
+            results.update({
+                "move_target": results.get("move_target", ""),
+                "charge_state": bool(power.get("isCharging") or power.get("is_charging")),
+                "estop_state": bool(health.get("hasFatal") or health.get("hasError")),
+                "power_percent": power.get("batteryPercentage", power.get("battery_percentage", 0)),
+                "current_floor": floor.get("floor", ""),
+                "current_building": floor.get("building", ""),
+                "map_id": floor.get("map_id", ""),
+                "raw_action": current_action,
+            })
+            return self._ok(command, results)
+        except Exception as exc:
+            return self._error(command, exc)
+
+    def get_floors(self):
+        try:
+            return self._request("GET", "/api/multi-floor/map/v1/floors") or []
+        except Exception as exc:
+            logger.warning(f"Failed to query floors: {exc}")
+            return []
+
+    def get_all_pois(self, floor=None, building=None):
+        params = {}
+        if floor:
+            params["floor"] = floor
+        if building:
+            params["building"] = building
+        return self._request("GET", "/api/multi-floor/map/v1/pois", params=params) or []
+
+    def sync_maps_and_pois(self):
+        floors = self.get_floors()
+        pois = self.get_all_pois()
+        return {
+            "floors": floors,
+            "pois": pois,
+        }
+
+    def send_command(self, cmd_str):
+        """Compatibility bridge for old UI/debug command calls."""
+        parsed = urlsplit(cmd_str)
+        path = parsed.path
+        params = parse_qs(parsed.query)
+
+        if path == "/api/move":
+            marker = (params.get("marker") or [""])[0]
+            return self.move_to_marker(marker)
+        if path == "/api/move/cancel":
+            return self.cancel_move()
+        if path == "/api/robot_status":
+            return self.get_status()
+        if path == "/api/estop":
+            flag = (params.get("flag") or ["false"])[0].strip().lower()
+            return self.set_emergency_stop(flag in ("1", "true", "on", "yes"))
+        readonly_paths = {
+            "/api/core/artifact/v1/pois",
+            "/api/core/motion/v1/action-factories",
+            "/api/core/motion/v1/actions/:current",
+            "/api/core/motion/v1/milestones",
+            "/api/core/motion/v1/path",
+            "/api/core/motion/v1/speed",
+            "/api/core/motion/v1/strategies",
+            "/api/core/motion/v1/strategies/:current",
+            "/api/core/motion/v1/time",
+            "/api/core/sensors/v1/masks",
+            "/api/core/slam/v1/homedocks",
+            "/api/core/slam/v1/homepose",
+            "/api/core/slam/v1/imu",
+            "/api/core/slam/v1/knownarea",
+            "/api/core/slam/v1/localization/:enable",
+            "/api/core/slam/v1/localization/odopose",
+            "/api/core/slam/v1/localization/pose",
+            "/api/core/slam/v1/localization/quality",
+            "/api/core/slam/v1/loopclosure/:enable",
+            "/api/core/slam/v1/mapping/:enable",
+            "/api/core/statistics/v1/odometry",
+            "/api/core/statistics/v1/runtime",
+            "/api/core/system/v1/battery/pack",
+            "/api/core/system/v1/capabilities",
+            "/api/core/system/v1/network/status",
+            "/api/core/system/v1/parameter",
+            "/api/core/system/v1/robot/info",
+            "/api/core/system/v1/power/status",
+            "/api/core/system/v1/robot/health",
+            "/api/delivery/v1/admin/line_speed",
+            "/api/delivery/v1/admin/working_time",
+            "/api/multi-floor/map/v1/floors",
+            "/api/multi-floor/map/v1/floors/:current",
+            "/api/multi-floor/map/v1/homedocks",
+            "/api/multi-floor/map/v1/homedocks/:current",
+            "/api/multi-floor/map/v1/pois",
+            "/api/multi-floor/status",
+            "/api/platform/v1/timestamp",
+        }
+        if path in readonly_paths:
+            try:
+                query_params = {key: values[-1] for key, values in params.items() if values}
+                data = self._request("GET", path, params=query_params or None)
+                return self._ok(path, data)
+            except Exception as exc:
+                return self._error(path, exc)
+
+        dynamic_readonly_prefixes = (
+            "/api/core/motion/v1/actions/",
+            "/api/core/artifact/v1/pois/",
+            "/api/multi-floor/map/v1/elevators/",
+        )
+        if any(path.startswith(prefix) for prefix in dynamic_readonly_prefixes):
+            try:
+                query_params = {key: values[-1] for key, values in params.items() if values}
+                data = self._request("GET", path, params=query_params or None)
+                return self._ok(path, data)
+            except Exception as exc:
+                return self._error(path, exc)
+
+        return self._error(cmd_str, "Unsupported legacy robot command", "unsupported_command")
+
+    def recharge(self):
+        return self.go_home()
+
+    def connect(self):
+        self.connected = True
+        return True
+
+    def disconnect(self):
+        self.connected = False

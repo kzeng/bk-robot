@@ -1,4 +1,4 @@
-from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
+﻿from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
 import hashlib
 from functools import wraps
 import json
@@ -23,6 +23,72 @@ import subprocess
 import threading
 import queue
 from PIL import Image
+
+
+def marker_to_dict(config):
+    return {
+        'id': config.id,
+        'mid': config.mid,
+        'mid2': config.mid2,
+        'mid_short': config.mid_short,
+        'poi_id': config.poi_id,
+        'poi_name': config.poi_name,
+        'building': config.building,
+        'floor': config.floor,
+        'map_id': config.map_id,
+        'pose_x': config.pose_x,
+        'pose_y': config.pose_y,
+        'pose_yaw': config.pose_yaw,
+        'x': config.x,
+        'y': config.y,
+        'w': config.w,
+        'h': config.h,
+        'x2': config.x2,
+        'y2': config.y2,
+        'w2': config.w2,
+        'h2': config.h2
+    }
+
+
+def make_marker_mid(poi):
+    poi_id = str(poi.get('id') or '').strip()
+    if poi_id:
+        return poi_id
+    building = str(poi.get('building') or '').strip()
+    floor = str(poi.get('floor') or '').strip()
+    poi_name = str(poi.get('poi_name') or poi.get('display_name') or '').strip()
+    return f"{building}:{floor}:{poi_name}"
+
+
+def poi_match_keys(poi):
+    poi_id = str(poi.get('id') or '').strip()
+    building = str(poi.get('building') or '').strip()
+    floor = str(poi.get('floor') or '').strip()
+    poi_name = str(poi.get('poi_name') or poi.get('display_name') or '').strip()
+    keys = []
+    if poi_id:
+        keys.append(('poi_id', poi_id))
+    keys.append(('location', building, floor, poi_name))
+    return keys
+
+
+def next_marker_short(poi_name, used_shorts, counter):
+    base_name = str(poi_name or '').strip()
+    if base_name.upper().startswith('CD'):
+        candidate = base_name
+        suffix = 2
+        while candidate in used_shorts:
+            candidate = f"{base_name}{suffix}"
+            suffix += 1
+        used_shorts.add(candidate)
+        return candidate, counter
+
+    while True:
+        candidate = f"M{counter}"
+        counter += 1
+        if candidate not in used_shorts:
+            used_shorts.add(candidate)
+            return candidate, counter
 
 def login_required(f):
     @wraps(f)
@@ -62,24 +128,24 @@ def get_photo_directories():
     """获取所有图片目录"""
     try:
         screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
-        
+
         if not os.path.exists(screenshots_dir):
             return jsonify({
                 'directories': [],
                 'count': 0
             })
-        
+
         # 获取所有子目录
         all_items = os.listdir(screenshots_dir)
-        directories = [d for d in all_items 
+        directories = [d for d in all_items
                      if os.path.isdir(os.path.join(screenshots_dir, d))]
-        
+
         # 添加调试输出：打印找到的目录
         logger.info(f"Found directories: {directories}")
-        
+
         # 按目录名称排序（通常是日期格式，如YYYYMMDD）
         directories.sort(reverse=True)
-        
+
         return jsonify({
             'directories': directories,
             'count': len(directories)
@@ -101,7 +167,7 @@ def get_images_in_directory():
         page_size = int(request.args.get('page_size', 8))
         screenshots_dir = os.path.join(current_app.config['ROOT_PATH'], 'static', 'screenshots')
         thumbnails_dir = os.path.join(screenshots_dir, 'thumbnails')
-        
+
         # 检查目录是否存在
         dir_path = os.path.join(screenshots_dir, directory) if directory else screenshots_dir
         if not os.path.exists(dir_path):
@@ -116,37 +182,37 @@ def get_images_in_directory():
 
         images = []
         processed_files = set()  # 用于跟踪已处理的文件，避免重复
-        
+
         # 递归遍历目录及其子目录
         for root, _, files in os.walk(dir_path):
             for file in files:
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
                     full_path = os.path.join(root, file)
-                    
+
                     # 验证文件是否真实存在且未被处理过
                     if not os.path.isfile(full_path) or full_path in processed_files:
                         continue
-                        
+
                     processed_files.add(full_path)
-                    
+
                     try:
                         # 获取文件状态信息
                         file_stat = os.stat(full_path)
-                        
+
                         # 计算相对路径
                         rel_path = os.path.relpath(full_path, screenshots_dir)
                         rel_dir = os.path.relpath(root, screenshots_dir)
-                        
+
                         # 确保路径分隔符统一使用正斜杠
                         web_path = rel_path.replace(os.sep, '/')
-                        
+
                         # 构建URL
                         thumb_path = os.path.join(thumbnails_dir, rel_dir, file)
                         if os.path.exists(thumb_path):
                             thumbnail_url = url_for('static', filename=f'screenshots/thumbnails/{web_path}')
                         else:
                             thumbnail_url = url_for('static', filename=f'screenshots/{web_path}')
-                            
+
                         images.append({
                             'filename': file,
                             'directory': rel_dir,
@@ -162,7 +228,7 @@ def get_images_in_directory():
 
         # 按时间戳排序
         images.sort(key=lambda x: -x['timestamp'])
-        
+
         # 分页处理
         total = len(images)
         start = (page - 1) * page_size
@@ -227,16 +293,16 @@ def upload_directory():
     try:
         data = request.get_json()
         directory = data.get('directory', '')
-        
+
         if not directory:
             return jsonify({
                 'status': 'ERROR',
                 'message': '未指定目录'
             }), 400
-        
+
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         dir_path = os.path.join(screenshots_dir, directory)
-        
+
         if not os.path.exists(dir_path):
             return jsonify({
                 'status': 'ERROR',
@@ -245,114 +311,98 @@ def upload_directory():
 
         config = current_app.config
         uploaded_files = []
-        
-        if config.get('FTP_MOCK_MODE', False):
-            # Mock mode - just simulate upload
-            logger.info(f"模拟FTP上传(保留目录结构): {directory}")
-            for root, _, files in os.walk(dir_path):
-                for file in files:
-                    if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                        # 计算相对路径，保持目录结构
-                        rel_path = os.path.relpath(root, dir_path)
-                        uploaded_files.append({
-                            'file': file,
-                            'directory': rel_path if rel_path != '.' else '',
-                            'status': 'success',
-                            'message': 'Simulated upload successful'
-                        })
-            logger.info(f"模拟上传完成，共处理 {len(uploaded_files)} 个文件")
-        else:
-            # Real FTP upload with directory structure
-            ftp = None
+
+        # Real FTP upload with directory structure
+        ftp = None
+        try:
+            # Connect to FTP server
+            ftp = FTP()
+            # 增加超时，提升稳定性
+            ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
+            ftp.login(config['FTP_USER'], config['FTP_PASS'])
+            logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
+
+            ftp.voidcmd("TYPE I")
+
+            # 设置FTP根目录
+            remote_base = config.get('FTP_BASE_DIR', '/pic')
             try:
-                # Connect to FTP server
-                ftp = FTP()
-                # 增加超时，提升稳定性
-                ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
-                ftp.login(config['FTP_USER'], config['FTP_PASS'])
-                logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
-
-                ftp.voidcmd("TYPE I")
-
-                # 设置FTP根目录
-                remote_base = config.get('FTP_BASE_DIR', '/pic')
+                ftp.cwd(remote_base)
+            except Exception as e:
+                logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
                 try:
+                    ftp.mkd(remote_base)
                     ftp.cwd(remote_base)
-                except Exception as e:
-                    logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
-                    try:
-                        ftp.mkd(remote_base)
-                        ftp.cwd(remote_base)
-                        logger.info(f"成功创建并进入FTP根目录: {remote_base}")
-                    except Exception as mkdir_error:
-                        logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
-                        return jsonify({
-                            'status': 'ERROR',
-                            'message': f'无法创建FTP根目录: {str(mkdir_error)}',
-                            'uploaded_files': []
-                        }), 500
-                
-                # 递归上传文件，保持目录结构
-                for root, _, files in os.walk(dir_path):
-                    # 计算相对路径
-                    rel_path = os.path.relpath(root, dir_path)
-                    if rel_path != '.':
-                        # 在FTP服务器上创建子目录
-                        current_remote_path = remote_base
-                        for subdir in rel_path.split(os.sep):
+                    logger.info(f"成功创建并进入FTP根目录: {remote_base}")
+                except Exception as mkdir_error:
+                    logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
+                    return jsonify({
+                        'status': 'ERROR',
+                        'message': f'无法创建FTP根目录: {str(mkdir_error)}',
+                        'uploaded_files': []
+                    }), 500
+
+            # 递归上传文件，保持目录结构
+            for root, _, files in os.walk(dir_path):
+                # 计算相对路径
+                rel_path = os.path.relpath(root, dir_path)
+                if rel_path != '.':
+                    # 在FTP服务器上创建子目录
+                    current_remote_path = remote_base
+                    for subdir in rel_path.split(os.sep):
+                        try:
+                            ftp.cwd(subdir)
+                            current_remote_path = os.path.join(current_remote_path, subdir)
+                        except:
                             try:
+                                ftp.mkd(subdir)
                                 ftp.cwd(subdir)
                                 current_remote_path = os.path.join(current_remote_path, subdir)
-                            except:
-                                try:
-                                    ftp.mkd(subdir)
-                                    ftp.cwd(subdir)
-                                    current_remote_path = os.path.join(current_remote_path, subdir)
-                                except Exception as e:
-                                    logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
-                                    # 返回根目录继续尝试
-                                    ftp.cwd(remote_base)
-                                    continue
-                        
-                        # 上传当前目录下的所有图片（断点续传）
-                        for file in files:
-                            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-                                local_file = os.path.join(root, file)
-                                try:
-                                    action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
-                                    uploaded_files.append({
-                                        'file': file,
-                                        'directory': rel_path if rel_path != '.' else '',
-                                        'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
-                                        'message': 'Upload successful' if action != 'skipped' else 'Already exists',
-                                        'action': action,
-                                        'local_size': local_size,
-                                        'remote_size': remote_size
-                                    })
-                                    logger.info(f"{action.upper()} 完成: {local_file}")
-                                except Exception as e:
-                                    error_msg = f"上传失败: {str(e)}"
-                                    logger.error(f"{error_msg} - {local_file}")
-                                    uploaded_files.append({
-                                        'file': file,
-                                        'directory': rel_path if rel_path != '.' else '',
-                                        'status': 'failed',
-                                        'error': error_msg
-                                    })
-                        
-                        # 返回上级目录，为下一个子目录做准备
-                        if rel_path != '.':
-                            for _ in rel_path.split(os.sep):
-                                ftp.cwd('..')
-                    
-            except Exception as ftp_error:
-                logger.error(f"FTP connection error: {str(ftp_error)}")
-                return jsonify({
-                    'status': 'ERROR',
-                    'message': f'FTP连接失败: {str(ftp_error)}',
-                    'uploaded_files': uploaded_files
-                }), 500
-        
+                            except Exception as e:
+                                logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
+                                # 返回根目录继续尝试
+                                ftp.cwd(remote_base)
+                                continue
+
+                    # 上传当前目录下的所有图片（断点续传）
+                    for file in files:
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+                            local_file = os.path.join(root, file)
+                            try:
+                                action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
+                                uploaded_files.append({
+                                    'file': file,
+                                    'directory': rel_path if rel_path != '.' else '',
+                                    'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
+                                    'message': 'Upload successful' if action != 'skipped' else 'Already exists',
+                                    'action': action,
+                                    'local_size': local_size,
+                                    'remote_size': remote_size
+                                })
+                                logger.info(f"{action.upper()} 完成: {local_file}")
+                            except Exception as e:
+                                error_msg = f"上传失败: {str(e)}"
+                                logger.error(f"{error_msg} - {local_file}")
+                                uploaded_files.append({
+                                    'file': file,
+                                    'directory': rel_path if rel_path != '.' else '',
+                                    'status': 'failed',
+                                    'error': error_msg
+                                })
+
+                    # 返回上级目录，为下一个子目录做准备
+                    if rel_path != '.':
+                        for _ in rel_path.split(os.sep):
+                            ftp.cwd('..')
+
+        except Exception as ftp_error:
+            logger.error(f"FTP connection error: {str(ftp_error)}")
+            return jsonify({
+                'status': 'ERROR',
+                'message': f'FTP连接失败: {str(ftp_error)}',
+                'uploaded_files': uploaded_files
+            }), 500
+
         return jsonify({
             'status': 'OK',
             'message': f'成功上传 {len(uploaded_files)} 个文件到 {directory}',
@@ -373,27 +423,27 @@ def delete_directory():
     try:
         data = request.get_json()
         directory = data.get('directory', '')
-        
+
         if not directory:
             return jsonify({
                 'status': 'ERROR',
                 'message': 'No directory specified'
             }), 400
-        
+
 
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         dir_path = os.path.join(screenshots_dir, directory)
-        
+
         if not os.path.exists(dir_path):
             return jsonify({
                 'status': 'ERROR',
                 'message': f'Directory not found: {directory}'
             }), 404
-        
+
         # 删除目录及其内容
         import shutil
         shutil.rmtree(dir_path)
-        
+
         return jsonify({
             'status': 'OK',
             'message': f'Directory {directory} and its contents have been deleted',
@@ -421,7 +471,7 @@ def delete_image():
 
         directory = data.get('directory', '')  # 允许空目录，表示根目录
         filename = data.get('filename')
-        
+
         logger.info(f"Deleting image - Directory: {directory}, Filename: {filename}")
 
         if not filename:  # 只检查文件名是否存在
@@ -429,7 +479,7 @@ def delete_image():
                 'status': 'ERROR',
                 'message': 'Filename is required'
             }), 400
-        
+
         # 获取截图根目录
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
         screenshots_dir = os.path.normpath(screenshots_dir)
@@ -446,7 +496,7 @@ def delete_image():
         # 优先检查日期子目录（如果文件名包含日期）
         file_path = None
         year_month_day = None
-        
+
         # 尝试从文件名提取日期 (格式: YYYYMMDD)
         if 'Unknown-' in filename:
             year_month_day = filename.split('-')[2][:8]  # Extract from Unknown-CameraX-YYYYMMDD_HHMMSS
@@ -464,7 +514,7 @@ def delete_image():
                     year_month_day = filename.split('_')[1][:8]  # Fallback to original format
             except IndexError:
                 pass
-        
+
         logger.info(f"Extracted date from filename: {year_month_day}")
 
         # 确保screenshots目录存在
@@ -474,7 +524,7 @@ def delete_image():
                 'status': 'ERROR',
                 'message': f'Screenshots directory not found'
             }), 404
-        
+
         # 如果找到日期且目录未指定，优先检查日期子目录
         if year_month_day and year_month_day.isdigit() and not directory:
             dated_dir = os.path.join(screenshots_dir, year_month_day)
@@ -501,7 +551,7 @@ def delete_image():
                     logger.info(f"Found file in root directory: {root_path}")
                 else:
                     logger.warning(f"Dated directory not found: {dated_dir} and file not in root")
-        
+
         # 构造最终文件路径
         if directory:
             # 如果指定了目录，直接使用该目录
@@ -518,7 +568,7 @@ def delete_image():
                     date_part = parts[2]
                     if len(date_part) >= 8 and date_part[:4].isdigit():
                         date_str = date_part[:8]  # YYYYMMDD
-            
+
             # 检查日期目录是否存在
             if date_str:
                 date_dir = os.path.join(screenshots_dir, date_str)
@@ -529,10 +579,10 @@ def delete_image():
                     file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
             else:
                 file_path = os.path.normpath(os.path.join(screenshots_dir, filename))
-        
+
         logger.info(f"Final file path to delete: {file_path}")
         logger.info(f"Absolute path: {os.path.abspath(file_path)}")
-        
+
         # 验证路径是否在screenshots目录下（安全检查）
         if not os.path.abspath(file_path).startswith(os.path.abspath(screenshots_dir)):
             logger.error(f"Invalid file path outside screenshots directory: {file_path}")
@@ -540,7 +590,7 @@ def delete_image():
                 'status': 'ERROR',
                 'message': 'Invalid file path - cannot delete files outside screenshots directory'
             }), 403
-        
+
         if not os.path.exists(file_path):
             logger.info(f"File not found at primary path, searching recursively...")
             found = False
@@ -550,7 +600,7 @@ def delete_image():
                     logger.info(f"Found file at: {file_path}")
                     found = True
                     break
-            
+
             if not found:
                 logger.error(f"File not found at path: {os.path.abspath(file_path)}")
                 return jsonify({
@@ -558,11 +608,11 @@ def delete_image():
                     'message': f'File not found: {filename} in directory {directory}',
                     'full_path': os.path.abspath(file_path)
                 }), 404
-        
+
         # 删除文件
         logger.info(f"Deleting file: {file_path}")
         os.remove(file_path)
-        
+
         return jsonify({
             'status': 'OK',
             'message': f'File {filename} has been deleted from directory {directory}',
@@ -582,18 +632,18 @@ def clear_all_photos():
     """清空所有图片和目录"""
     try:
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
-        
+
         # 如果目录不存在，直接返回成功
         if not os.path.exists(screenshots_dir):
             return jsonify({
                 'status': 'OK',
                 'message': 'Screenshots directory does not exist, nothing to clear'
             })
-        
+
         # 遍历目录中的所有文件和子目录
         for item in os.listdir(screenshots_dir):
             item_path = os.path.join(screenshots_dir, item)
-            
+
             # 如果是文件，则直接删除
             if os.path.isfile(item_path):
                 os.remove(item_path)
@@ -601,7 +651,7 @@ def clear_all_photos():
             elif os.path.isdir(item_path):
                 import shutil
                 shutil.rmtree(item_path)
-        
+
         return jsonify({
             'status': 'OK',
             'message': 'All photos and directories have been cleared'
@@ -679,48 +729,30 @@ def api_marker_configs():
         page_size = max(1, min(500, request.args.get('size', 20, type=int) or 20))
 
         query = MarkerConfig.query.order_by(MarkerConfig.id.asc())
+        building = request.args.get('building')
+        floor = request.args.get('floor')
+        if building:
+            query = query.filter(MarkerConfig.building == building)
+        if floor:
+            query = query.filter(MarkerConfig.floor == floor)
         if search:
             query = query.filter(
                 (MarkerConfig.mid.ilike(f'%{search}%')) |
+                (MarkerConfig.poi_name.ilike(f'%{search}%')) |
+                (MarkerConfig.floor.ilike(f'%{search}%')) |
                 (MarkerConfig.mid_short.ilike(f'%{search}%'))
             )
 
         if load_all:
             configs = query.all()
-            return jsonify([{
-                'id': c.id,
-                'mid': c.mid,
-                'mid2': c.mid2,
-                'mid_short': c.mid_short,
-                'x': c.x,
-                'y': c.y,
-                'w': c.w,
-                'h': c.h,
-                'x2': c.x2,
-                'y2': c.y2,
-                'w2': c.w2,
-                'h2': c.h2
-            } for c in configs])
+            return jsonify([marker_to_dict(c) for c in configs])
 
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)
         if pagination.pages > 0 and page > pagination.pages:
             pagination = query.paginate(page=pagination.pages, per_page=page_size, error_out=False)
 
         return jsonify({
-            'items': [{
-            'id': c.id,
-            'mid': c.mid,
-            'mid2': c.mid2,
-            'mid_short': c.mid_short,
-            'x': c.x,
-            'y': c.y,
-            'w': c.w,
-            'h': c.h,
-            'x2': c.x2,
-            'y2': c.y2,
-            'w2': c.w2,
-            'h2': c.h2
-            } for c in pagination.items],
+            'items': [marker_to_dict(c) for c in pagination.items],
             'pagination': {
                 'page': pagination.page,
                 'size': page_size,
@@ -730,10 +762,18 @@ def api_marker_configs():
                 'has_next': pagination.has_next
             }
         })
-    
+
     data = request.json
     config = MarkerConfig(
         mid=data['mid'],
+        poi_id=data.get('poi_id'),
+        poi_name=data.get('poi_name') or data.get('mid'),
+        building=data.get('building', ''),
+        floor=data.get('floor', ''),
+        map_id=data.get('map_id', ''),
+        pose_x=data.get('pose_x'),
+        pose_y=data.get('pose_y'),
+        pose_yaw=data.get('pose_yaw'),
         mid2=data.get('mid2', ''),
         mid_short=data['mid_short'],
         x=data['x'],
@@ -761,7 +801,7 @@ def api_marker_configs():
 def api_marker_config(id):
     """单个标记点位配置API"""
     config = MarkerConfig.query.get_or_404(id)
-    
+
     if request.method == 'DELETE':
         try:
             db.session.delete(config)
@@ -770,10 +810,18 @@ def api_marker_config(id):
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': str(e)}), 400
-    
+
     data = request.json
     try:
         config.mid = data['mid']
+        config.poi_id = data.get('poi_id')
+        config.poi_name = data.get('poi_name') or data.get('mid')
+        config.building = data.get('building', '')
+        config.floor = data.get('floor', '')
+        config.map_id = data.get('map_id', '')
+        config.pose_x = data.get('pose_x')
+        config.pose_y = data.get('pose_y')
+        config.pose_yaw = data.get('pose_yaw')
         config.mid2 = data.get('mid2', '')
         config.mid_short = data['mid_short']
         config.x = data['x']
@@ -811,6 +859,32 @@ def clear_marker_configs():
             'message': f'清空点位失败: {str(e)}'
         }), 500
 
+
+@bp1.route('/api/marker-config/floors', methods=['GET'])
+@login_required
+def api_marker_config_floors():
+    """Return floor/building options from local synced marker data."""
+    rows = (
+        db.session.query(MarkerConfig.building, MarkerConfig.floor, MarkerConfig.map_id)
+        .filter(MarkerConfig.floor.isnot(None))
+        .distinct()
+        .all()
+    )
+    floors = [
+        {
+            'building': building or '',
+            'floor': floor or '',
+            'map_id': map_id or ''
+        }
+        for building, floor, map_id in rows
+        if floor
+    ]
+    floors.sort(key=lambda item: (item['building'], item['floor']))
+    return jsonify({
+        'status': 'OK',
+        'floors': floors
+    })
+
 def format_robot_error(result):
     """Build a useful robot API error message for UI and logs."""
     if not isinstance(result, dict):
@@ -834,9 +908,21 @@ def query_robot_markers_with_retry(robot_control, max_attempts=3, retry_delay=1)
     """Query robot markers with a small retry window for transient socket/API errors."""
     last_result = None
     for attempt in range(1, max_attempts + 1):
-        last_result = robot_control.send_command("/api/markers/query_list")
-        if isinstance(last_result, dict) and last_result.get('status') == 'OK':
+        try:
+            data = robot_control.sync_maps_and_pois()
+            last_result = {
+                'type': 'response',
+                'command': 'sync_maps_and_pois',
+                'status': 'OK',
+                'results': data
+            }
             return last_result
+        except Exception as exc:
+            last_result = {
+                'status': 'ERROR',
+                'error_message': str(exc),
+                'error_type': 'robot_api_error'
+            }
 
         logger.warning(
             f"Failed to query robot markers "
@@ -852,30 +938,9 @@ def query_robot_markers_with_retry(robot_control, max_attempts=3, retry_delay=1)
 def sync_marker_configs():
     """同步机器人点位配置"""
     try:
-        # Check if we should use mock data
-        # if current_app.config.get('MOCK_MARKER_DATA'):
-        if False:
-            result = {
-                'type': 'response',
-                'command': '/api/markers/query_list',
-                'status': 'OK',
-                'error_message': '',
-                'results': {
-                    'meeting_room1': {
-                        'marker_name': '01020301041',
-                        'pose': {'position': {'x': -8.58, 'y': 6.36}}
-                    },
-                    'meeting_room2': {
-                        'marker_name': '01020301042', 
-                        'pose': {'position': {'x': -8.58, 'y': 6.36}}
-                    }
-                }
-            }
-        else:
-            # Call robot API to get marker list
-            robot_control = current_app.robot_control
-            result = query_robot_markers_with_retry(robot_control)
-        
+        robot_control = current_app.robot_control
+        result = query_robot_markers_with_retry(robot_control)
+
         if not isinstance(result, dict) or result.get('status') != 'OK':
             error_message = format_robot_error(result)
             logger.error(f"获取机器人点位失败: {error_message}; raw_result={result}")
@@ -885,9 +950,10 @@ def sync_marker_configs():
                 'message': f'获取机器人点位失败: {error_message}'
             }), 500
 
-        # 解析并添加新点位
-        markers = result.get('results', {})
-        if not isinstance(markers, dict) or not markers:
+        sync_data = result.get('results', {})
+        floors = sync_data.get('floors') or []
+        markers = sync_data.get('pois') or []
+        if not isinstance(markers, list) or not markers:
             logger.error(f"机器人点位响应为空或格式错误: {result}")
             return jsonify({
                 'status': 'ERROR',
@@ -897,35 +963,74 @@ def sync_marker_configs():
 
         count = 0
         new_configs = []
-        for location_name, info in markers.items():
+        existing_configs = MarkerConfig.query.all()
+        existing_by_poi_id = {c.poi_id: c for c in existing_configs if c.poi_id}
+        existing_by_location = {
+            (c.building or '', c.floor or '', c.poi_name or c.mid): c
+            for c in existing_configs
+        }
+        used_shorts = set()
+        for c in existing_configs:
+            if c.mid_short:
+                used_shorts.add(c.mid_short)
+
+        # Reuse existing short names only for matched records. Unmatched old
+        # records should not reserve names after a full sync.
+        matched_existing_ids = set()
+        used_shorts = set()
+        floor_map_ids = {
+            (f.get('building') or '', f.get('floor') or ''): f.get('map_id')
+            for f in floors if isinstance(f, dict)
+        }
+
+        for info in markers:
             if not isinstance(info, dict):
-                logger.warning(f"跳过格式错误的点位: {location_name} -> {info}")
+                logger.warning(f"跳过格式错误的点位: {info}")
                 continue
 
-            marker_name = info.get('marker_name')
-            if marker_name:
-                marker_name = marker_name.strip()
-                # 检查是否以 "CD" 开头（不区分大小写）
-                if marker_name.upper().startswith('CD'):
-                    # 直接使用 marker_name 作为 mid_short
-                    mid_short = marker_name
-                else:
-                    count += 1
-                    mid_short = f'M{count}'
-                    
-                new_configs.append(MarkerConfig(
-                    mid=marker_name,
-                    mid2='00000000000',  # 默认值，后续可更新
-                    mid_short=mid_short,
-                    x=0,
-                    y=0,
-                    w=0,
-                    h=0,
-                    x2=0,
-                    y2=0,
-                    w2=0,
-                    h2=0
-                ))
+            poi_name = str(info.get('poi_name') or info.get('display_name') or '').strip()
+            if not poi_name:
+                logger.warning(f"跳过缺少 poi_name 的点位: {info}")
+                continue
+
+            poi_id = str(info.get('id') or '').strip()
+            building = str(info.get('building') or '').strip()
+            floor = str(info.get('floor') or '').strip()
+            pose = info.get('pose') or {}
+            existing = None
+            if poi_id:
+                existing = existing_by_poi_id.get(poi_id)
+            if not existing:
+                existing = existing_by_location.get((building, floor, poi_name))
+
+            if existing and existing.id not in matched_existing_ids and existing.mid_short:
+                mid_short = existing.mid_short
+                used_shorts.add(mid_short)
+                matched_existing_ids.add(existing.id)
+            else:
+                mid_short, count = next_marker_short(poi_name, used_shorts, count)
+
+            new_configs.append(MarkerConfig(
+                mid=make_marker_mid(info),
+                poi_id=poi_id or None,
+                poi_name=poi_name,
+                building=building,
+                floor=floor,
+                map_id=info.get('map_id') or floor_map_ids.get((building, floor)),
+                pose_x=pose.get('x'),
+                pose_y=pose.get('y'),
+                pose_yaw=pose.get('yaw'),
+                mid2=existing.mid2 if existing else '00000000000',
+                mid_short=mid_short,
+                x=existing.x if existing else 0,
+                y=existing.y if existing else 0,
+                w=existing.w if existing else 0,
+                h=existing.h if existing else 0,
+                x2=existing.x2 if existing else 0,
+                y2=existing.y2 if existing else 0,
+                w2=existing.w2 if existing else 0,
+                h2=existing.h2 if existing else 0
+            ))
 
         if not new_configs:
             logger.error(f"机器人点位响应中没有可用 marker_name: {result}")
@@ -939,14 +1044,15 @@ def sync_marker_configs():
         db.session.query(MarkerConfig).delete()
         for config in new_configs:
             db.session.add(config)
-        
+
         db.session.commit()
         return jsonify({
             'status': 'OK',
             'message': f'成功同步 {len(new_configs)} 个点位',
             'results': {
                 'count': len(new_configs),
-                'markers': list(markers.keys())
+                'floors': floors,
+                'markers': [c.mid_short for c in new_configs]
             }
         })
     except Exception as e:
@@ -976,7 +1082,7 @@ def crop_images():
 
         # 确保目录存在
         screenshots_dir = os.path.join(current_app.root_path, '..', 'static', 'screenshots')
-        
+
         # 如果pic文件夹存在，先清空其内容
         pic_dir = os.path.join(screenshots_dir, 'pic')
         if os.path.exists(pic_dir):
@@ -986,7 +1092,7 @@ def crop_images():
 
         dir_path = os.path.join(screenshots_dir, directory)
         logger.info(f"检查目录路径: {dir_path}")
-        
+
         if not os.path.exists(dir_path):
             logger.error(f"目录不存在: {dir_path}")
             return jsonify({
@@ -996,7 +1102,7 @@ def crop_images():
             })
 
         processed_files = []
-        
+
         # 遍历目录中的所有图片文件
         for filename in os.listdir(dir_path):
             if not filename.endswith(('.png', '.jpg', '.jpeg')) or 'Unknown' in filename:
@@ -1005,15 +1111,18 @@ def crop_images():
             # 解析文件名获取marker ID
             try:
                 marker_id = filename.split('-')[0]  # 获取第一个划线前的部分作为marker ID
-                
+
                 # 查询marker_config表获取裁剪参数
-                marker_config = MarkerConfig.query.filter_by(mid=marker_id).first()
+                marker_config = (
+                    MarkerConfig.query.filter_by(mid_short=marker_id).first()
+                    or MarkerConfig.query.filter_by(mid=marker_id).first()
+                )
                 if marker_config == None:
                     USE_MID2 = True
                     marker_config = MarkerConfig.query.filter_by(mid2=marker_id).first()
                 else:
                     USE_MID2 = False
-                
+
                 if not marker_config:
                     processed_files.append({
                         'file': filename,
@@ -1024,7 +1133,7 @@ def crop_images():
 
                 # 图片完整路径
                 img_path = os.path.join(dir_path, filename)
-                
+
                 try:
                     logger.info(f"开始处理图片: {img_path}")
                     img = Image.open(img_path)
@@ -1045,8 +1154,8 @@ def crop_images():
                             h = min(height, marker_config.h2 + y)
                             logger.info(f"裁剪参数: x={x}, y={y}, w={w}, h={h}")
                             new_img = img.crop((
-                                x,  
-                                y,  
+                                x,
+                                y,
                                 w,
                                 h
                             ))
@@ -1065,8 +1174,8 @@ def crop_images():
                             h = min(height, marker_config.h + y)
                             logger.info(f"裁剪参数(mid): x={x}, y={y}, w={w}, h={h}")
                             new_img = img.crop((
-                                x,  
-                                y,  
+                                x,
+                                y,
                                 w,
                                 h
                             ))
@@ -1099,7 +1208,7 @@ def crop_images():
                                 first_part = parts[0]  # 例如：01020301041
                                 second_part = parts[1]  # 例如：s1
                                 time_part = parts[3]    # 例如：1751422638
-                                
+
                                 # 构建 FOLDER1：01 + 前10位 + 第二个字段从第2个字符起到末尾，不足2位前面补0
                                 if len(first_part) >= 10 and len(second_part) >= 2:
                                     prefix_10 = first_part[:10]  # 取前10位
@@ -1114,25 +1223,25 @@ def crop_images():
                                     # 构建文件名：第一个字段的最后一位
                                     if len(first_part) > 0:
                                         new_filename_final = f"{first_part[-1]}.png"
-                                        
+
                                         # 构建新的目录结构：pic/[FOLDER1]/book/[TIME]/[FILENAME].png
                                         new_dir = os.path.join(screenshots_dir, 'pic', folder1, 'book', time_part)
                                         new_file_path = os.path.join(new_dir, new_filename_final)
-                                        
+
                                         # 创建目录（如果不存在）
                                         os.makedirs(new_dir, exist_ok=True)
-                                        
+
                                         # 移动文件
                                         logger.info(f"移动文件到新位置: {new_file_path}")
                                         shutil.move(new_path, new_file_path)
                                         logger.info(f"成功移动文件到: {new_file_path}")
-                                        
+
                                         # 更新处理状态
                                         result['moved_to'] = os.path.relpath(new_file_path, screenshots_dir)
                         except Exception as e:
                             logger.error(f"移动文件时出错: {str(e)}", exc_info=True)
                             result['move_error'] = str(e)
-                    
+
                     processed_files.append(result)
                 except Exception as e:
                     logger.error(f"处理图片时出错: {str(e)}", exc_info=True)
@@ -1221,7 +1330,7 @@ def get_videos_in_directory():
             'size': 8,
             'error': str(e)
         }), 500
-    
+
 # ---------------------- 视频一键上传 API ----------------------
 @bp1.route('/api/videos/upload', methods=['POST'])
 def upload_video_directory():
@@ -1250,100 +1359,85 @@ def upload_video_directory():
         config = current_app.config
         uploaded_files = []
 
-        if config.get('FTP_MOCK_MODE', False):
-            # Mock模式-仅模拟
-            logger.info(f"模拟FTP上传视频目录: {directory}")
-            for root, _, files in os.walk(dir_path):
-                for file in files:
-                    if file.lower().endswith('.mp4'):
-                        rel_path = os.path.relpath(root, dir_path)
-                        uploaded_files.append({
-                            'file': file,
-                            'directory': rel_path if rel_path != '.' else '',
-                            'status': 'success',
-                            'message': 'Simulated upload successful'
-                        })
-            logger.info(f"模拟上传完成，共处理 {len(uploaded_files)} 个视频文件")
-        else:
-            # 真正FTP上传
-            ftp = None
+        # 真正FTP上传
+        ftp = None
+        try:
+            ftp = FTP()
+            ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
+            ftp.login(config['FTP_USER'], config['FTP_PASS'])
+            logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
+
+            # Force binary mode to prevent automatic compression
+            ftp.voidcmd("TYPE I")
+            logger.info("强制设置FTP二进制传输模式")
+
+            # 设置FTP根目录 vid
+            remote_base = config.get('FTP_VIDEO_BASE_DIR', '/vid')
             try:
-                ftp = FTP()
-                ftp.connect(config['FTP_HOST'], config['FTP_PORT'], timeout=30)
-                ftp.login(config['FTP_USER'], config['FTP_PASS'])
-                logger.info(f"已连接FTP服务器: {config['FTP_HOST']}")
-
-                # Force binary mode to prevent automatic compression
-                ftp.voidcmd("TYPE I")
-                logger.info("强制设置FTP二进制传输模式")
-
-                # 设置FTP根目录 vid
-                remote_base = config.get('FTP_VIDEO_BASE_DIR', '/vid')
+                ftp.cwd(remote_base)
+            except Exception as e:
+                logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
                 try:
+                    ftp.mkd(remote_base)
                     ftp.cwd(remote_base)
-                except Exception as e:
-                    logger.info(f"FTP根目录 {remote_base} 不存在，尝试创建")
-                    try:
-                        ftp.mkd(remote_base)
-                        ftp.cwd(remote_base)
-                        logger.info(f"成功创建并进入FTP根目录: {remote_base}")
-                    except Exception as mkdir_error:
-                        logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
-                        return jsonify({
-                            'status': 'ERROR',
-                            'message': f'无法创建FTP根目录: {str(mkdir_error)}',
-                            'uploaded_files': []
-                        }), 500
+                    logger.info(f"成功创建并进入FTP根目录: {remote_base}")
+                except Exception as mkdir_error:
+                    logger.error(f"无法创建FTP根目录 {remote_base}: {str(mkdir_error)}")
+                    return jsonify({
+                        'status': 'ERROR',
+                        'message': f'无法创建FTP根目录: {str(mkdir_error)}',
+                        'uploaded_files': []
+                    }), 500
 
-                # 递归上传mp4，保持目录结构
-                for root, _, files in os.walk(dir_path):
-                    rel_path = os.path.relpath(root, dir_path)
-                    # 创建子目录
-                    if rel_path != '.':
-                        current_remote_path = remote_base
-                        for subdir in rel_path.split(os.sep):
+            # 递归上传mp4，保持目录结构
+            for root, _, files in os.walk(dir_path):
+                rel_path = os.path.relpath(root, dir_path)
+                # 创建子目录
+                if rel_path != '.':
+                    current_remote_path = remote_base
+                    for subdir in rel_path.split(os.sep):
+                        try:
+                            ftp.cwd(subdir)
+                            current_remote_path = os.path.join(current_remote_path, subdir)
+                        except:
                             try:
+                                ftp.mkd(subdir)
                                 ftp.cwd(subdir)
                                 current_remote_path = os.path.join(current_remote_path, subdir)
-                            except:
-                                try:
-                                    ftp.mkd(subdir)
-                                    ftp.cwd(subdir)
-                                    current_remote_path = os.path.join(current_remote_path, subdir)
-                                except Exception as e:
-                                    logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
-                                    ftp.cwd(remote_base)
-                                    continue
-                    # 上传当前目录下所有mp4（断点续传）
-                    for file in files:
-                        if file.lower().endswith('.mp4'):
-                            local_file = os.path.join(root, file)
-                            try:
-                                action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
-                                uploaded_files.append({
-                                    'file': file,
-                                    'directory': rel_path if rel_path != '.' else '',
-                                    'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
-                                    'message': 'Upload successful' if action != 'skipped' else 'Already exists',
-                                    'action': action,
-                                    'local_size': local_size,
-                                    'remote_size': remote_size
-                                })
-                                logger.info(f"{action.upper()} 完成: {local_file}")
                             except Exception as e:
-                                error_msg = f"上传失败: {str(e)}"
-                                logger.error(f"{error_msg} - {local_file}")
-                                uploaded_files.append({
-                                    'file': file,
-                                    'directory': rel_path if rel_path != '.' else '',
-                                    'status': 'failed',
-                                    'error': error_msg
-                                })
-                    # 返回上级目录
-                    if rel_path != '.':
-                        for _ in rel_path.split(os.sep):
-                            ftp.cwd('..')
-            except Exception as ftp_error:
+                                logger.error(f"创建FTP目录失败 {subdir}: {str(e)}")
+                                ftp.cwd(remote_base)
+                                continue
+                # 上传当前目录下所有mp4（断点续传）
+                for file in files:
+                    if file.lower().endswith('.mp4'):
+                        local_file = os.path.join(root, file)
+                        try:
+                            action, local_size, remote_size = ftp_upload_with_resume(ftp, local_file, file, logger=logger)
+                            uploaded_files.append({
+                                'file': file,
+                                'directory': rel_path if rel_path != '.' else '',
+                                'status': 'success' if action in ('uploaded', 'resumed', 'skipped') else 'unknown',
+                                'message': 'Upload successful' if action != 'skipped' else 'Already exists',
+                                'action': action,
+                                'local_size': local_size,
+                                'remote_size': remote_size
+                            })
+                            logger.info(f"{action.upper()} 完成: {local_file}")
+                        except Exception as e:
+                            error_msg = f"上传失败: {str(e)}"
+                            logger.error(f"{error_msg} - {local_file}")
+                            uploaded_files.append({
+                                'file': file,
+                                'directory': rel_path if rel_path != '.' else '',
+                                'status': 'failed',
+                                'error': error_msg
+                            })
+                # 返回上级目录
+                if rel_path != '.':
+                    for _ in rel_path.split(os.sep):
+                        ftp.cwd('..')
+        except Exception as ftp_error:
                 logger.error(f"FTP connection error: {str(ftp_error)}")
                 return jsonify({
                     'status': 'ERROR',

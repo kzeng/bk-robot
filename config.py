@@ -6,7 +6,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 env_path = os.path.join(basedir, '.env')
 
 
-load_dotenv(env_path, override=True)  # æ·»åŠ  override=True ç¡®ä¿é‡è½½
+load_dotenv(env_path, override=True)  # Ensure .env values override process defaults.
 
 #-------------------------------------------------------------------------------------------
 # you  can change these variables in .env file
@@ -52,9 +52,9 @@ class Config:
         }
     }
 
-    # Flaské…ç½®
+    # Flask configuration
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
-      # æœºå™¨äººåº•åº§é…ç½®
+    # Robot base configuration
     ROBOT_MOCK_MODE = os.environ.get('ROBOT_MOCK_MODE', False)
     if ROBOT_MOCK_MODE == 'true' or ROBOT_MOCK_MODE == 'True' or ROBOT_MOCK_MODE == True or ROBOT_MOCK_MODE == '1':
         ROBOT_MOCK_MODE = True
@@ -62,7 +62,9 @@ class Config:
         ROBOT_MOCK_MODE = False
 
     ROBOT_IP = os.environ.get('ROBOT_IP', '192.168.10.10')
-    ROBOT_PORT = int(os.environ.get('ROBOT_PORT', '31001'))
+    ROBOT_PORT = int(os.environ.get('ROBOT_PORT', '1448'))
+    ROBOT_BASE_URL = os.environ.get('ROBOT_BASE_URL', f'http://{ROBOT_IP}:{ROBOT_PORT}')
+    ROBOT_API_TIMEOUT = float(os.environ.get('ROBOT_API_TIMEOUT', '10'))
     
 
     # FTP Server configuration
@@ -70,15 +72,10 @@ class Config:
     FTP_PORT = int(os.environ.get('FTP_PORT', '21'))
     FTP_USER = os.environ.get('FTP_USER', 'username')
     FTP_PASS = os.environ.get('FTP_PASS', 'password')
-    FTP_MOCK_MODE = os.environ.get('FTP_MOCK_MODE', False) 
-    if FTP_MOCK_MODE == 'true' or FTP_MOCK_MODE == 'True' or FTP_MOCK_MODE == True or FTP_MOCK_MODE == '1':
-        FTP_MOCK_MODE = True
-    else:
-        FTP_MOCK_MODE = False
 
 
-    # å­¦æ ¡é…ç½®
-    CCODE = os.environ.get('CCODE', '01')  # æ ¡åŒºä»£ç ï¼Œé»˜è®¤å€¼ä¸º 01
+    # School configuration
+    CCODE = os.environ.get('CCODE', '01')  # Campus code, default 01.
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'instance/tasks.db'))

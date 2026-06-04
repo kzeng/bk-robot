@@ -1,4 +1,4 @@
-from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
+﻿from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
 import hashlib
 from functools import wraps
 import json
@@ -77,100 +77,164 @@ robot_all_apis_options = [
             "cmd": "/api/robot_status"
         },
         {
-            "title": "4.获取机器人信息接口",
+            "title": "4.设备信息",
             "url": "#",
-            "cmd": "/api/robot_info"
+            "cmd": "/api/core/system/v1/robot/info"
         },
         {
-            "title": "5.2获取marker点位列表",
+            "title": "5.设备健康状态",
             "url": "#",
-            "cmd": "/api/markers/query_list"
-        },
-        # {
-        #     "title": "6.机器人直接控制指令",
-        #     "url": "#",
-        #     "cmd": "/api/joy_control"
-        # },
-        # {
-        #     "title": "7.机器人急停控制指令",
-        #     "url": "#",
-        #     "cmd": "/api/estop"
-        # },
-        {
-            "title": "8.校正机器人当前位置",
-            "url": "#",
-            "cmd": "/api/position_adjust"
+            "cmd": "/api/core/system/v1/robot/health"
         },
         {
-            "title": "9.请求机器人实时数据",
+            "title": "6.机器人能力列表",
             "url": "#",
-            "cmd": "/api/request_data"
-        },
-        # {
-        #     "title": "11.设置参数",
-        #     "url": "#",
-        #     "cmd": "/api/set_params"
-        # },
-        # {
-        #     "title": "12.获取参数",
-        #     "url": "#",
-        #     "cmd": "/api/get_params"
-        # },
-        {
-            "title": "14.获取地图列表",
-            "url": "#",
-            "cmd": "/api/map/list"
+            "cmd": "/api/core/system/v1/capabilities"
         },
         {
-            "title": "14.2设置当前地图",
+            "title": "7.电源状态",
             "url": "#",
-            "cmd": "/api/map/set_current_map"
-        },
-
-        {
-            "title": "14.3获取当前地图",
-            "url": "#",
-            "cmd": "/api/map/get_current_map"
+            "cmd": "/api/core/system/v1/power/status"
         },
         {
-            "title": "15.关机重启接口",
+            "title": "8.电池包状态",
             "url": "#",
-            "cmd": "/api/shutdown"
+            "cmd": "/api/core/system/v1/battery/pack"
         },
         {
-            "title": "17.1 设置灯带亮度",
+            "title": "9.网络状态",
             "url": "#",
-            "cmd": "/api/LED/set_luminance"
+            "cmd": "/api/core/system/v1/network/status"
         },
         {
-            "title": "17.2 设置灯带颜色",
+            "title": "10.传感器禁用状态",
             "url": "#",
-            "cmd": "/api/LED/set_color"
+            "cmd": "/api/core/sensors/v1/masks"
         },
-        # {
-        #     "title": "18.自诊断接口",
-        #     "url": "#",
-        #     "cmd": "/api/diagnosis/get_result"
-        # },
-        # {
-        #     "title": "19.获取电源状态接口",
-        #     "url": "#",
-        #     "cmd": "/api/get_power_status"
-        # },
         {
-            "title": "20.获取机器人全局路径接口",
+            "title": "11.当前Action",
             "url": "#",
-            "cmd": "/api/get_planned_path"
+            "cmd": "/api/core/motion/v1/actions/:current"
         },
-        # {
-        #     "title": "22.获取两点间路径接口",
-        #     "url": "#",
-        #     "cmd": "/api/make_plan"
-        # },
         {
-            "title": "23.获取机器人当前位置接口",
+            "title": "12.支持的Action",
             "url": "#",
-            "cmd": "/api/get_current_location"
+            "cmd": "/api/core/motion/v1/action-factories"
+        },
+        {
+            "title": "13.当前速度",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/speed"
+        },
+        {
+            "title": "14.当前运动策略",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/strategies/:current"
+        },
+        {
+            "title": "15.支持的运动策略",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/strategies"
+        },
+        {
+            "title": "16.剩余路径",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/path"
+        },
+        {
+            "title": "17.剩余目标点",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/milestones"
+        },
+        {
+            "title": "18.剩余时间",
+            "url": "#",
+            "cmd": "/api/core/motion/v1/time"
+        },
+        {
+            "title": "19.机器人位姿",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/localization/pose"
+        },
+        {
+            "title": "20.里程计位姿",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/localization/odopose"
+        },
+        {
+            "title": "21.定位质量",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/localization/quality"
+        },
+        {
+            "title": "22.定位开关状态",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/localization/:enable"
+        },
+        {
+            "title": "23.建图开关状态",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/mapping/:enable"
+        },
+        {
+            "title": "24.IMU数据",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/imu"
+        },
+        {
+            "title": "25.所有楼层",
+            "url": "#",
+            "cmd": "/api/multi-floor/map/v1/floors"
+        },
+        {
+            "title": "26.当前楼层",
+            "url": "#",
+            "cmd": "/api/multi-floor/map/v1/floors/:current"
+        },
+        {
+            "title": "27.POI点位列表",
+            "url": "#",
+            "cmd": "/api/multi-floor/map/v1/pois"
+        },
+        {
+            "title": "28.当前地图POI",
+            "url": "#",
+            "cmd": "/api/core/artifact/v1/pois"
+        },
+        {
+            "title": "29.多楼层状态",
+            "url": "#",
+            "cmd": "/api/multi-floor/status"
+        },
+        {
+            "title": "30.多楼层充电桩",
+            "url": "#",
+            "cmd": "/api/multi-floor/map/v1/homedocks"
+        },
+        {
+            "title": "31.当前绑定充电桩",
+            "url": "#",
+            "cmd": "/api/multi-floor/map/v1/homedocks/:current"
+        },
+        {
+            "title": "32.基础充电桩信息",
+            "url": "#",
+            "cmd": "/api/core/slam/v1/homedocks"
+        },
+        {
+            "title": "33.运行里程",
+            "url": "#",
+            "cmd": "/api/core/statistics/v1/odometry"
+        },
+        {
+            "title": "34.运行时间",
+            "url": "#",
+            "cmd": "/api/core/statistics/v1/runtime"
+        },
+        {
+            "title": "35.系统时间戳",
+            "url": "#",
+            "cmd": "/api/platform/v1/timestamp"
         }
     ]
 
@@ -183,7 +247,11 @@ def index():
 
 @bp.route('/docs/<path:filename>')
 def serve_docs(filename):
-    return send_from_directory('static/docs', filename)
+    static_docs_dir = os.path.join(current_app.root_path, 'static', 'docs')
+    repo_docs_dir = os.path.join(current_app.config['ROOT_PATH'], 'docs')
+    if os.path.exists(os.path.join(static_docs_dir, filename)):
+        return send_from_directory(static_docs_dir, filename)
+    return send_from_directory(repo_docs_dir, filename)
 
 
 @bp.route('/tasks')
@@ -233,6 +301,36 @@ def robot_cmd():
             "results": None
         }), 500
 
+
+
+@bp.route('/api/robot/estop', methods=['POST'])
+def robot_estop():
+    """Set or clear the robot emergency stop state."""
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get('enabled'))
+
+    try:
+        robot_control = current_app.robot_control
+        result = robot_control.set_emergency_stop(enabled) or {}
+        return jsonify({
+            "container": "opt-info",
+            "timestamp": time.time(),
+            "command": "enter_estop" if enabled else "exit_estop",
+            "status": result.get("status", "ERROR"),
+            "error_message": result.get("error_message", ""),
+            "message": result.get("message", ""),
+            "results": result.get("results", None)
+        })
+    except Exception as e:
+        logger.error(f"Error in robot_estop: {str(e)}")
+        return jsonify({
+            "container": "opt-info",
+            "timestamp": time.time(),
+            "command": "enter_estop" if enabled else "exit_estop",
+            "status": "ERROR",
+            "error_message": str(e),
+            "results": None
+        }), 500
 
 
 @bp.route('/api/robot/poll_status')
@@ -578,6 +676,64 @@ def _is_robot_busy_response(response):
     )
 
 
+def get_marker_config_by_short(marker_short):
+    return MarkerConfig.query.filter_by(mid_short=marker_short).first()
+
+
+def normalize_marker_short_list(marker_text):
+    marker_list = marker_text.split(',') if marker_text else []
+    return [marker.strip() for marker in marker_list if marker.strip()]
+
+
+def prepare_task_marker_list(marker_text):
+    """Return task marker shorts with a same-floor CD marker appended.
+
+    Inventory tasks are not allowed to span floors. CD markers are selected from
+    the task floor first, then by global name order as a fallback.
+    """
+    requested = normalize_marker_short_list(marker_text)
+    non_cd = [m for m in requested if not m.upper().startswith('CD')]
+    selected_cd = [m for m in requested if m.upper().startswith('CD')]
+
+    configs = []
+    for marker in non_cd:
+        config = get_marker_config_by_short(marker)
+        if not config:
+            raise ValueError(f"Unknown marker: {marker}")
+        configs.append(config)
+
+    floor_keys = {(c.building or '', c.floor or '') for c in configs}
+    if len(floor_keys) > 1:
+        raise ValueError("Inventory tasks cannot span multiple floors")
+
+    task_floor_key = next(iter(floor_keys), None)
+    cd_query = MarkerConfig.query.filter(MarkerConfig.mid_short.ilike('CD%'))
+    cd_configs = cd_query.all()
+
+    cd_marker = None
+    if selected_cd:
+        cd_marker = selected_cd[0]
+    elif task_floor_key:
+        same_floor_cds = [
+            c for c in cd_configs
+            if (c.building or '', c.floor or '') == task_floor_key
+        ]
+        if same_floor_cds:
+            same_floor_cds.sort(key=lambda c: c.mid_short)
+            cd_marker = same_floor_cds[0].mid_short
+
+    if not cd_marker and cd_configs:
+        cd_configs.sort(key=lambda c: c.mid_short)
+        cd_marker = cd_configs[0].mid_short
+
+    if not cd_marker:
+        cd_marker = 'CD'
+
+    final_markers = [m for m in non_cd]
+    final_markers.append(cd_marker)
+    return final_markers
+
+
 def cancel_robot_move_for_retry(robot_control, target_marker, reason):
     logger.warning(f"Cancelling active robot move for {target_marker}: {reason}")
 
@@ -594,7 +750,7 @@ def cancel_robot_move_for_retry(robot_control, target_marker, reason):
     deadline = time.time() + MOVE_CANCEL_SETTLE_TIMEOUT_SECONDS
     while time.time() < deadline:
         try:
-            robot_status = robot_control.send_command("/api/robot_status")
+            robot_status = robot_control.get_status()
         except Exception as exc:
             logger.warning(f"Failed to verify move cancel for {target_marker}: {exc}")
             time.sleep(1)
@@ -663,7 +819,10 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
             )
             return False
 
-        robot_status = robot_control.send_command("/api/robot_status")
+        if expected_task_id and hasattr(robot_control, 'get_action_status'):
+            robot_status = robot_control.get_action_status(expected_task_id)
+        else:
+            robot_status = robot_control.get_status()
 
         if not robot_status or robot_status.get('status') != 'OK':
             consecutive_failures += 1
@@ -684,7 +843,7 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         logger.debug(f"Robot status: {robot_status}")
 
         results = robot_status.get('results', {})
-        actual_marker = results.get('move_target')
+        actual_marker = results.get('move_target') or target_marker
         move_status = results.get('move_status')
         current_pose = results.get('current_pose')
         move_retry_times = results.get('move_retry_times')
@@ -705,7 +864,7 @@ def wait_for_robot_move(robot_control, target_marker, max_duration=300, max_cons
         elif move_status in ['failed', 'canceled']:
             raise Exception(f"Movement {move_status} at {target_marker}")
 
-        if actual_marker == target_marker and move_status in ['running', 'moving']:
+        if actual_marker == target_marker and move_status in ['running', 'moving', 'paused']:
             now = time.time()
             if _pose_changed_enough(last_progress_pose, current_pose):
                 last_progress_pose = current_pose
@@ -750,27 +909,7 @@ def async_run_task(app, task_id, task_log_id=None):
             return
         
         timestamp = str(int(time.time()))
-        marker_list = task.marker.split(',') if task.marker else []
-        marker_list = [marker.strip() for marker in marker_list if marker.strip()]
-
-        logger.info(f"Running task {task_id} with SHORT markers: {marker_list}")
-
-        # 替换 marker_list 中的简写点位mid_short（如 M1, M2）为实际全称点位mid（如： 01020301041，01020301042），CD 保持不变
-        if marker_list:
-            # 查询所有 marker_config，构建简写到全称的映射
-            marker_map = {c.mid_short: c.mid for c in MarkerConfig.query.all()}
-            # 替换 marker_list
-            marker_list = [
-                marker_map.get(m, m) if m != 'CD' else m
-                for m in marker_list
-            ]
-        # 处理 CD 的位置
-        #check CD in marker_list， make sure CD is always last
-        if 'CD' in marker_list:
-            marker_list.remove('CD')
-            marker_list.append('CD')
-        else:
-            marker_list.append('CD')    
+        marker_list = prepare_task_marker_list(task.marker)
 
 
         logger.info(f"Final marker list for task {task_id}: {marker_list}")
@@ -814,7 +953,7 @@ def async_run_task(app, task_id, task_log_id=None):
                     move_success = False
                     
                     while retry_count < max_retries and not move_success:
-                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        move_result = app.robot_control.move_to_marker(target_marker)
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
@@ -903,7 +1042,7 @@ def async_run_task(app, task_id, task_log_id=None):
                     move_success = False
                     
                     while retry_count < max_retries and not move_success:
-                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        move_result = app.robot_control.move_to_marker(target_marker)
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
@@ -1000,7 +1139,7 @@ def async_run_task(app, task_id, task_log_id=None):
                     move_success = False
                     
                     while retry_count < max_retries and not move_success:
-                        move_result = app.robot_control.send_command(f"/api/move?marker={target_marker}")
+                        move_result = app.robot_control.move_to_marker(target_marker)
                         
                         if not move_result or move_result.get('status') != 'OK':
                             logger.error(f"Failed to start moving to {target_marker} (attempt {retry_count + 1}): {move_result}")
@@ -1250,7 +1389,8 @@ def settings():
         # 其他配置
         'ROBOT_IP': str(current_app.config['ROBOT_IP']),
         'ROBOT_PORT': str(current_app.config['ROBOT_PORT']),
-        'FTP_MOCK_MODE': str(current_app.config.get('FTP_MOCK_MODE', 'false')).lower(),
+        'ROBOT_BASE_URL': str(current_app.config['ROBOT_BASE_URL']),
+        'ROBOT_API_TIMEOUT': str(current_app.config['ROBOT_API_TIMEOUT']),
         'FTP_HOST': str(current_app.config.get('FTP_HOST', '')),
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
@@ -1292,7 +1432,8 @@ def update_settings():
             # 基础配置
             'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
-            'ROBOT_PORT',
+            'ROBOT_PORT', 'ROBOT_BASE_URL', 'ROBOT_API_TIMEOUT',
+            'FTP_HOST', 'FTP_PORT', 'FTP_USER', 'FTP_PASS',
             # 学校配置
             'CCODE',
             # 相机控制参数
@@ -1312,6 +1453,20 @@ def update_settings():
             ccode_value = str(data['CCODE']).strip()
             if not re.match(r'^\d{2}$', ccode_value):
                 raise ValueError("校区代码必须是两位数字，例如：01、02、03 等")
+
+        if not str(data.get('ROBOT_BASE_URL', '')).startswith(('http://', 'https://')):
+            raise ValueError("机器人REST地址必须以 http:// 或 https:// 开头")
+
+        timeout_value = float(data.get('ROBOT_API_TIMEOUT', 0))
+        ftp_port = int(data.get('FTP_PORT', 0))
+        if not (1 <= timeout_value <= 120):
+            raise ValueError("机器人接口超时必须在 1 到 120 秒之间")
+        if not (1 <= ftp_port <= 65535):
+            raise ValueError("FTP端口必须在 1 到 65535 之间")
+        if not str(data.get('FTP_HOST', '')).strip():
+            raise ValueError("FTP服务器不能为空")
+        if not str(data.get('FTP_USER', '')).strip():
+            raise ValueError("FTP用户名不能为空")
         
         # 验证数值范围
         validations = {
@@ -1340,13 +1495,21 @@ def update_settings():
         
         # 更新.env文件
         for key, value in data.items():
-            # 确保布尔值被正确处理
-            if key in ['FTP_MOCK_MODE']:
-                value = str(value).lower()  # 确保是小写的 'true' 或 'false'
             set_key(env_path, key, str(value))
         
         # 重新加载环境变量以立即生效
         load_dotenv(env_path, override=True)
+        current_app.config['ROBOT_IP'] = data.get('ROBOT_IP', current_app.config['ROBOT_IP'])
+        current_app.config['ROBOT_PORT'] = int(data.get('ROBOT_PORT', current_app.config['ROBOT_PORT']))
+        current_app.config['ROBOT_BASE_URL'] = data.get('ROBOT_BASE_URL', current_app.config['ROBOT_BASE_URL'])
+        current_app.config['ROBOT_API_TIMEOUT'] = float(data.get('ROBOT_API_TIMEOUT', current_app.config['ROBOT_API_TIMEOUT']))
+        current_app.config['FTP_HOST'] = data.get('FTP_HOST', current_app.config['FTP_HOST'])
+        current_app.config['FTP_PORT'] = int(data.get('FTP_PORT', current_app.config['FTP_PORT']))
+        current_app.config['FTP_USER'] = data.get('FTP_USER', current_app.config['FTP_USER'])
+        current_app.config['FTP_PASS'] = data.get('FTP_PASS', current_app.config['FTP_PASS'])
+        if hasattr(current_app, 'robot_control'):
+            current_app.robot_control.base_url = current_app.config['ROBOT_BASE_URL'].rstrip('/')
+            current_app.robot_control.timeout = current_app.config['ROBOT_API_TIMEOUT']
         
         # # 更新 __init__.py 时间戳以触发 Flask 重载
         # if update_init_timestamp():
@@ -1373,43 +1536,83 @@ def update_settings():
         logger.error(f"Error updating settings: {str(e)}")
         return jsonify({'status': 'ERROR', 'message': str(e)}), 500
 
+
+@bp.route('/api/settings/ftp-test', methods=['POST'])
+@login_required
+def test_ftp_settings():
+    """Test FTP connection using submitted settings without saving them."""
+    ftp = None
+    try:
+        data = request.get_json(silent=True) or {}
+        host = str(data.get('FTP_HOST', '')).strip()
+        port = int(data.get('FTP_PORT', 21))
+        username = str(data.get('FTP_USER', '')).strip()
+        password = str(data.get('FTP_PASS', ''))
+
+        if not host:
+            raise ValueError("FTP服务器不能为空")
+        if not (1 <= port <= 65535):
+            raise ValueError("FTP端口必须在 1 到 65535 之间")
+        if not username:
+            raise ValueError("FTP用户名不能为空")
+
+        ftp = FTP()
+        ftp.connect(host, port, timeout=10)
+        ftp.login(username, password)
+        current_dir = ftp.pwd()
+        ftp.voidcmd("NOOP")
+
+        return jsonify({
+            "status": "OK",
+            "message": f"FTP连接测试成功，当前目录: {current_dir}"
+        })
+    except Exception as e:
+        logger.error(f"FTP connection test failed: {str(e)}")
+        return jsonify({
+            "status": "ERROR",
+            "message": f"FTP连接测试失败: {str(e)}"
+        }), 500
+    finally:
+        if ftp:
+            try:
+                ftp.quit()
+            except Exception:
+                ftp.close()
+
+
 @bp.route('/api/robot/recharge', methods=['POST'])
 def robot_recharge():
     """机器人充电API"""
     try:
         robot_control = current_app.robot_control
-        
-        # 1. 查询MarkerConfig表中所有以CD开头的点位名称
-        cd_markers = MarkerConfig.query.filter(
-            MarkerConfig.mid_short.like('CD%')
-        ).all()
-        
+        status = robot_control.get_status()
+        results = status.get('results', {}) if status else {}
+        current_floor_key = (results.get('current_building') or '', results.get('current_floor') or '')
+
+        cd_markers = MarkerConfig.query.filter(MarkerConfig.mid_short.ilike('CD%')).all()
         if not cd_markers:
-            # 如果没有找到CD开头的点位，提示用户同步机器人点位
             return jsonify({
                 "status": "ERROR",
                 "message": "未找到充电点位，请先同步机器人点位配置",
                 "results": None
             }), 400
-        
-        # 2. 使用第一个CD点位作为move_target
-        # 按mid_short排序，确保一致性
-        cd_markers.sort(key=lambda m: m.mid_short)
-        target_marker = cd_markers[0].mid_short
-        
-        # 3. 先检查当前是否已在目标充电点
-        status = robot_control.get_status()
-        if status.get('results', {}).get('move_target') == target_marker and \
-           status.get('results', {}).get('move_status') == 'succeeded':
+
+        same_floor_cds = [
+            marker for marker in cd_markers
+            if (marker.building or '', marker.floor or '') == current_floor_key
+        ]
+        candidates = same_floor_cds or cd_markers
+        candidates.sort(key=lambda m: m.mid_short)
+        target_marker = candidates[0].mid_short
+
+        if results.get('move_target') == target_marker and results.get('move_status') == 'succeeded':
             return jsonify({
                 "status": "OK",
                 "message": f"Already at charging station ({target_marker})",
-                "results": status.get('results', {})
+                "results": results
             })
-        
-        # 4. 如果不在充电点，则发送充电命令
-        # 修改recharge方法以接受参数，或者直接调用send_command
-        result = robot_control.send_command(f"/api/move?marker={target_marker}")
+
+        result = robot_control.move_to_marker(target_marker)
         
         return jsonify({
             "status": result.get("status", "ERROR"),

@@ -154,14 +154,13 @@
            //     return;
            // }
             
-            const response = await fetch('/api/robot/cmd', {
+            const response = await fetch('/api/robot/estop', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    cmd: '/api/estop',
-                    params: 'flag=true'
+                    enabled: true
                 })
             });
             const result = await response.json();
@@ -179,14 +178,13 @@
            //     return;
            // }
             
-            const response = await fetch('/api/robot/cmd', {
+            const response = await fetch('/api/robot/estop', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    cmd: '/api/estop',
-                    params: 'flag=false'
+                    enabled: false
                 })
             });
             const result = await response.json();
@@ -275,7 +273,7 @@ ${data.results ? 'Data: ' + JSON.stringify(data.results, null, 2) : ''}`;
             const select = document.getElementById('robot-cmd');
             const selectedOption = select.options[select.selectedIndex];
             const url = selectedOption.dataset.url;
-            document.getElementById('api-help-link').href = "/docs/WATER_API.pdf";
+            document.getElementById('api-help-link').href = "/docs/robot-chassis/Slamware-RESTful-API-swagger-conf.json";
         }
 
         // 初始化时设置帮助链接

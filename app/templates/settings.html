@@ -1,4 +1,4 @@
-{% extends "base1.html" %}
+﻿{% extends "base1.html" %}
 
 {% block content %}
 <!-- Toast container -->
@@ -34,6 +34,15 @@
                             <div class="mb-3">
                                 <label class="form-label">机器人端口</label>
                                 <input type="number" class="form-control" name="ROBOT_PORT" value="{{ env.ROBOT_PORT }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">机器人REST地址</label>
+                                <input type="url" class="form-control" name="ROBOT_BASE_URL" value="{{ env.ROBOT_BASE_URL }}" required>
+                                <small class="form-text text-muted">例如：http://192.168.10.10:1448</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">机器人接口超时（秒）</label>
+                                <input type="number" class="form-control" name="ROBOT_API_TIMEOUT" value="{{ env.ROBOT_API_TIMEOUT }}" min="1" max="120" step="1" required>
                             </div>
                         </div>
 
@@ -87,17 +96,14 @@
                                 <label class="form-label">FTP密码</label>
                                 <input type="password" class="form-control" name="FTP_PASS" value="{{ env.FTP_PASS }}" required>
                             </div>
-                            <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="FTP_MOCK_MODE" {% if env.FTP_MOCK_MODE in ['1', 'true', 'True', 1, True] %}checked{% endif %}>
-                                    <label class="form-check-label">FTP模拟模式</label>
-                                </div>
-                            </div>
                         </div>
 
                     </div>
                 </div>
-                <div class="mt-4 d-flex justify-content-end">
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-lg btn-outline-secondary" id="ftpTestBtn">
+                        <i class="fas fa-plug me-2"></i>连接测试
+                    </button>
                     <button type="submit" class="btn btn-lg btn-primary">
                         <i class="fas fa-save me-2"></i>保存设置
                     </button>
@@ -130,41 +136,12 @@
         </div>
     </div>
 
-    <!-- Base Management Link -->
-    <div class="card mt-4">
-        <div class="card-body">
-            <h5 class="card-title">底座管理</h5>
-            <div class="d-flex gap-2">
-                <button onclick="openBaseManagement()" class="btn btn-outline-success">
-                    <i class="fas fa-cogs me-1"></i>前往底座管理
-                </button>
-            </div>
-        </div>
-    </div>
 </div>
       <br><br><br><br>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// 打开底座管理窗口（可调整大小）
-function openBaseManagement() {
-    window.open(
-        'http://192.168.10.10:9001/',
-        'baseManagement',
-        'width=1200,height=800,resizable=yes,scrollbars=yes,status=yes'
-    );
-}
-
-// function openBaseManagement() {
-//     window.open(
-//         'https://bing.com',
-//         'baseManagement',
-//         'width=1200,height=800,resizable=yes,scrollbars=yes,status=yes'
-//     );
-// }
-
-
 // 只保留表单提交相关JS
 
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
@@ -196,20 +173,7 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
         return;
     }
     
-    const formData = new FormData(this);
-    const settings = {};
-    // 处理所有复选框字段
-    const checkboxFields = [
-        'FTP_MOCK_MODE'
-    ];
-    for (let field of checkboxFields) {
-        settings[field] = formData.has(field) ? '1' : '0';
-    }
-    for (let [key, value] of formData.entries()) {
-        if (!checkboxFields.includes(key)) {
-            settings[key] = value;
-        }
-    }
+    const settings = collectSettings();
     // 保存按钮处理
     const saveBtn = document.querySelector('button[type="submit"]');
     const originalText = saveBtn.innerHTML;
@@ -266,6 +230,67 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
+    }
+});
+
+function collectSettings() {
+    const formData = new FormData(document.getElementById('settingsForm'));
+    const settings = {};
+    for (let [key, value] of formData.entries()) {
+        settings[key] = value;
+    }
+    return settings;
+}
+
+function showToast(type, title, message) {
+    const container = document.getElementById('toastContainer');
+    const headerClass = type === 'success' ? 'bg-success' : 'bg-danger';
+    const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    container.innerHTML = `
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header ${headerClass} text-white">
+                <i class="fas ${iconClass} me-2"></i>
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
+    const toastElement = container.querySelector('.toast');
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+}
+
+document.getElementById('ftpTestBtn').addEventListener('click', async function() {
+    const testBtn = this;
+    const originalText = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>测试中...';
+
+    try {
+        const settings = collectSettings();
+        const response = await fetch('/api/settings/ftp-test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                FTP_HOST: settings.FTP_HOST,
+                FTP_PORT: settings.FTP_PORT,
+                FTP_USER: settings.FTP_USER,
+                FTP_PASS: settings.FTP_PASS
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || '连接测试失败');
+        }
+        showToast('success', '成功', result.message || 'FTP连接测试成功');
+    } catch (error) {
+        showToast('error', '错误', error.message);
+    } finally {
+        testBtn.disabled = false;
+        testBtn.innerHTML = originalText;
     }
 });
 </script>

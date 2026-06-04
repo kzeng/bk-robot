@@ -37,7 +37,7 @@
 
         .toolbar-grid {
             display: grid;
-            grid-template-columns: minmax(110px, 0.55fr) minmax(90px, 0.35fr) auto;
+            grid-template-columns: minmax(110px, 0.45fr) minmax(110px, 0.35fr) minmax(90px, 0.25fr) auto;
             gap: 0.75rem;
             align-items: center;
         }
@@ -355,6 +355,12 @@
                     </div>
                 </div>
                 <div>
+                    <label class="touch-field-label" for="floorSelect">地图/楼层</label>
+                    <select class="form-select touch-select" id="floorSelect">
+                        <option value="">全部地图</option>
+                    </select>
+                </div>
+                <div>
                     <label class="touch-field-label" for="pageSizeSelect">每页显示</label>
                     <select class="form-select touch-select" id="pageSizeSelect">
                         <option value="10">10 条</option>
@@ -370,7 +376,7 @@
                           <i class="fas fa-plus me-1"></i> 新增点位
                     </button>
                     <button type="button" class="btn btn-success" id="syncMarkersButton">
-                          <i class="fas fa-sync me-1"></i> 同步机器人点位
+                          <i class="fas fa-sync me-1"></i> 同步地图
                     </button>
                     <button type="button" class="btn btn-danger" id="clearMarkersButton">
                           <i class="fas fa-trash me-1"></i> 清空点位
@@ -399,6 +405,8 @@
                             <tr>
                                 <th><input type="checkbox" id="selectAllCheckbox"></th>
                                 <th>ID</th>
+                                <th>地图/楼层</th>
+                                <th>POI名称</th>
                                 <th>点位名称1</th>
                                 
                                 <th>点位简写</th>
@@ -417,7 +425,7 @@
                         </thead>
                         <tbody id="markerConfigTable">
                             <tr>
-                                <td colspan="14" class="empty-state">正在加载点位数据...</td>
+                                <td colspan="16" class="empty-state">正在加载点位数据...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -467,6 +475,26 @@
                         <div class="col-md-6">
                             <label for="mid2" class="form-label">点位名称2</label>
                             <input type="text" class="form-control" id="mid2">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="building" class="form-label">建筑</label>
+                            <input type="text" class="form-control" id="building">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="floor" class="form-label">楼层</label>
+                            <input type="text" class="form-control" id="floor">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="poiName" class="form-label">POI名称</label>
+                            <input type="text" class="form-control" id="poiName">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="poiId" class="form-label">POI ID</label>
+                            <input type="text" class="form-control" id="poiId">
                         </div>
                     </div>
                     <div class="row mb-3">

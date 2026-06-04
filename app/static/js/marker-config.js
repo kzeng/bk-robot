@@ -4,6 +4,8 @@ let pageSize = 20;
 let totalPages = 1;
 let totalCount = 0;
 let currentSearchTerm = '';
+let currentFloorFilter = '';
+let currentBuildingFilter = '';
 
 function updateSelectedMarkersDisplay() {
     // 确保所有以CD开头的点位在最后
@@ -37,6 +39,7 @@ function updateSelectedMarkersDisplay() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    loadFloorOptions();
     loadMarkerConfigs();
 
     // 监听checkbox变化
@@ -64,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.status === 'OK') {
                     alert(data.message);
+                    loadFloorOptions();
                     loadMarkerConfigs();
                 } else {
                     alert('同步失败：' + data.message);
@@ -86,6 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.status === 'OK') {
                     alert(data.message);
+                    loadFloorOptions();
                     loadMarkerConfigs();
                 } else {
                     alert('清空失败：' + data.message);
@@ -114,6 +119,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('pageSizeSelect').addEventListener('change', function(e) {
         pageSize = parseInt(e.target.value, 10);
         currentPage = 1;
+        loadMarkerConfigs();
+    });
+
+    document.getElementById('floorSelect').addEventListener('change', function(e) {
+        const selected = e.target.value;
+        if (selected) {
+            const parts = selected.split('|');
+            currentBuildingFilter = parts[0] || '';
+            currentFloorFilter = parts[1] || '';
+        } else {
+            currentBuildingFilter = '';
+            currentFloorFilter = '';
+        }
+        currentPage = 1;
+        selectedMarkersOrder = [];
+        updateSelectedMarkersDisplay();
         loadMarkerConfigs();
     });
 
@@ -163,8 +184,11 @@ document.getElementById('createTaskButton').addEventListener('click', function()
         return;
     }
 
-    // 1. 查询所有点位配置
-    fetch('/api/marker-config?all=1')
+    // 1. 查询当前楼层点位配置
+    const params = new URLSearchParams({ all: '1' });
+    if (currentBuildingFilter) params.set('building', currentBuildingFilter);
+    if (currentFloorFilter) params.set('floor', currentFloorFilter);
+    fetch(`/api/marker-config?${params.toString()}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('获取点位配置失败');
@@ -172,14 +196,32 @@ document.getElementById('createTaskButton').addEventListener('click', function()
             return response.json();
         })
         .then(markerConfigs => {
+            const selectedConfigs = markerConfigs.filter(config => selectedMarkersOrder.includes(config.mid_short));
+            const selectedFloors = new Set(selectedConfigs.map(config => `${config.building || ''}|${config.floor || ''}`));
+            if (selectedFloors.size > 1) {
+                throw new Error('盘点任务不允许跨楼层，请只选择同一地图/楼层的点位');
+            }
+            const selectedFloorKey = selectedFloors.size === 1 ? [...selectedFloors][0] : '';
+
             // 2. 找出所有以CD开头的点位（不区分大小写）
-            const cdMarkers = markerConfigs
+            let cdMarkers = markerConfigs
                 .filter(config => {
                     const markerName = config.mid_short || '';
-                    return markerName.toUpperCase().startsWith('CD');
+                    const floorKey = `${config.building || ''}|${config.floor || ''}`;
+                    return markerName.toUpperCase().startsWith('CD') && (!selectedFloorKey || floorKey === selectedFloorKey);
                 })
                 .map(config => config.mid_short)
                 .sort(); // 按字母顺序排序
+
+            if (cdMarkers.length === 0) {
+                cdMarkers = markerConfigs
+                    .filter(config => {
+                        const markerName = config.mid_short || '';
+                        return markerName.toUpperCase().startsWith('CD');
+                    })
+                    .map(config => config.mid_short)
+                    .sort();
+            }
             
             // 3. 如果没有任何CD点位，使用默认的'CD'
             if (cdMarkers.length === 0) {
@@ -254,6 +296,27 @@ function updateSelectAllState() {
     const checkedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
     selectAllCheckbox.checked = checkedCount === checkboxes.length;
     selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+}
+
+function loadFloorOptions() {
+    fetch('/api/marker-config/floors')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('floorSelect');
+            if (!select) return;
+            const previous = select.value;
+            select.innerHTML = '<option value="">全部地图</option>';
+            (data.floors || []).forEach(item => {
+                const option = document.createElement('option');
+                option.value = `${item.building || ''}|${item.floor || ''}`;
+                option.textContent = `${item.building ? item.building + ' / ' : ''}${item.floor}`;
+                select.appendChild(option);
+            });
+            if ([...select.options].some(option => option.value === previous)) {
+                select.value = previous;
+            }
+        })
+        .catch(error => console.error('Error loading floors:', error));
 }
 
 function renderPagination() {
@@ -335,7 +398,15 @@ function loadMarkerConfigs(shouldScrollIntoView = false) {
     const status = document.getElementById('markerConfigStatus');
     status.textContent = '正在加载点位数据...';
 
-    fetch(`/api/marker-config?search=${encodeURIComponent(currentSearchTerm)}&page=${currentPage}&size=${pageSize}`)
+    const params = new URLSearchParams({
+        search: currentSearchTerm,
+        page: String(currentPage),
+        size: String(pageSize)
+    });
+    if (currentBuildingFilter) params.set('building', currentBuildingFilter);
+    if (currentFloorFilter) params.set('floor', currentFloorFilter);
+
+    fetch(`/api/marker-config?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
             const tbody = document.getElementById('markerConfigTable');
@@ -351,7 +422,7 @@ function loadMarkerConfigs(shouldScrollIntoView = false) {
             document.getElementById('pageSizeSelect').value = String(pageSize);
 
             if (configs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="14" class="empty-state">没有找到匹配的点位，请调整搜索条件。</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" class="empty-state">没有找到匹配的点位，请调整搜索条件。</td></tr>';
             }
 
             configs.forEach(config => {
@@ -360,6 +431,8 @@ function loadMarkerConfigs(shouldScrollIntoView = false) {
                 tr.innerHTML = `
                     <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}" ${isChecked ? 'checked' : ''}></td>
                     <td>${config.id}</td>
+                    <td>${config.building ? config.building + ' / ' : ''}${config.floor || ''}</td>
+                    <td>${config.poi_name || ''}</td>
                     <td>${config.mid}</td>
                     
                     <td>${config.mid_short}</td>
@@ -410,6 +483,10 @@ function editMarkerConfig(config) {
     document.getElementById('configId').value = config.id;
     document.getElementById('mid').value = config.mid;
     document.getElementById('mid2').value = config.mid2 || '';
+    document.getElementById('building').value = config.building || '';
+    document.getElementById('floor').value = config.floor || '';
+    document.getElementById('poiName').value = config.poi_name || '';
+    document.getElementById('poiId').value = config.poi_id || '';
     document.getElementById('midShort').value = config.mid_short;
     document.getElementById('x').value = config.x;
     document.getElementById('y').value = config.y;
@@ -436,6 +513,10 @@ function saveMarkerConfig() {
     const data = {
         mid: document.getElementById('mid').value,
         mid2: document.getElementById('mid2').value,
+        building: document.getElementById('building').value,
+        floor: document.getElementById('floor').value,
+        poi_name: document.getElementById('poiName').value,
+        poi_id: document.getElementById('poiId').value,
         mid_short: document.getElementById('midShort').value,
         x: parseInt(document.getElementById('x').value),
         y: parseInt(document.getElementById('y').value),

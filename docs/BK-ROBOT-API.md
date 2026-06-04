@@ -1,130 +1,71 @@
 # BK Robot API
 
-This document lists the application-level APIs exposed by the Flask service. Camera capture is implemented with OpenCV over RTSP streams.
+## Robot Base
 
-## Robot APIs
+Robot movement is backed by the Slamtec Slamware REST API. The application keeps
+stable local endpoints for the UI and task engine while `app/robot_control.py`
+maps those calls to Slamware actions.
 
-### Send Robot Command
+### Robot Command
 
 - **Method:** `POST`
 - **Path:** `/api/robot/cmd`
-- **Body:**
+
+For diagnostics, this route accepts selected REST paths such as:
 
 ```json
 {
-  "cmd": "/api/move",
-  "params": "marker=M1"
+  "cmd": "/api/core/system/v1/robot/info",
+  "params": ""
 }
 ```
-
-The route forwards a robot-base command and returns the base response in the operation-status format used by the UI.
 
 ### Robot Status
 
 - **Method:** `GET`
 - **Path:** `/api/robot/status`
 
-Returns selected robot status fields such as `move_target`, `move_status`, `running_status`, `charge_state`, `estop_state`, and `power_percent`.
-
-### Recharge
-
-- **Method:** `POST`
-- **Path:** `/api/robot/recharge`
-
-Finds the first configured charging marker whose short name starts with `CD` and sends a move command to that marker.
+Returns normalized fields used by the UI: `move_target`, `move_status`,
+`running_status`, `charge_state`, `estop_state`, `power_percent`, and current
+floor metadata.
 
 ### Cancel Move
 
 - **Method:** `POST`
 - **Path:** `/api/move/cancel`
 
-Cancels the current robot move task.
+Cancels the current Slamware motion action.
 
-## Camera APIs
-
-### Take Screenshot
+### Recharge
 
 - **Method:** `POST`
-- **Path:** `/api/camera/screenshot`
-- **Body:**
+- **Path:** `/api/robot/recharge`
 
-```json
-{
-  "position_info": "M1"
-}
-```
+Moves to a configured `CD*` point. The current floor is preferred; if no charging
+point exists on that floor, the first `CD*` point by name is used.
 
-Captures photos from all configured RTSP cameras through OpenCV. Results include per-camera status and saved file paths.
+## Marker Configuration
 
-### Start Recording
-
-- **Method:** `POST`
-- **Path:** `/api/camera/start_recording`
-- **Body:**
-
-```json
-{
-  "camera_id": 1,
-  "task_id": 12,
-  "marker": "M1"
-}
-```
-
-Starts OpenCV recording for the selected camera.
-
-### Stop Recording
-
-- **Method:** `POST`
-- **Path:** `/api/camera/stop_recording`
-- **Body:**
-
-```json
-{
-  "camera_id": 1,
-  "task_id": 12,
-  "start_marker": "M1",
-  "start_timestamp": 1710000000,
-  "end_marker": "M2"
-}
-```
-
-Stops recording for the selected camera and returns the saved file path.
-
-## Task APIs
-
-### List Tasks
+### List Markers
 
 - **Method:** `GET`
-- **Path:** `/api/tasks?page=1&size=10`
+- **Path:** `/api/marker-config`
+- **Query:** `building`, `floor`, `search`, `page`, `size`, `all`
 
-Returns paginated inventory tasks.
+Returns locally synced POI records, including `mid_short`, `poi_name`,
+`building`, `floor`, pose, and crop parameters.
 
-### Create Task
-
-- **Method:** `POST`
-- **Path:** `/api/tasks`
-- **Body:**
-
-```json
-{
-  "marker": "M1,M2,CD",
-  "action": 0,
-  "description": "Shelf scan"
-}
-```
-
-`action` values: `0` photo, `1` video, `99` move only.
-
-### Run Task
+### Sync Markers
 
 - **Method:** `POST`
-- **Path:** `/api/tasks/{task_id}/run`
+- **Path:** `/api/marker-config/sync`
 
-Starts a background task execution thread and returns `task_log_id`.
+Synchronizes all Slamtec floors and POIs, preserving existing crop parameters
+when records can be matched by POI ID or building/floor/POI name.
 
-### Task Logs
+## Tasks
 
-- **Method:** `GET`
-- **Path:** `/api/task-logs?page=1&size=10`
-
-Returns paginated task execution logs.
+Tasks continue to store comma-separated `mid_short` values. Inventory execution
+does not allow cross-floor point selections. The task runner appends a same-floor
+`CD*` point when possible and moves through each point using Slamware
+`MultiFloorMoveAction`.

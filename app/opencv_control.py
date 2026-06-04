@@ -297,7 +297,13 @@ class OpenCVControl:
                         # Generate filename
                         filename = f"{position_info}-s{layer_id}-c{layer_id}-{timestamp}.png"
                         if i > 6:
-                            mid2 = MarkerConfig.query.filter_by(mid=position_info).first().mid2
+                            marker_config = (
+                                MarkerConfig.query.filter_by(mid_short=position_info).first()
+                                or MarkerConfig.query.filter_by(mid=position_info).first()
+                            )
+                            if not marker_config:
+                                continue
+                            mid2 = marker_config.mid2
                             filename = f"{mid2}-s{layer_id}-c{layer_id}-{timestamp}.png"
                             if mid2 == '00000000000' or len(mid2) != 11: #not save if mid2 not configured
                                 continue

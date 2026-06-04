@@ -35,6 +35,14 @@ class MarkerConfig(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     mid = db.Column(db.String(255), unique=True, nullable=False)
+    poi_id = db.Column(db.String(255), nullable=True)
+    poi_name = db.Column(db.String(255), nullable=True)
+    building = db.Column(db.String(255), nullable=True)
+    floor = db.Column(db.String(255), nullable=True)
+    map_id = db.Column(db.String(255), nullable=True)
+    pose_x = db.Column(db.Float, nullable=True)
+    pose_y = db.Column(db.Float, nullable=True)
+    pose_yaw = db.Column(db.Float, nullable=True)
     mid2 = db.Column(db.String(255), nullable=True)  # 新增点位名称2
     mid_short = db.Column(db.String(255), unique=True, nullable=False)
     x = db.Column(db.Integer, default=0)
