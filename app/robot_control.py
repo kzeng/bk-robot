@@ -44,6 +44,9 @@ class RobotControl:
             response.raise_for_status()
             if not response.content:
                 return None
+            content_type = response.headers.get("content-type", "")
+            if "json" not in content_type.lower():
+                return response.text
             return response.json()
         except requests.RequestException as exc:
             logger.error(f"Slamtec request failed: {method} {path}: {exc}")
@@ -195,6 +198,39 @@ class RobotControl:
             except Exception as exc:
                 return self._error(command, exc)
 
+    def _normalize_emergency_stop_value(self, value):
+        if isinstance(value, dict):
+            for key in ("value", "data", "result"):
+                if key in value:
+                    return self._normalize_emergency_stop_value(value.get(key))
+            if "emergency_stop" in value:
+                return bool(value.get("emergency_stop"))
+            return None
+
+        if isinstance(value, bool):
+            return value
+
+        if value is None:
+            return None
+
+        normalized = str(value).strip().strip('"').lower()
+        if normalized in ("on", "true", "1", "yes", "enabled"):
+            return True
+        if normalized in ("off", "false", "0", "no", "disabled"):
+            return False
+        return None
+
+    def get_emergency_stop_state(self):
+        command = "/api/core/system/v1/parameter"
+        try:
+            result = self._request("GET", command, params={"param": "base.emergency_stop"})
+            estop_state = self._normalize_emergency_stop_value(result)
+            if estop_state is None:
+                return self._error(command, f"Unexpected emergency stop value: {result}", "invalid_estop_state")
+            return self._ok(command, {"estop_state": estop_state, "raw": result})
+        except Exception as exc:
+            return self._error(command, exc)
+
     def get_action_status(self, action_id=None):
         action_id = action_id or self._last_action_id
         command = f"/api/core/motion/v1/actions/{action_id}" if action_id else "/api/core/motion/v1/actions/:current"
@@ -225,6 +261,16 @@ class RobotControl:
             except Exception:
                 pass
 
+            estop_state = None
+            estop_source = "unavailable"
+            estop_error = ""
+            estop_result = self.get_emergency_stop_state()
+            if estop_result.get("status") == "OK":
+                estop_state = estop_result.get("results", {}).get("estop_state")
+                estop_source = "base.emergency_stop"
+            else:
+                estop_error = estop_result.get("error_message", "")
+
             floor = {}
             try:
                 floor = self._request("GET", "/api/multi-floor/map/v1/floors/:current") or {}
@@ -235,7 +281,11 @@ class RobotControl:
             results.update({
                 "move_target": results.get("move_target", ""),
                 "charge_state": bool(power.get("isCharging") or power.get("is_charging")),
-                "estop_state": bool(health.get("hasFatal") or health.get("hasError")),
+                "estop_state": estop_state,
+                "estop_state_source": estop_source,
+                "estop_state_error": estop_error,
+                "has_error": bool(health.get("hasError")),
+                "has_fatal": bool(health.get("hasFatal")),
                 "power_percent": power.get("batteryPercentage", power.get("battery_percentage", 0)),
                 "current_floor": floor.get("floor", ""),
                 "current_building": floor.get("building", ""),

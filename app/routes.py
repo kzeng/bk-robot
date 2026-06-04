@@ -1773,7 +1773,9 @@ def robot_status():
         "move_status": results.get("move_status", ""),
         "running_status": results.get("running_status", ""),
         "charge_state": results.get("charge_state", False),
-        "estop_state": results.get("estop_state", False),
+        "estop_state": results.get("estop_state"),
+        "estop_state_source": results.get("estop_state_source", ""),
+        "estop_state_error": results.get("estop_state_error", ""),
         "power_percent": results.get("power_percent", 0)
     }
     
