@@ -10,16 +10,25 @@
         display: grid;
         grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.4fr);
         gap: 1rem;
+        align-items: stretch;
     }
 
     .api-card {
         border: 0;
         border-radius: 8px;
         box-shadow: 0 3px 12px rgba(25, 42, 86, 0.10);
+        height: 100%;
+    }
+
+    .api-card .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
 
     .api-list {
-        max-height: 680px;
+        flex: 1;
+        min-height: 0;
         overflow: auto;
     }
 
@@ -101,9 +110,6 @@
             <h3 class="mb-1">底座接口测试</h3>
             <div class="text-muted small" id="baseUrlText">正在加载底座配置...</div>
         </div>
-        <a href="/docs/robot-chassis/Slamware-RESTful-API-swagger-conf.json" target="_blank" class="btn btn-outline-secondary">
-            <i class="fas fa-file-code me-2"></i>Swagger
-        </a>
     </div>
 
     <div class="api-grid">
