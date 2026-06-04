@@ -331,7 +331,10 @@
     <script src="{{ url_for('static', filename='res/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/robot-status.js') }}"></script>
     <!-- Soft Keyboard -->
+    <script>window.ENABLE_SOFT_KEYBOARD = {{ enable_soft_keyboard|tojson }};</script>
+    {% if enable_soft_keyboard %}
     <script src="{{ url_for('static', filename='js/soft-keyboard.js') }}"></script>
+    {% endif %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const footer = document.querySelector('.footer');

@@ -1519,6 +1519,7 @@ def settings():
         'FTP_PORT': int(current_app.config.get('FTP_PORT', '')),
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
         'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
+        'ENABLE_SOFT_KEYBOARD': 'true' if current_app.config.get('ENABLE_SOFT_KEYBOARD', True) else 'false',
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1557,7 +1558,7 @@ def update_settings():
             'CAMERA_WIDTH', 'CAMERA_HEIGHT', 'CAMERA_FPS', 
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
             'ROBOT_PORT', 'ROBOT_BASE_URL', 'ROBOT_API_TIMEOUT',
-            'FTP_HOST', 'FTP_PORT', 'FTP_USER', 'FTP_PASS',
+            'FTP_HOST', 'FTP_PORT', 'FTP_USER', 'FTP_PASS', 'ENABLE_SOFT_KEYBOARD',
             # 学校配置
             'CCODE',
             # 相机控制参数
@@ -1641,6 +1642,9 @@ def update_settings():
         current_app.config['FTP_PORT'] = int(data.get('FTP_PORT', current_app.config['FTP_PORT']))
         current_app.config['FTP_USER'] = data.get('FTP_USER', current_app.config['FTP_USER'])
         current_app.config['FTP_PASS'] = data.get('FTP_PASS', current_app.config['FTP_PASS'])
+        current_app.config['ENABLE_SOFT_KEYBOARD'] = str(
+            data.get('ENABLE_SOFT_KEYBOARD', current_app.config.get('ENABLE_SOFT_KEYBOARD', True))
+        ).lower() in ('1', 'true', 'yes', 'on')
         if hasattr(current_app, 'robot_control'):
             current_app.robot_control.base_url = current_app.config['ROBOT_BASE_URL'].rstrip('/')
             current_app.robot_control.timeout = current_app.config['ROBOT_API_TIMEOUT']

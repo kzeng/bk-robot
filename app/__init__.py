@@ -38,7 +38,8 @@ def create_app(test_config=None):
     def inject_globals():
         return {
             'current_year': datetime.now().year,
-            'git_version': get_git_revision()
+            'git_version': get_git_revision(),
+            'enable_soft_keyboard': app.config.get('ENABLE_SOFT_KEYBOARD', True),
         }
 
     if test_config is None:

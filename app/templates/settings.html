@@ -1,4 +1,4 @@
-{% extends "base1.html" %}
+﻿{% extends "base1.html" %}
 
 {% block styles %}
 <style>
@@ -163,28 +163,49 @@
 
                 <div class="card settings-card">
                     <div class="card-body">
-                        <div class="settings-card-title">
-                            <i class="fas fa-server"></i>
-                            <span>FTP配置</span>
+
+                        <div class="settings-section">
+                            <div class="settings-card-title">
+                                <i class="fas fa-server"></i>
+                                <span>FTP配置</span>
+                            </div>
+                            <div class="settings-grid-2">
+                                <div>
+                                    <label class="form-label">FTP服务器</label>
+                                    <input type="text" class="form-control" name="FTP_HOST" value="{{ env.FTP_HOST }}" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">FTP端口</label>
+                                    <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" min="1" max="65535" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">FTP用户名</label>
+                                    <input type="text" class="form-control" name="FTP_USER" value="{{ env.FTP_USER }}" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">FTP密码</label>
+                                    <input type="password" class="form-control" name="FTP_PASS" value="{{ env.FTP_PASS }}" required>
+                                </div>
+                            </div>
                         </div>
-                        <div class="settings-grid-2">
-                            <div>
-                                <label class="form-label">FTP服务器</label>
-                                <input type="text" class="form-control" name="FTP_HOST" value="{{ env.FTP_HOST }}" required>
+
+                        <div class="settings-section">
+                            <div class="settings-card-title">
+                                <i class="fas fa-keyboard"></i>
+                                <span>软键盘配置</span>
                             </div>
-                            <div>
-                                <label class="form-label">FTP端口</label>
-                                <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" min="1" max="65535" required>
-                            </div>
-                            <div>
-                                <label class="form-label">FTP用户名</label>
-                                <input type="text" class="form-control" name="FTP_USER" value="{{ env.FTP_USER }}" required>
-                            </div>
-                            <div>
-                                <label class="form-label">FTP密码</label>
-                                <input type="password" class="form-control" name="FTP_PASS" value="{{ env.FTP_PASS }}" required>
+                            <div class="form-check form-switch mt-3">
+                                <input type="hidden" name="ENABLE_SOFT_KEYBOARD" value="false">
+                                <input class="form-check-input" type="checkbox" role="switch" id="softKeyboardSwitch"
+                                    name="ENABLE_SOFT_KEYBOARD" value="true"
+                                    {% if env.ENABLE_SOFT_KEYBOARD != 'false' %}checked{% endif %}>
+                                <label class="form-check-label" for="softKeyboardSwitch">内置软键盘</label>
+                                <small class="form-text text-muted d-block">设置后请保存以生效。</small>
                             </div>
                         </div>
+      
+
+
                     </div>
                 </div>
             </div>
@@ -253,6 +274,8 @@
 
 {% block scripts %}
 <script>
+const initialSoftKeyboardEnabled = document.getElementById('softKeyboardSwitch')?.checked ?? true;
+
 function syncRobotBaseUrl() {
     const ip = document.getElementById('robotIpInput').value.trim();
     const port = document.getElementById('robotPortInput').value.trim();
@@ -296,6 +319,10 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
             throw new Error(result.message || '保存失败');
         }
         showToast('success', '成功', '设置已保存，部分设置可能需要重启服务才能生效');
+        const currentSoftKeyboardEnabled = document.getElementById('softKeyboardSwitch')?.checked ?? true;
+        if (currentSoftKeyboardEnabled !== initialSoftKeyboardEnabled) {
+            setTimeout(() => window.location.reload(), 600);
+        }
     } catch (error) {
         showToast('error', '错误', `保存设置时出错: ${error.message}`);
     } finally {

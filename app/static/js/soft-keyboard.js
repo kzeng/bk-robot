@@ -642,11 +642,11 @@ function initSoftKeyboard(options = {}) {
 }
 
 // Auto-initialize when DOM is ready
-if (document.readyState === 'loading') {
+if (window.ENABLE_SOFT_KEYBOARD !== false && document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initSoftKeyboard();
     });
-} else {
+} else if (window.ENABLE_SOFT_KEYBOARD !== false) {
     initSoftKeyboard();
 }
 
