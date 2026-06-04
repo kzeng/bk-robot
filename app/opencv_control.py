@@ -213,6 +213,16 @@ class OpenCVControl:
         if not position_info:
             position_info = "Unknown"
 
+        marker_config_for_position = None
+        capture_position = position_info
+        if position_info != "Unknown":
+            marker_config_for_position = (
+                MarkerConfig.query.filter_by(mid_short=position_info).first()
+                or MarkerConfig.query.filter_by(mid=position_info).first()
+            )
+            if marker_config_for_position:
+                capture_position = marker_config_for_position.mid
+
         overall_status = "OK"
         try:
             self._log('info', f"Starting capture for {len(self.camera_urls)} cameras")
@@ -295,12 +305,9 @@ class OpenCVControl:
                         filename = f"Unknown-s{i}-c{i}-{timestamp}.png"
                     else:
                         # Generate filename
-                        filename = f"{position_info}-s{layer_id}-c{layer_id}-{timestamp}.png"
+                        filename = f"{capture_position}-s{layer_id}-c{layer_id}-{timestamp}.png"
                         if i > 6:
-                            marker_config = (
-                                MarkerConfig.query.filter_by(mid_short=position_info).first()
-                                or MarkerConfig.query.filter_by(mid=position_info).first()
-                            )
+                            marker_config = marker_config_for_position
                             if not marker_config:
                                 continue
                             mid2 = marker_config.mid2

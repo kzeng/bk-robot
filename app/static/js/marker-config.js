@@ -57,16 +57,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 同步点位按钮点击事件
+    // 同步地图按钮点击事件
     document.getElementById('syncMarkersButton').addEventListener('click', function() {
-        if (confirm('确定要从机器人同步点位配置吗？这将会覆盖现有配置。')) {
+        if (confirm('确定要从机器人同步地图点位吗？这将会覆盖现有配置。')) {
             fetch('/api/marker-config/sync', {
                 method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'OK') {
-                    alert(data.message);
+                    const skipped = data.results && data.results.skipped_invalid_pois
+                        ? data.results.skipped_invalid_pois.length
+                        : 0;
+                    const warning = skipped > 0
+                        ? `\n已跳过 ${skipped} 个不符合命名规则的点位。普通点位必须是11位数字，充电点允许CD*。`
+                        : '';
+                    alert(data.message + warning);
                     loadFloorOptions();
                     loadMarkerConfigs();
                 } else {
@@ -75,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error syncing markers:', error);
-                alert('同步点位失败');
+                alert('同步地图失败');
             });
         }
     });
@@ -422,7 +428,7 @@ function loadMarkerConfigs(shouldScrollIntoView = false) {
             document.getElementById('pageSizeSelect').value = String(pageSize);
 
             if (configs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="16" class="empty-state">没有找到匹配的点位，请调整搜索条件。</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" class="empty-state">没有找到匹配的点位，请调整搜索条件。</td></tr>';
             }
 
             configs.forEach(config => {
@@ -432,7 +438,6 @@ function loadMarkerConfigs(shouldScrollIntoView = false) {
                     <td><input type="checkbox" class="marker-checkbox" data-marker-short="${config.mid_short}" ${isChecked ? 'checked' : ''}></td>
                     <td>${config.id}</td>
                     <td>${config.building ? config.building + ' / ' : ''}${config.floor || ''}</td>
-                    <td>${config.poi_name || ''}</td>
                     <td>${config.mid}</td>
                     
                     <td>${config.mid_short}</td>
@@ -485,8 +490,6 @@ function editMarkerConfig(config) {
     document.getElementById('mid2').value = config.mid2 || '';
     document.getElementById('building').value = config.building || '';
     document.getElementById('floor').value = config.floor || '';
-    document.getElementById('poiName').value = config.poi_name || '';
-    document.getElementById('poiId').value = config.poi_id || '';
     document.getElementById('midShort').value = config.mid_short;
     document.getElementById('x').value = config.x;
     document.getElementById('y').value = config.y;
@@ -515,8 +518,6 @@ function saveMarkerConfig() {
         mid2: document.getElementById('mid2').value,
         building: document.getElementById('building').value,
         floor: document.getElementById('floor').value,
-        poi_name: document.getElementById('poiName').value,
-        poi_id: document.getElementById('poiId').value,
         mid_short: document.getElementById('midShort').value,
         x: parseInt(document.getElementById('x').value),
         y: parseInt(document.getElementById('y').value),

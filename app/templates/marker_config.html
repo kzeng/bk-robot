@@ -109,7 +109,7 @@
             background: var(--tech-secondary);
             color: white;
             z-index: 2;
-            padding: 10px 8px;
+            padding: 7.5px 6px;
             white-space: nowrap;
         }
 
@@ -153,13 +153,29 @@
 
         /* 优化表格行高度和悬停效果 */
         .table td, .table th {
-            padding: 0.75rem 0.6rem;
+            padding: 0.56rem 0.45rem;
             vertical-align: middle;
         }
 
         #markerConfigTable td, #markerConfigTable th {
-            padding: 0.75rem 0.6rem;
+            padding: 0.56rem 0.45rem;
+            line-height: 1.2;
             white-space: nowrap;
+        }
+
+        .table-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin: 5px;
+        }
+
+        .table-container input[type="checkbox"]:checked::after {
+            font-size: 13px;
+        }
+
+        #markerConfigTable .btn-sm {
+            padding: 0.25rem 0.5rem;
+            line-height: 1.15;
         }
 
         .table tbody tr {
@@ -406,7 +422,6 @@
                                 <th><input type="checkbox" id="selectAllCheckbox"></th>
                                 <th>ID</th>
                                 <th>地图/楼层</th>
-                                <th>POI名称</th>
                                 <th>点位名称1</th>
                                 
                                 <th>点位简写</th>
@@ -425,7 +440,7 @@
                         </thead>
                         <tbody id="markerConfigTable">
                             <tr>
-                                <td colspan="16" class="empty-state">正在加载点位数据...</td>
+                                <td colspan="15" class="empty-state">正在加载点位数据...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -470,11 +485,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="mid" class="form-label">点位名称1</label>
-                            <input type="text" class="form-control" id="mid" required>
+                            <input type="text" class="form-control" id="mid" pattern="(\d{11}|[Cc][Dd]\d*)" title="普通点位必须是11位数字，充电点允许CD*" required>
                         </div>
                         <div class="col-md-6">
                             <label for="mid2" class="form-label">点位名称2</label>
-                            <input type="text" class="form-control" id="mid2">
+                            <input type="text" class="form-control" id="mid2" pattern="\d{11}" title="点位名称2必须为空或11位数字">
                         </div>
                     </div>
                     <div class="row mb-3">
@@ -485,16 +500,6 @@
                         <div class="col-md-6">
                             <label for="floor" class="form-label">楼层</label>
                             <input type="text" class="form-control" id="floor">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="poiName" class="form-label">POI名称</label>
-                            <input type="text" class="form-control" id="poiName">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="poiId" class="form-label">POI ID</label>
-                            <input type="text" class="form-control" id="poiId">
                         </div>
                     </div>
                     <div class="row mb-3">

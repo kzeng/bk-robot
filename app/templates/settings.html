@@ -1,184 +1,288 @@
-﻿{% extends "base1.html" %}
+{% extends "base1.html" %}
+
+{% block styles %}
+<style>
+    .settings-page {
+        padding-bottom: 140px;
+    }
+
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .settings-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .settings-top-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .settings-bottom-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .settings-card {
+        border: 0;
+        border-radius: 8px;
+        box-shadow: 0 3px 12px rgba(25, 42, 86, 0.10);
+        height: 100%;
+    }
+
+    .settings-card .card-body {
+        padding: 1rem;
+    }
+
+    .settings-card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.65rem;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .settings-section + .settings-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #dee2e6;
+    }
+
+    .settings-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+
+    .settings-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .settings-actions .btn {
+        min-width: 160px;
+    }
+
+    textarea[name="CAMERA_URLS"] {
+        min-height: 170px;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.92rem;
+    }
+
+    @media (max-width: 992px) {
+        .settings-top-grid,
+        .settings-grid-2 {
+            grid-template-columns: 1fr;
+        }
+
+        .settings-header {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .settings-header .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Toast container -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
-<div class="container mt-4">
-    <h3 class="mb-4">系统设置</h3>
-    <div class="card">
-        <div class="card-body">
-            <form id="settingsForm">
-                <div class="row">
-                    <!-- 只保留右侧板块 -->
-                    <div class="col-md-12">
-                        <!-- 学校配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-school me-2"></i>学校配置</h5>
-                            <div class="mb-3">
+<div class="container mt-4 settings-page">
+    <form id="settingsForm">
+        <div class="settings-header">
+            <div>
+                <h3 class="mb-1">系统设置</h3>
+            </div>
+            <button type="submit" class="btn btn-lg btn-primary">
+                <i class="fas fa-save me-2"></i>保存设置
+            </button>
+        </div>
+
+        <div class="settings-layout">
+            <div class="settings-top-grid">
+                <div class="card settings-card">
+                    <div class="card-body">
+                        <div class="settings-section">
+                            <div class="settings-card-title">
+                                <i class="fas fa-school"></i>
+                                <span>学校配置</span>
+                            </div>
+                            <div class="mb-0">
                                 <label class="form-label">校区代码</label>
                                 <input type="text" class="form-control" name="CCODE" value="{{ env.CCODE }}" placeholder="01" required
                                        pattern="^\d{2}$" maxlength="2" minlength="2"
                                        oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2)">
-                                <small class="form-text text-muted">校区代码必须是两位数字，例如：01、02、03 等</small>
+                                <small class="form-text text-muted">两位数字，例如：01、02、03</small>
                             </div>
                         </div>
 
-                        <!-- 机器人配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-robot me-2"></i>机器人配置</h5>
-                            <div class="mb-3">
-                                <label class="form-label">机器人IP</label>
-                                <input type="text" class="form-control" name="ROBOT_IP" value="{{ env.ROBOT_IP }}" required>
+                        <div class="settings-section">
+                            <div class="settings-card-title">
+                                <i class="fas fa-robot"></i>
+                                <span>机器人配置</span>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">机器人端口</label>
-                                <input type="number" class="form-control" name="ROBOT_PORT" value="{{ env.ROBOT_PORT }}" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">机器人REST地址</label>
-                                <input type="url" class="form-control" name="ROBOT_BASE_URL" value="{{ env.ROBOT_BASE_URL }}" required>
-                                <small class="form-text text-muted">例如：http://192.168.10.10:1448</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">机器人接口超时（秒）</label>
-                                <input type="number" class="form-control" name="ROBOT_API_TIMEOUT" value="{{ env.ROBOT_API_TIMEOUT }}" min="1" max="120" step="1" required>
+                            <div class="settings-grid-2">
+                                <div>
+                                    <label class="form-label">机器人IP</label>
+                                    <input type="text" class="form-control" name="ROBOT_IP" id="robotIpInput" value="{{ env.ROBOT_IP }}" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">机器人端口</label>
+                                    <input type="number" class="form-control" name="ROBOT_PORT" id="robotPortInput" value="{{ env.ROBOT_PORT }}" min="1" max="65535" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">机器人接口超时（秒）</label>
+                                    <input type="number" class="form-control" name="ROBOT_API_TIMEOUT" value="{{ env.ROBOT_API_TIMEOUT }}" min="1" max="120" step="1" required>
+                                </div>
+                                <div>
+                                    <label class="form-label">机器人REST地址</label>
+                                    <input type="url" class="form-control" name="ROBOT_BASE_URL" id="robotBaseUrlInput" value="{{ env.ROBOT_BASE_URL }}" readonly required>
+                                    <small class="form-text text-muted">由机器人IP和端口自动生成。</small>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-video me-2"></i>摄像头URL列表</h5>
-                            <small class="form-text text-muted mt-2">
-                             如：rtsp://admin@192.168.10.21:554/user=admin&password=&channel=1&stream=0.sdp?
-                            </small>
-                            
-                            <textarea class="form-control" name="CAMERA_URLS" rows="6" placeholder="每行一个摄像头RTSP地址 如：">{{ env.CAMERA_URLS or '' }}</textarea>
-                            <small class="form-text text-muted">如需添加更多摄像头，请每行填写一个RTSP地址。</small>
+                <div class="card settings-card">
+                    <div class="card-body">
+                        <div class="settings-card-title">
+                            <i class="fas fa-server"></i>
+                            <span>FTP配置</span>
                         </div>
-
-                        <input type="hidden" name="CAMERA_WIDTH" value="2880">
-                        <input type="hidden" name="CAMERA_HEIGHT" value="1620">
-                        <input type="hidden" name="CAMERA_FPS" value="25">
-                        <input type="hidden" name="CAMERA_JPEG_QUALITY" value="80">
-                        <input type="hidden" name="CAMERA_BUFFER_SIZE" value="10">
-                        <input type="hidden" name="CAMERA_BRIGHTNESS" value="16">
-                        <input type="hidden" name="CAMERA_CONTRAST" value="40">
-                        <input type="hidden" name="CAMERA_SATURATION" value="80">
-                        <input type="hidden" name="CAMERA_SHARPNESS" value="6">
-                        <input type="hidden" name="CAMERA_GAMMA" value="120">
-                        <input type="hidden" name="CAMERA_AUTO_EXPOSURE" value="1">
-                        <input type="hidden" name="CAMERA_EXPOSURE_TIME" value="80">
-                        <input type="hidden" name="CAMERA_GAIN" value="20">
-                        <input type="hidden" name="CAMERA_WB_AUTO" value="0">
-                        <input type="hidden" name="CAMERA_WB_TEMP" value="5000">
-                        <input type="hidden" name="CAMERA_FOCUS_AUTO" value="0">
-                        <input type="hidden" name="CAMERA_FOCUS" value="200">
-                        <input type="hidden" name="CAMERA_BACKLIGHT" value="0">
-                        <input type="hidden" name="CAMERA_POWERLINE_FREQ" value="1">
-
-                        <br>
-                        <!-- FTP配置 -->
-                        <div class="mb-4">
-                            <h5 class="border-bottom pb-2"><i class="fas fa-server me-2"></i>FTP配置</h5>
-                            <div class="mb-3">
+                        <div class="settings-grid-2">
+                            <div>
                                 <label class="form-label">FTP服务器</label>
                                 <input type="text" class="form-control" name="FTP_HOST" value="{{ env.FTP_HOST }}" required>
                             </div>
-                            <div class="mb-3">
+                            <div>
                                 <label class="form-label">FTP端口</label>
-                                <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" required>
+                                <input type="number" class="form-control" name="FTP_PORT" value="{{ env.FTP_PORT }}" min="1" max="65535" required>
                             </div>
-                            <div class="mb-3">
+                            <div>
                                 <label class="form-label">FTP用户名</label>
                                 <input type="text" class="form-control" name="FTP_USER" value="{{ env.FTP_USER }}" required>
                             </div>
-                            <div class="mb-3">
+                            <div>
                                 <label class="form-label">FTP密码</label>
                                 <input type="password" class="form-control" name="FTP_PASS" value="{{ env.FTP_PASS }}" required>
                             </div>
                         </div>
-
                     </div>
                 </div>
-                <div class="mt-4 d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-lg btn-outline-secondary" id="ftpTestBtn">
-                        <i class="fas fa-plug me-2"></i>连接测试
-                    </button>
-                    <button type="submit" class="btn btn-lg btn-primary">
-                        <i class="fas fa-save me-2"></i>保存设置
-                    </button>
+            </div>
+
+            <div class="settings-bottom-stack">
+                <div class="card settings-card">
+                    <div class="card-body">
+                        <div class="settings-card-title">
+                            <i class="fas fa-video"></i>
+                            <span>摄像头URL列表</span>
+                        </div>
+                        <textarea class="form-control" name="CAMERA_URLS" rows="6" placeholder="每行一个摄像头RTSP地址">{{ env.CAMERA_URLS or '' }}</textarea>
+                        <small class="form-text text-muted">例如：rtsp://admin@192.168.10.21:554/user=admin&amp;password=&amp;channel=1&amp;stream=0.sdp?</small>
+                    </div>
                 </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- Camera Dashboard Link -->
-    <div class="card mt-4">
-        <div class="card-body">
-            <h5 class="card-title">摄像头管理</h5>
-            <div class="d-flex gap-2">
-                <a href="{{ url_for('main.ipcams') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-video me-1"></i>摄像头测试
-                </a>
+                <div class="card settings-card">
+                    <div class="card-body">
+                        <div class="settings-card-title">
+                            <i class="fas fa-vial"></i>
+                            <span>测试与计划任务</span>
+                        </div>
+                        <div class="settings-actions">
+                            <button type="button" class="btn btn-outline-primary" id="ftpTestBtn">
+                                <i class="fas fa-plug me-2"></i>FTP连接测试
+                            </button>
+                            <a href="{{ url_for('main.ipcams') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-video me-2"></i>摄像头测试
+                            </a>
+                            <a href="{{ url_for('main.crontab') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-calendar-alt me-2"></i>计划任务管理
+                            </a>
+                            {% if session.role == 'super_user' %}
+                            <a href="{{ url_for('main.robot_base_api_page') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-microchip me-2"></i>底座接口测试
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Crontab Manager Link -->
-    <div class="card mt-4">
-        <div class="card-body">
-            <h5 class="card-title">计划任务管理</h5>
-            <div class="d-flex gap-2">
-                <a href="{{ url_for('main.crontab') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-calendar-alt me-1"></i>计划任务管理
-                </a>
-            </div>
-        </div>
-    </div>
-
+        <input type="hidden" name="CAMERA_WIDTH" value="2880">
+        <input type="hidden" name="CAMERA_HEIGHT" value="1620">
+        <input type="hidden" name="CAMERA_FPS" value="25">
+        <input type="hidden" name="CAMERA_JPEG_QUALITY" value="80">
+        <input type="hidden" name="CAMERA_BUFFER_SIZE" value="10">
+        <input type="hidden" name="CAMERA_BRIGHTNESS" value="16">
+        <input type="hidden" name="CAMERA_CONTRAST" value="40">
+        <input type="hidden" name="CAMERA_SATURATION" value="80">
+        <input type="hidden" name="CAMERA_SHARPNESS" value="6">
+        <input type="hidden" name="CAMERA_GAMMA" value="120">
+        <input type="hidden" name="CAMERA_AUTO_EXPOSURE" value="1">
+        <input type="hidden" name="CAMERA_EXPOSURE_TIME" value="80">
+        <input type="hidden" name="CAMERA_GAIN" value="20">
+        <input type="hidden" name="CAMERA_WB_AUTO" value="0">
+        <input type="hidden" name="CAMERA_WB_TEMP" value="5000">
+        <input type="hidden" name="CAMERA_FOCUS_AUTO" value="0">
+        <input type="hidden" name="CAMERA_FOCUS" value="200">
+        <input type="hidden" name="CAMERA_BACKLIGHT" value="0">
+        <input type="hidden" name="CAMERA_POWERLINE_FREQ" value="1">
+    </form>
 </div>
-      <br><br><br><br>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// 只保留表单提交相关JS
+function syncRobotBaseUrl() {
+    const ip = document.getElementById('robotIpInput').value.trim();
+    const port = document.getElementById('robotPortInput').value.trim();
+    const baseUrlInput = document.getElementById('robotBaseUrlInput');
+    baseUrlInput.value = ip && port ? `http://${ip}:${port}` : '';
+}
+
+document.getElementById('robotIpInput').addEventListener('input', syncRobotBaseUrl);
+document.getElementById('robotPortInput').addEventListener('input', syncRobotBaseUrl);
+syncRobotBaseUrl();
 
 document.getElementById('settingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
-    // 验证校区代码必须是两位数字
+    syncRobotBaseUrl();
+
     const ccodeInput = document.querySelector('input[name="CCODE"]');
     const ccodeValue = ccodeInput.value.trim();
-    
+
     if (!/^\d{2}$/.test(ccodeValue)) {
-        // 显示错误消息 toast
-        const container = document.getElementById('toastContainer');
-        container.innerHTML = `
-            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header bg-danger text-white">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong class="me-auto">错误</strong>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                </div>
-                <div class="toast-body">
-                    校区代码必须是两位数字，例如：01、02、03 等
-                </div>
-            </div>
-        `;
-        const toastElement = container.querySelector('.toast');
-        const toast = new bootstrap.Toast(toastElement);
-        toast.show();
+        showToast('error', '错误', '校区代码必须是两位数字，例如：01、02、03');
         ccodeInput.focus();
         return;
     }
-    
+
     const settings = collectSettings();
-    // 保存按钮处理
     const saveBtn = document.querySelector('button[type="submit"]');
     const originalText = saveBtn.innerHTML;
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+
     try {
         const response = await fetch('/api/settings', {
             method: 'POST',
@@ -188,45 +292,12 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
             body: JSON.stringify(settings)
         });
         const result = await response.json();
-        if (response.ok) {
-            // 创建并显示成功消息 toast
-            const container = document.getElementById('toastContainer');
-            container.innerHTML = `
-                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header bg-success text-white">
-                        <i class="fas fa-check-circle me-2"></i>
-                        <strong class="me-auto">成功</strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        设置已保存，部分设置可能需要重启服务才能生效
-                    </div>
-                </div>
-            `;
-            const toastElement = container.querySelector('.toast');
-            const toast = new bootstrap.Toast(toastElement);
-            toast.show();
-        } else {
+        if (!response.ok) {
             throw new Error(result.message || '保存失败');
         }
+        showToast('success', '成功', '设置已保存，部分设置可能需要重启服务才能生效');
     } catch (error) {
-        // 显示错误消息 toast
-        const container = document.getElementById('toastContainer');
-        container.innerHTML = `
-            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header bg-danger text-white">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong class="me-auto">错误</strong>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-                </div>
-                <div class="toast-body">
-                    保存设置时出错: ${error.message}
-                </div>
-            </div>
-        `;
-        const toastElement = container.querySelector('.toast');
-        const toast = new bootstrap.Toast(toastElement);
-        toast.show();
+        showToast('error', '错误', `保存设置时出错: ${error.message}`);
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;

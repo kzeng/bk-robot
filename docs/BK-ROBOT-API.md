@@ -52,20 +52,26 @@ point exists on that floor, the first `CD*` point by name is used.
 - **Path:** `/api/marker-config`
 - **Query:** `building`, `floor`, `search`, `page`, `size`, `all`
 
-Returns locally synced POI records, including `mid_short`, `poi_name`,
-`building`, `floor`, pose, and crop parameters.
+Returns locally synced marker records, including `mid`, `mid_short`,
+`building`, `floor`, pose, and crop parameters. `mid` is the business point
+identifier used for shelf position and image naming. Normal inventory points
+must use an 11-digit `mid`; charging points may use `CD*`.
 
 ### Sync Markers
 
 - **Method:** `POST`
 - **Path:** `/api/marker-config/sync`
 
-Synchronizes all Slamtec floors and POIs, preserving existing crop parameters
-when records can be matched by POI ID or building/floor/POI name.
+Synchronizes all Slamtec floors and POIs. The Slamtec POI name is stored as the
+local `mid`, so field staff should name POIs in the Slamtec tool with the legacy
+11-digit point code or `CD*` for charging points. Existing crop parameters are
+preserved when records can be matched by the internal Slamtec POI ID or
+building/floor/marker name.
 
 ## Tasks
 
-Tasks continue to store comma-separated `mid_short` values. Inventory execution
+Tasks continue to store comma-separated `mid_short` values. The task runner
+resolves each short name to the local marker record, moves by Slamware
+floor/pose data, and uses `mid`/`mid2` for photo filenames. Inventory execution
 does not allow cross-floor point selections. The task runner appends a same-floor
-`CD*` point when possible and moves through each point using Slamware
-`MultiFloorMoveAction`.
+`CD*` point when possible.

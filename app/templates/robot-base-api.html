@@ -1,0 +1,334 @@
+{% extends "base1.html" %}
+
+{% block styles %}
+<style>
+    .api-console {
+        padding-bottom: 140px;
+    }
+
+    .api-grid {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.4fr);
+        gap: 1rem;
+    }
+
+    .api-card {
+        border: 0;
+        border-radius: 8px;
+        box-shadow: 0 3px 12px rgba(25, 42, 86, 0.10);
+    }
+
+    .api-list {
+        max-height: 680px;
+        overflow: auto;
+    }
+
+    .api-item {
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-bottom: 1px solid #eef1f4;
+        background: #fff;
+        padding: 0.7rem 0.8rem;
+    }
+
+    .api-item:hover,
+    .api-item.active {
+        background: #eef7ff;
+    }
+
+    .method-badge {
+        display: inline-block;
+        min-width: 58px;
+        text-align: center;
+        border-radius: 4px;
+        padding: 0.15rem 0.45rem;
+        margin-right: 0.4rem;
+        font-weight: 700;
+        color: #fff;
+        font-size: 0.8rem;
+    }
+
+    .method-get { background: #198754; }
+    .method-post { background: #0d6efd; }
+    .method-put { background: #fd7e14; }
+    .method-delete { background: #dc3545; }
+    .method-patch { background: #6f42c1; }
+
+    .path-text {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.86rem;
+        color: #495057;
+        word-break: break-all;
+    }
+
+    textarea.code-input,
+    pre.result-box {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.9rem;
+    }
+
+    pre.result-box {
+        min-height: 260px;
+        max-height: 520px;
+        overflow: auto;
+        background: #111827;
+        color: #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .details-box {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 0.75rem;
+        min-height: 88px;
+    }
+
+    @media (max-width: 992px) {
+        .api-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 api-console">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-1">底座接口测试</h3>
+            <div class="text-muted small" id="baseUrlText">正在加载底座配置...</div>
+        </div>
+        <a href="/docs/robot-chassis/Slamware-RESTful-API-swagger-conf.json" target="_blank" class="btn btn-outline-secondary">
+            <i class="fas fa-file-code me-2"></i>Swagger
+        </a>
+    </div>
+
+    <div class="api-grid">
+        <div class="card api-card">
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-5">
+                        <select class="form-select" id="tagFilter"></select>
+                    </div>
+                    <div class="col-7">
+                        <input type="search" class="form-control" id="apiSearch" placeholder="搜索接口、路径、说明">
+                    </div>
+                </div>
+                <div class="api-list" id="apiList">
+                    <div class="text-muted p-3">正在加载接口列表...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card api-card">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <span class="method-badge method-get" id="methodBadge">GET</span>
+                    <strong id="summaryText">请选择接口</strong>
+                    <span class="badge bg-warning text-dark d-none" id="writeBadge">写操作</span>
+                </div>
+
+                <div class="details-box mb-3">
+                    <div class="path-text mb-2" id="templatePathText">-</div>
+                    <div class="small text-muted" id="descriptionText">从左侧选择一个接口后，可编辑路径、Query 参数和 JSON 请求体。</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">请求路径</label>
+                    <input type="text" class="form-control font-monospace" id="requestPath" placeholder="/api/...">
+                    <small class="text-muted">如果路径中包含 {id}，请在这里替换成实际 ID。</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Query 参数</label>
+                    <input type="text" class="form-control font-monospace" id="queryInput" placeholder="floor=1F&building=A">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">JSON 请求体</label>
+                    <textarea class="form-control code-input" id="bodyInput" rows="7" placeholder="{&#10;  &quot;key&quot;: &quot;value&quot;&#10;}"></textarea>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-primary" id="executeBtn">
+                        <i class="fas fa-paper-plane me-2"></i>执行
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="clearResultBtn">
+                        <i class="fas fa-eraser me-2"></i>清空结果
+                    </button>
+                </div>
+
+                <pre class="result-box" id="resultBox">等待执行...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let operations = [];
+let selectedOperation = null;
+
+function methodClass(method) {
+    return `method-${String(method || 'GET').toLowerCase()}`;
+}
+
+function parseQueryString(value) {
+    const query = {};
+    const params = new URLSearchParams(value || '');
+    for (const [key, val] of params.entries()) {
+        query[key] = val;
+    }
+    return query;
+}
+
+function formatJson(value) {
+    return JSON.stringify(value, null, 2);
+}
+
+function renderFilters() {
+    const tags = new Set(['全部模块']);
+    operations.forEach(op => (op.tags || ['Other']).forEach(tag => tags.add(tag)));
+    const select = document.getElementById('tagFilter');
+    select.innerHTML = '';
+    Array.from(tags).sort((a, b) => a === '全部模块' ? -1 : a.localeCompare(b)).forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = tag;
+        select.appendChild(option);
+    });
+}
+
+function renderList() {
+    const tag = document.getElementById('tagFilter').value;
+    const keyword = document.getElementById('apiSearch').value.trim().toLowerCase();
+    const list = document.getElementById('apiList');
+    list.innerHTML = '';
+
+    const filtered = operations.filter(op => {
+        const tagOk = !tag || tag === '全部模块' || (op.tags || []).includes(tag);
+        const text = `${op.method} ${op.path} ${op.summary} ${op.description}`.toLowerCase();
+        return tagOk && (!keyword || text.includes(keyword));
+    });
+
+    if (!filtered.length) {
+        list.innerHTML = '<div class="text-muted p-3">没有匹配的接口</div>';
+        return;
+    }
+
+    filtered.forEach(op => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `api-item ${selectedOperation === op ? 'active' : ''}`;
+        btn.innerHTML = `
+            <div class="mb-1">
+                <span class="method-badge ${methodClass(op.method)}">${op.method}</span>
+                <strong>${op.summary || op.operationId || '未命名接口'}</strong>
+                ${op.isWrite ? '<span class="badge bg-warning text-dark ms-1">写</span>' : ''}
+            </div>
+            <div class="path-text">${op.path}</div>
+        `;
+        btn.addEventListener('click', () => selectOperation(op));
+        list.appendChild(btn);
+    });
+}
+
+function selectOperation(op) {
+    selectedOperation = op;
+    document.getElementById('methodBadge').className = `method-badge ${methodClass(op.method)}`;
+    document.getElementById('methodBadge').textContent = op.method;
+    document.getElementById('summaryText').textContent = op.summary || op.operationId || '未命名接口';
+    document.getElementById('templatePathText').textContent = op.path;
+    document.getElementById('descriptionText').innerHTML = op.description || '无接口说明';
+    document.getElementById('requestPath').value = op.path;
+    document.getElementById('queryInput').value = '';
+    document.getElementById('bodyInput').value = op.hasBody ? '{\n  \n}' : '';
+    document.getElementById('writeBadge').classList.toggle('d-none', !op.isWrite);
+    renderList();
+}
+
+async function loadOperations() {
+    const response = await fetch('/api/robot-base/swagger');
+    const data = await response.json();
+    if (!response.ok || data.status !== 'OK') {
+        throw new Error(data.message || '加载接口列表失败');
+    }
+    operations = data.operations || [];
+    document.getElementById('baseUrlText').textContent = `当前底座地址：${data.base_url || '-'}`;
+    renderFilters();
+    renderList();
+}
+
+async function executeOperation(confirmed = false) {
+    if (!selectedOperation) {
+        alert('请先选择接口');
+        return;
+    }
+
+    const path = document.getElementById('requestPath').value.trim();
+    const query = parseQueryString(document.getElementById('queryInput').value);
+    const bodyText = document.getElementById('bodyInput').value.trim();
+    let body = null;
+    if (bodyText) {
+        try {
+            body = JSON.parse(bodyText);
+        } catch (error) {
+            alert(`JSON请求体格式错误：${error.message}`);
+            return;
+        }
+    }
+
+    if (selectedOperation.isWrite && !confirmed) {
+        if (!confirm('该接口可能修改底座状态，确认执行？')) {
+            return;
+        }
+        confirmed = true;
+    }
+
+    const executeBtn = document.getElementById('executeBtn');
+    const originalText = executeBtn.innerHTML;
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>执行中...';
+    document.getElementById('resultBox').textContent = '请求中...';
+
+    try {
+        const response = await fetch('/api/robot-base/proxy', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                method: selectedOperation.method,
+                path,
+                query,
+                body,
+                confirmed
+            })
+        });
+        const result = await response.json();
+        document.getElementById('resultBox').textContent = formatJson(result);
+    } catch (error) {
+        document.getElementById('resultBox').textContent = formatJson({
+            status: 'ERROR',
+            message: error.message
+        });
+    } finally {
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = originalText;
+    }
+}
+
+document.getElementById('tagFilter').addEventListener('change', renderList);
+document.getElementById('apiSearch').addEventListener('input', renderList);
+document.getElementById('executeBtn').addEventListener('click', () => executeOperation(false));
+document.getElementById('clearResultBtn').addEventListener('click', () => {
+    document.getElementById('resultBox').textContent = '等待执行...';
+});
+
+loadOperations().catch(error => {
+    document.getElementById('apiList').innerHTML = `<div class="text-danger p-3">${error.message}</div>`;
+});
+</script>
+{% endblock %}

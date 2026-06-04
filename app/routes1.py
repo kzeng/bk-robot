@@ -1,5 +1,6 @@
 ﻿from flask import render_template, jsonify, request, Blueprint, current_app, redirect, url_for, send_from_directory, flash, session, flash, session
 import hashlib
+import re
 from functools import wraps
 import json
 import shutil
@@ -31,8 +32,6 @@ def marker_to_dict(config):
         'mid': config.mid,
         'mid2': config.mid2,
         'mid_short': config.mid_short,
-        'poi_id': config.poi_id,
-        'poi_name': config.poi_name,
         'building': config.building,
         'floor': config.floor,
         'map_id': config.map_id,
@@ -50,26 +49,28 @@ def marker_to_dict(config):
     }
 
 
-def make_marker_mid(poi):
-    poi_id = str(poi.get('id') or '').strip()
-    if poi_id:
-        return poi_id
-    building = str(poi.get('building') or '').strip()
-    floor = str(poi.get('floor') or '').strip()
-    poi_name = str(poi.get('poi_name') or poi.get('display_name') or '').strip()
-    return f"{building}:{floor}:{poi_name}"
+MID_PATTERN = re.compile(r'^\d{11}$')
+CD_PATTERN = re.compile(r'^CD\d*$', re.IGNORECASE)
 
 
-def poi_match_keys(poi):
-    poi_id = str(poi.get('id') or '').strip()
-    building = str(poi.get('building') or '').strip()
-    floor = str(poi.get('floor') or '').strip()
-    poi_name = str(poi.get('poi_name') or poi.get('display_name') or '').strip()
-    keys = []
-    if poi_id:
-        keys.append(('poi_id', poi_id))
-    keys.append(('location', building, floor, poi_name))
-    return keys
+def is_valid_marker_mid(value):
+    value = str(value or '').strip()
+    return bool(MID_PATTERN.fullmatch(value) or CD_PATTERN.fullmatch(value))
+
+
+def validate_marker_config_payload(data):
+    mid = str(data.get('mid') or '').strip()
+    mid2 = str(data.get('mid2') or '').strip()
+    mid_short = str(data.get('mid_short') or '').strip()
+    if not mid:
+        return False, '点位名称1不能为空'
+    if not is_valid_marker_mid(mid):
+        return False, '点位名称1必须是11位数字，充电点允许使用CD*'
+    if mid2 and not MID_PATTERN.fullmatch(mid2):
+        return False, '点位名称2必须为空或11位数字'
+    if not mid_short:
+        return False, '点位简写不能为空'
+    return True, ''
 
 
 def next_marker_short(poi_name, used_shorts, counter):
@@ -764,18 +765,22 @@ def api_marker_configs():
         })
 
     data = request.json
+    is_valid, error_message = validate_marker_config_payload(data)
+    if not is_valid:
+        return jsonify({'error': error_message}), 400
+
     config = MarkerConfig(
-        mid=data['mid'],
-        poi_id=data.get('poi_id'),
-        poi_name=data.get('poi_name') or data.get('mid'),
+        mid=str(data['mid']).strip(),
+        poi_id=None,
+        poi_name=str(data['mid']).strip(),
         building=data.get('building', ''),
         floor=data.get('floor', ''),
         map_id=data.get('map_id', ''),
         pose_x=data.get('pose_x'),
         pose_y=data.get('pose_y'),
         pose_yaw=data.get('pose_yaw'),
-        mid2=data.get('mid2', ''),
-        mid_short=data['mid_short'],
+        mid2=str(data.get('mid2') or '').strip(),
+        mid_short=str(data['mid_short']).strip(),
         x=data['x'],
         y=data['y'],
         w=data['w'],
@@ -812,18 +817,21 @@ def api_marker_config(id):
             return jsonify({'error': str(e)}), 400
 
     data = request.json
+    is_valid, error_message = validate_marker_config_payload(data)
+    if not is_valid:
+        return jsonify({'error': error_message}), 400
+
     try:
-        config.mid = data['mid']
-        config.poi_id = data.get('poi_id')
-        config.poi_name = data.get('poi_name') or data.get('mid')
+        config.mid = str(data['mid']).strip()
+        config.poi_name = str(data['mid']).strip()
         config.building = data.get('building', '')
         config.floor = data.get('floor', '')
         config.map_id = data.get('map_id', '')
         config.pose_x = data.get('pose_x')
         config.pose_y = data.get('pose_y')
         config.pose_yaw = data.get('pose_yaw')
-        config.mid2 = data.get('mid2', '')
-        config.mid_short = data['mid_short']
+        config.mid2 = str(data.get('mid2') or '').strip()
+        config.mid_short = str(data['mid_short']).strip()
         config.x = data['x']
         config.y = data['y']
         config.w = data['w']
@@ -978,6 +986,7 @@ def sync_marker_configs():
         # records should not reserve names after a full sync.
         matched_existing_ids = set()
         used_shorts = set()
+        skipped_invalid_pois = []
         floor_map_ids = {
             (f.get('building') or '', f.get('floor') or ''): f.get('map_id')
             for f in floors if isinstance(f, dict)
@@ -991,6 +1000,15 @@ def sync_marker_configs():
             poi_name = str(info.get('poi_name') or info.get('display_name') or '').strip()
             if not poi_name:
                 logger.warning(f"跳过缺少 poi_name 的点位: {info}")
+                continue
+            if not is_valid_marker_mid(poi_name):
+                skipped_invalid_pois.append({
+                    'poi_id': info.get('id'),
+                    'poi_name': poi_name,
+                    'floor': info.get('floor'),
+                    'building': info.get('building')
+                })
+                logger.warning(f"跳过不符合点位命名规则的POI: {info}")
                 continue
 
             poi_id = str(info.get('id') or '').strip()
@@ -1011,7 +1029,7 @@ def sync_marker_configs():
                 mid_short, count = next_marker_short(poi_name, used_shorts, count)
 
             new_configs.append(MarkerConfig(
-                mid=make_marker_mid(info),
+                mid=poi_name,
                 poi_id=poi_id or None,
                 poi_name=poi_name,
                 building=building,
@@ -1052,7 +1070,8 @@ def sync_marker_configs():
             'results': {
                 'count': len(new_configs),
                 'floors': floors,
-                'markers': [c.mid_short for c in new_configs]
+                'markers': [c.mid_short for c in new_configs],
+                'skipped_invalid_pois': skipped_invalid_pois
             }
         })
     except Exception as e:
@@ -1060,7 +1079,7 @@ def sync_marker_configs():
         return jsonify({
             'status': 'ERROR',
             'error_type': 'database_error',
-            'message': f'同步点位失败: {str(e)}',
+            'message': f'同步地图失败: {str(e)}',
             'details': 'Failed to update database with marker data'
         }), 500
 

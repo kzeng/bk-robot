@@ -20,6 +20,7 @@ import os
 from flask import stream_with_context, Response
 import cv2
 import re
+import requests
 
 TASK_STATUS_READY        = 0
 TASK_STATUS_INPROGRESS   = 1
@@ -57,6 +58,16 @@ def login_required(f):
             return redirect(url_for('main.login'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def super_user_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_app.config['NEED_AUTH'] and session.get('role') != 'super_user':
+            return jsonify({'status': 'ERROR', 'message': '需要超级用户权限'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 bp = Blueprint('main', __name__)
 
@@ -102,137 +113,82 @@ robot_all_apis_options = [
             "cmd": "/api/core/system/v1/battery/pack"
         },
         {
-            "title": "9.网络状态",
-            "url": "#",
-            "cmd": "/api/core/system/v1/network/status"
-        },
-        {
-            "title": "10.传感器禁用状态",
-            "url": "#",
-            "cmd": "/api/core/sensors/v1/masks"
-        },
-        {
-            "title": "11.当前Action",
-            "url": "#",
-            "cmd": "/api/core/motion/v1/actions/:current"
-        },
-        {
-            "title": "12.支持的Action",
+            "title": "9.支持的Action",
             "url": "#",
             "cmd": "/api/core/motion/v1/action-factories"
         },
         {
-            "title": "13.当前速度",
+            "title": "10.当前速度",
             "url": "#",
             "cmd": "/api/core/motion/v1/speed"
         },
         {
-            "title": "14.当前运动策略",
-            "url": "#",
-            "cmd": "/api/core/motion/v1/strategies/:current"
-        },
-        {
-            "title": "15.支持的运动策略",
+            "title": "11.支持的运动策略",
             "url": "#",
             "cmd": "/api/core/motion/v1/strategies"
         },
         {
-            "title": "16.剩余路径",
+            "title": "12.剩余路径",
             "url": "#",
             "cmd": "/api/core/motion/v1/path"
         },
         {
-            "title": "17.剩余目标点",
+            "title": "13.剩余目标点",
             "url": "#",
             "cmd": "/api/core/motion/v1/milestones"
         },
         {
-            "title": "18.剩余时间",
+            "title": "14.剩余时间",
             "url": "#",
             "cmd": "/api/core/motion/v1/time"
         },
         {
-            "title": "19.机器人位姿",
-            "url": "#",
-            "cmd": "/api/core/slam/v1/localization/pose"
-        },
-        {
-            "title": "20.里程计位姿",
+            "title": "15.里程计位姿",
             "url": "#",
             "cmd": "/api/core/slam/v1/localization/odopose"
         },
         {
-            "title": "21.定位质量",
+            "title": "16.定位质量",
             "url": "#",
             "cmd": "/api/core/slam/v1/localization/quality"
         },
         {
-            "title": "22.定位开关状态",
-            "url": "#",
-            "cmd": "/api/core/slam/v1/localization/:enable"
-        },
-        {
-            "title": "23.建图开关状态",
-            "url": "#",
-            "cmd": "/api/core/slam/v1/mapping/:enable"
-        },
-        {
-            "title": "24.IMU数据",
+            "title": "17.IMU数据",
             "url": "#",
             "cmd": "/api/core/slam/v1/imu"
         },
         {
-            "title": "25.所有楼层",
+            "title": "18.所有楼层",
             "url": "#",
             "cmd": "/api/multi-floor/map/v1/floors"
         },
         {
-            "title": "26.当前楼层",
-            "url": "#",
-            "cmd": "/api/multi-floor/map/v1/floors/:current"
-        },
-        {
-            "title": "27.POI点位列表",
+            "title": "19.点位列表",
             "url": "#",
             "cmd": "/api/multi-floor/map/v1/pois"
         },
         {
-            "title": "28.当前地图POI",
-            "url": "#",
-            "cmd": "/api/core/artifact/v1/pois"
-        },
-        {
-            "title": "29.多楼层状态",
+            "title": "20.多楼层状态",
             "url": "#",
             "cmd": "/api/multi-floor/status"
         },
         {
-            "title": "30.多楼层充电桩",
+            "title": "21.多楼层充电桩",
             "url": "#",
             "cmd": "/api/multi-floor/map/v1/homedocks"
         },
         {
-            "title": "31.当前绑定充电桩",
-            "url": "#",
-            "cmd": "/api/multi-floor/map/v1/homedocks/:current"
-        },
-        {
-            "title": "32.基础充电桩信息",
-            "url": "#",
-            "cmd": "/api/core/slam/v1/homedocks"
-        },
-        {
-            "title": "33.运行里程",
+            "title": "22.运行里程",
             "url": "#",
             "cmd": "/api/core/statistics/v1/odometry"
         },
         {
-            "title": "34.运行时间",
+            "title": "23.运行时间",
             "url": "#",
             "cmd": "/api/core/statistics/v1/runtime"
         },
         {
-            "title": "35.系统时间戳",
+            "title": "24.系统时间戳",
             "url": "#",
             "cmd": "/api/platform/v1/timestamp"
         }
@@ -252,6 +208,172 @@ def serve_docs(filename):
     if os.path.exists(os.path.join(static_docs_dir, filename)):
         return send_from_directory(static_docs_dir, filename)
     return send_from_directory(repo_docs_dir, filename)
+
+
+def _robot_base_swagger_path():
+    return os.path.join(
+        current_app.config['ROOT_PATH'],
+        'docs',
+        'robot-chassis',
+        'Slamware-RESTful-API-swagger-conf.json'
+    )
+
+
+def _load_robot_base_swagger():
+    with open(_robot_base_swagger_path(), 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
+def _path_template_matches(template, path):
+    template_parts = [p for p in template.strip('/').split('/') if p]
+    path_parts = [p for p in path.strip('/').split('/') if p]
+    if len(template_parts) != len(path_parts):
+        return False
+    for template_part, path_part in zip(template_parts, path_parts):
+        if template_part.startswith('{') and template_part.endswith('}'):
+            if not path_part:
+                return False
+            continue
+        if template_part != path_part:
+            return False
+    return True
+
+
+def _find_swagger_operation(swagger, method, path):
+    method = method.lower()
+    for template, methods in (swagger.get('paths') or {}).items():
+        if method not in methods:
+            continue
+        if template == path or _path_template_matches(template, path):
+            return template, methods[method]
+    return None, None
+
+
+def _is_robot_base_write_operation(method, path):
+    method = method.upper()
+    return method != 'GET'
+
+
+@bp.route('/robot-base-api')
+@login_required
+@super_user_required
+def robot_base_api_page():
+    """Slamtec base API test console."""
+    return render_template('robot-base-api.html')
+
+
+@bp.route('/api/robot-base/swagger', methods=['GET'])
+@login_required
+@super_user_required
+def robot_base_swagger():
+    """Return a compact operation list from the local Slamtec Swagger file."""
+    try:
+        swagger = _load_robot_base_swagger()
+        operations = []
+        for path, methods in sorted((swagger.get('paths') or {}).items()):
+            for method, spec in methods.items():
+                if method.lower() not in {'get', 'post', 'put', 'delete', 'patch'}:
+                    continue
+                parameters = []
+                has_body = False
+                for parameter in spec.get('parameters', []) or []:
+                    location = parameter.get('in')
+                    if location == 'body':
+                        has_body = True
+                    parameters.append({
+                        'name': parameter.get('name'),
+                        'in': location,
+                        'required': bool(parameter.get('required')),
+                        'description': parameter.get('description', ''),
+                    })
+                if spec.get('requestBody'):
+                    has_body = True
+                operations.append({
+                    'method': method.upper(),
+                    'path': path,
+                    'summary': spec.get('summary') or '',
+                    'description': spec.get('description') or '',
+                    'operationId': spec.get('operationId') or '',
+                    'tags': spec.get('tags') or ['Other'],
+                    'parameters': parameters,
+                    'hasBody': has_body,
+                    'isWrite': _is_robot_base_write_operation(method.upper(), path),
+                })
+        return jsonify({
+            'status': 'OK',
+            'base_url': current_app.config.get('ROBOT_BASE_URL', ''),
+            'operations': operations
+        })
+    except Exception as e:
+        logger.error(f"Failed to load robot base swagger: {str(e)}")
+        return jsonify({'status': 'ERROR', 'message': str(e)}), 500
+
+
+@bp.route('/api/robot-base/proxy', methods=['POST'])
+@login_required
+@super_user_required
+def robot_base_proxy():
+    """Execute a documented Slamtec API request against the configured base."""
+    try:
+        data = request.get_json() or {}
+        method = str(data.get('method') or 'GET').upper()
+        path = str(data.get('path') or '').strip()
+        query = data.get('query') or {}
+        body = data.get('body', None)
+        confirmed = bool(data.get('confirmed'))
+
+        if method not in {'GET', 'POST', 'PUT', 'DELETE', 'PATCH'}:
+            raise ValueError('不支持的请求方法')
+        if not path.startswith('/api/'):
+            raise ValueError('路径必须以 /api/ 开头')
+
+        swagger = _load_robot_base_swagger()
+        template, operation = _find_swagger_operation(swagger, method, path)
+        if not operation:
+            raise ValueError('该接口不在本地思岚Swagger文档中，或方法不匹配')
+
+        is_write = _is_robot_base_write_operation(method, template or path)
+        if is_write and not confirmed:
+            return jsonify({
+                'status': 'CONFIRM_REQUIRED',
+                'message': '该接口可能修改底座状态，请确认后再执行',
+                'method': method,
+                'path': path
+            }), 409
+
+        base_url = str(current_app.config.get('ROBOT_BASE_URL') or '').rstrip('/')
+        timeout = float(current_app.config.get('ROBOT_API_TIMEOUT', 10))
+        started = time.time()
+        response = requests.request(
+            method,
+            f"{base_url}{path}",
+            params=query or None,
+            json=body if body not in ({}, '', None) else None,
+            timeout=timeout
+        )
+        elapsed_ms = int((time.time() - started) * 1000)
+
+        content_type = response.headers.get('Content-Type', '')
+        if response.content and 'application/json' in content_type:
+            response_body = response.json()
+        elif response.text:
+            response_body = response.text
+        else:
+            response_body = None
+
+        return jsonify({
+            'status': 'OK' if response.ok else 'ERROR',
+            'method': method,
+            'path': path,
+            'template': template,
+            'http_status': response.status_code,
+            'elapsed_ms': elapsed_ms,
+            'response': response_body,
+            'headers': dict(response.headers),
+        }), 200 if response.ok else 502
+    except Exception as e:
+        logger.error(f"Robot base proxy failed: {str(e)}")
+        return jsonify({'status': 'ERROR', 'message': str(e)}), 400
 
 
 @bp.route('/tasks')
@@ -984,7 +1106,9 @@ def async_run_task(app, task_id, task_log_id=None):
                                 logger.info(f"Taking photos at marker {target_marker}")
                                 time.sleep(2)  # Give some time for the robot to stabilize at the marker
 
-                                photo_result = app.camera_control.take_photo_all_cameras(position_info=target_marker, timestamp=timestamp)
+                                marker_config = get_marker_config_by_short(target_marker)
+                                photo_position = marker_config.mid if marker_config else target_marker
+                                photo_result = app.camera_control.take_photo_all_cameras(position_info=photo_position, timestamp=timestamp)
                                 logger.debug(f"Raw photo result: {photo_result}")
 
                                 if photo_result.get('status') == 'OK':
@@ -1453,6 +1577,16 @@ def update_settings():
             ccode_value = str(data['CCODE']).strip()
             if not re.match(r'^\d{2}$', ccode_value):
                 raise ValueError("校区代码必须是两位数字，例如：01、02、03 等")
+
+        robot_ip = str(data.get('ROBOT_IP', '')).strip()
+        robot_port = int(data.get('ROBOT_PORT', 0))
+        if not robot_ip:
+            raise ValueError("机器人IP不能为空")
+        if not (1 <= robot_port <= 65535):
+            raise ValueError("机器人端口必须在 1 到 65535 之间")
+        data['ROBOT_IP'] = robot_ip
+        data['ROBOT_PORT'] = str(robot_port)
+        data['ROBOT_BASE_URL'] = f"http://{robot_ip}:{robot_port}"
 
         if not str(data.get('ROBOT_BASE_URL', '')).startswith(('http://', 'https://')):
             raise ValueError("机器人REST地址必须以 http:// 或 https:// 开头")
