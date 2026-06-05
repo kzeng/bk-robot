@@ -753,7 +753,14 @@
 
 
 
-        function runTask(taskId) {
+        async function runTask(taskId) {
+            if (!await appConfirm('确定要执行此任务吗？', {
+                title: '执行任务',
+                okText: '执行'
+            })) {
+                return;
+            }
+
             fetch(`/api/tasks/${taskId}`)
                 .then(response => response.json())
                 .then(task => {
