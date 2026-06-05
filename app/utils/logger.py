@@ -102,10 +102,12 @@ Centralized logging configuration for bk-robot project.
 
 
 from loguru import logger
+from dotenv import load_dotenv
 import os
 import sys
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+ENV_FILE = os.path.join(PROJECT_ROOT, ".env")
 LOGS_DIR = os.path.join(PROJECT_ROOT, "app", "logs")
 os.makedirs(LOGS_DIR, exist_ok=True)
 
@@ -117,27 +119,57 @@ LOG_RETENTION = os.environ.get("BK_ROBOT_LOG_RETENTION", "30 days")
 LOG_COMPRESSION = os.environ.get("BK_ROBOT_LOG_COMPRESSION", "zip")
 LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
 
-logger.remove()
-logger.add(
-    sys.stderr,
-    format=LOG_FORMAT,
-    level=CONSOLE_LOG_LEVEL,
-    enqueue=False,
-    backtrace=False,
-    diagnose=False,
-)
-logger.add(
-    LOG_FILE,
-    rotation=LOG_ROTATION,
-    retention=LOG_RETENTION,
-    compression=LOG_COMPRESSION,
-    encoding="utf-8",
-    format=LOG_FORMAT,
-    level=FILE_LOG_LEVEL,
-    enqueue=False,
-    backtrace=True,
-    diagnose=False,
-    catch=True,
-)
+_console_sink_id = None
+_file_sink_id = None
 
+
+def _env_flag(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).lower() in ("1", "true", "yes", "on")
+
+
+def configure_logging(enable_file_logging=None):
+    """Configure console logging and optional app.log file logging."""
+    global _console_sink_id, _file_sink_id
+
+    if os.path.exists(ENV_FILE):
+        load_dotenv(ENV_FILE, override=True)
+    if enable_file_logging is None:
+        enable_file_logging = _env_flag("ENABLE_APP_LOGGING", False)
+
+    logger.remove()
+    _console_sink_id = logger.add(
+        sys.stderr,
+        format=LOG_FORMAT,
+        level=CONSOLE_LOG_LEVEL,
+        enqueue=False,
+        backtrace=False,
+        diagnose=False,
+    )
+
+    _file_sink_id = None
+    if enable_file_logging:
+        _file_sink_id = logger.add(
+            LOG_FILE,
+            rotation=LOG_ROTATION,
+            retention=LOG_RETENTION,
+            compression=LOG_COMPRESSION,
+            encoding="utf-8",
+            format=LOG_FORMAT,
+            level=FILE_LOG_LEVEL,
+            enqueue=False,
+            backtrace=True,
+            diagnose=False,
+            catch=True,
+        )
+    return logger
+
+
+def set_file_logging_enabled(enabled):
+    configure_logging(enable_file_logging=bool(enabled))
+
+
+configure_logging()
 configured_logger = logger

@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 渲染分页
     function renderPagination(data) {
         let ul = document.getElementById('video-pagination');
-        ul.className = 'pagination justify-content-center';
+        ul.className = 'pagination pagination-touch justify-content-center mb-0';
         ul.innerHTML = '';
         if (totalPages <= 1) {
             document.getElementById('video-page-info').textContent = data && data.total_count !== undefined

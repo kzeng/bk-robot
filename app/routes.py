@@ -21,6 +21,7 @@ from flask import stream_with_context, Response
 import cv2
 import re
 import requests
+from app.utils.logger import LOG_FILE, set_file_logging_enabled
 
 TASK_STATUS_READY        = 0
 TASK_STATUS_INPROGRESS   = 1
@@ -387,6 +388,104 @@ def tasks_page():
 def task_logs_page():
     """任务日志列表页面"""
     return render_template('task-logs.html')
+
+
+@bp.route('/software-logs')
+@login_required
+def software_logs_page():
+    """Robot software runtime log viewer."""
+    return render_template(
+        'software-logs.html',
+        enable_app_logging=current_app.config.get('ENABLE_APP_LOGGING', False)
+    )
+
+
+def _parse_log_time(value):
+    if not value:
+        return None
+    value = str(value).strip()
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_app_log_line(line):
+    match = re.match(
+        r"^(?P<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (?P<level>[A-Z]+)\s+\| (?P<source>[^|]+) \| (?P<message>.*)$",
+        line.rstrip("\n")
+    )
+    if not match:
+        return {
+            "time": "",
+            "level": "OTHER",
+            "source": "",
+            "message": line.rstrip("\n"),
+            "raw": line.rstrip("\n")
+        }
+    return {
+        "time": match.group("time"),
+        "level": match.group("level").strip(),
+        "source": match.group("source").strip(),
+        "message": match.group("message"),
+        "raw": line.rstrip("\n")
+    }
+
+
+@bp.route('/api/software-logs', methods=['GET'])
+@login_required
+def get_software_logs():
+    """Query robot software runtime logs from app/logs/app.log."""
+    try:
+        level = str(request.args.get('level', '')).strip().upper()
+        keyword = str(request.args.get('keyword', '')).strip().lower()
+        start_time = _parse_log_time(request.args.get('start_time'))
+        end_time = _parse_log_time(request.args.get('end_time'))
+        limit = min(max(int(request.args.get('limit', 500)), 1), 2000)
+        sort_order = str(request.args.get('sort', 'desc')).strip().lower()
+        if sort_order not in ('asc', 'desc'):
+            sort_order = 'desc'
+
+        if not os.path.exists(LOG_FILE):
+            return jsonify({
+                'status': 'OK',
+                'logging_enabled': current_app.config.get('ENABLE_APP_LOGGING', False),
+                'data': [],
+                'total': 0,
+                'message': '运行日志文件不存在'
+            })
+
+        with open(LOG_FILE, 'r', encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+
+        entries = []
+        for line in lines:
+            entry = _parse_app_log_line(line)
+            entry_time = _parse_log_time(entry.get('time'))
+            if level and entry.get('level') != level:
+                continue
+            if keyword and keyword not in entry.get('raw', '').lower():
+                continue
+            if start_time and entry_time and entry_time < start_time:
+                continue
+            if end_time and entry_time and entry_time > end_time:
+                continue
+            entries.append(entry)
+
+        entries = entries[-limit:]
+        if sort_order == 'desc':
+            entries = list(reversed(entries))
+        return jsonify({
+            'status': 'OK',
+            'logging_enabled': current_app.config.get('ENABLE_APP_LOGGING', False),
+            'data': entries,
+            'total': len(entries)
+        })
+    except Exception as e:
+        logger.error(f"Failed to query software logs: {str(e)}")
+        return jsonify({'status': 'ERROR', 'message': str(e)}), 500
 
 
 # common API for robot control, all commands can be sent through this endpoint
@@ -1520,6 +1619,7 @@ def settings():
         'FTP_USER': str(current_app.config.get('FTP_USER', '')),
         'FTP_PASS': str(current_app.config.get('FTP_PASS', '')),
         'ENABLE_SOFT_KEYBOARD': 'true' if current_app.config.get('ENABLE_SOFT_KEYBOARD', True) else 'false',
+        'ENABLE_APP_LOGGING': 'true' if current_app.config.get('ENABLE_APP_LOGGING', False) else 'false',
     }
     
     # 如果.env文件不存在，创建一个新的
@@ -1559,6 +1659,7 @@ def update_settings():
             'CAMERA_JPEG_QUALITY', 'CAMERA_BUFFER_SIZE', 'ROBOT_IP', 
             'ROBOT_PORT', 'ROBOT_BASE_URL', 'ROBOT_API_TIMEOUT',
             'FTP_HOST', 'FTP_PORT', 'FTP_USER', 'FTP_PASS', 'ENABLE_SOFT_KEYBOARD',
+            'ENABLE_APP_LOGGING',
             # 学校配置
             'CCODE',
             # 相机控制参数
@@ -1645,6 +1746,10 @@ def update_settings():
         current_app.config['ENABLE_SOFT_KEYBOARD'] = str(
             data.get('ENABLE_SOFT_KEYBOARD', current_app.config.get('ENABLE_SOFT_KEYBOARD', True))
         ).lower() in ('1', 'true', 'yes', 'on')
+        current_app.config['ENABLE_APP_LOGGING'] = str(
+            data.get('ENABLE_APP_LOGGING', current_app.config.get('ENABLE_APP_LOGGING', False))
+        ).lower() in ('1', 'true', 'yes', 'on')
+        set_file_logging_enabled(current_app.config['ENABLE_APP_LOGGING'])
         if hasattr(current_app, 'robot_control'):
             current_app.robot_control.base_url = current_app.config['ROBOT_BASE_URL'].rstrip('/')
             current_app.robot_control.timeout = current_app.config['ROBOT_API_TIMEOUT']

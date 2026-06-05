@@ -1,0 +1,246 @@
+{% extends "base1.html" %}
+
+{% block styles %}
+<style>
+    .software-logs-page {
+        padding-bottom: 120px;
+    }
+
+    .log-card {
+        border: 0;
+        border-radius: 8px;
+        box-shadow: 0 3px 12px rgba(25, 42, 86, 0.10);
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: 160px repeat(2, minmax(190px, 1fr)) minmax(180px, 1fr) auto auto;
+        gap: 0.75rem;
+        align-items: end;
+    }
+
+    .log-viewer {
+        height: calc(100vh - 360px);
+        min-height: 360px;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background: #ffffff;
+    }
+
+    .log-row {
+        display: grid;
+        grid-template-columns: 150px 92px minmax(180px, 280px) minmax(0, 1fr);
+        gap: 0.75rem;
+        padding: 0.45rem 0.75rem;
+        border-bottom: 1px solid #f1f3f5;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.88rem;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .log-row:last-child {
+        border-bottom: 0;
+    }
+
+    .log-level-INFO {
+        color: #0d6efd;
+        font-weight: 700;
+    }
+
+    .log-level-ERROR,
+    .log-level-CRITICAL {
+        color: #dc3545;
+        font-weight: 700;
+    }
+
+    .log-level-WARNING {
+        color: #fd7e14;
+        font-weight: 700;
+    }
+
+    .log-level-other {
+        color: #212529;
+        font-weight: 700;
+    }
+
+    .log-empty {
+        padding: 3rem 1rem;
+        text-align: center;
+        color: #6c757d;
+    }
+
+    @media (max-width: 992px) {
+        .filter-grid,
+        .log-row {
+            grid-template-columns: 1fr;
+        }
+
+        .log-viewer {
+            height: 520px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 software-logs-page">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="mb-1">机器人软件运行日志</h3>
+            <div class="text-muted small">
+                当前记录状态：
+                {% if enable_app_logging %}
+                <span class="badge bg-success">ON</span>
+                {% else %}
+                <span class="badge bg-secondary">OFF</span>
+                {% endif %}
+            </div>
+        </div>
+        <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>返回设置
+        </a>
+    </div>
+
+    <div class="card log-card mb-3">
+        <div class="card-body">
+            <h5 class="card-title mb-3">日志过滤</h5>
+            <div class="filter-grid">
+                <div>
+                    <label class="form-label">日志级别</label>
+                    <select class="form-select" id="levelFilter">
+                        <option value="">全部</option>
+                        <option value="INFO">INFO</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                        <option value="SUCCESS">SUCCESS</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">开始时间</label>
+                    <input type="datetime-local" class="form-control" id="startTimeFilter">
+                </div>
+                <div>
+                    <label class="form-label">结束时间</label>
+                    <input type="datetime-local" class="form-control" id="endTimeFilter">
+                </div>
+                <div>
+                    <label class="form-label">关键字</label>
+                    <input type="text" class="form-control" id="keywordFilter" placeholder="路径、错误、任务号等">
+                </div>
+                <button type="button" class="btn btn-outline-secondary" id="sortLogsBtn" data-sort="desc">
+                    <i class="fas fa-sort-amount-down me-2"></i><span>最新优先</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="searchLogsBtn">
+                    <i class="fas fa-search me-2"></i>查询
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card log-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">日志显示</h5>
+                <span class="text-muted small" id="logCount">0 条</span>
+            </div>
+            <div class="log-viewer" id="logViewer">
+                <div class="log-empty">正在加载日志...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function getLevelClass(level) {
+    if (['INFO', 'ERROR', 'CRITICAL', 'WARNING'].includes(level)) {
+        return `log-level-${level}`;
+    }
+    return 'log-level-other';
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+async function loadSoftwareLogs() {
+    const button = document.getElementById('searchLogsBtn');
+    const sortButton = document.getElementById('sortLogsBtn');
+    const viewer = document.getElementById('logViewer');
+    const count = document.getElementById('logCount');
+    const originalText = button.innerHTML;
+
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>查询中...';
+
+    const params = new URLSearchParams({
+        level: document.getElementById('levelFilter').value,
+        start_time: document.getElementById('startTimeFilter').value,
+        end_time: document.getElementById('endTimeFilter').value,
+        keyword: document.getElementById('keywordFilter').value.trim(),
+        sort: sortButton.dataset.sort || 'desc',
+        limit: '1000'
+    });
+
+    try {
+        const response = await fetch(`/api/software-logs?${params.toString()}`);
+        const result = await response.json();
+        if (!response.ok || result.status !== 'OK') {
+            throw new Error(result.message || '日志查询失败');
+        }
+
+        count.textContent = `${result.total || 0} 条`;
+        if (!result.data || result.data.length === 0) {
+            viewer.innerHTML = `<div class="log-empty">${escapeHtml(result.message || '没有符合条件的日志')}</div>`;
+            return;
+        }
+
+        viewer.innerHTML = result.data.map(item => `
+            <div class="log-row">
+                <div>${escapeHtml(item.time)}</div>
+                <div class="${getLevelClass(item.level)}">${escapeHtml(item.level)}</div>
+                <div>${escapeHtml(item.source)}</div>
+                <div>${escapeHtml(item.message)}</div>
+            </div>
+        `).join('');
+        viewer.scrollTop = 0;
+    } catch (error) {
+        viewer.innerHTML = `<div class="log-empty text-danger">${escapeHtml(error.message)}</div>`;
+        count.textContent = '0 条';
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+document.getElementById('sortLogsBtn').addEventListener('click', function() {
+    const isDesc = this.dataset.sort !== 'asc';
+    this.dataset.sort = isDesc ? 'asc' : 'desc';
+    this.innerHTML = isDesc
+        ? '<i class="fas fa-sort-amount-up me-2"></i><span>最早优先</span>'
+        : '<i class="fas fa-sort-amount-down me-2"></i><span>最新优先</span>';
+    loadSoftwareLogs();
+});
+document.getElementById('searchLogsBtn').addEventListener('click', loadSoftwareLogs);
+document.getElementById('keywordFilter').addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        loadSoftwareLogs();
+    }
+});
+
+loadSoftwareLogs();
+</script>
+{% endblock %}

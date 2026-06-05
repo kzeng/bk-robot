@@ -46,27 +46,8 @@
             background-color: rgba(255, 0, 0, 1);
             transform: scale(1.05);
         }
-        
-        /* Pagination fixes */
-        .pagination-container {
-            width: 100%;
-            max-width: 100%;
-            margin-top: 20px;
-            text-align: center;
-        }
-        
-        .pagination {
-            display: inline-flex;
-            flex-wrap: nowrap;
-            margin: 0 auto;
-            padding: 0;
-        }
-        
-        .page-item.ellipsis {
-            pointer-events: none;
-            padding: 0.375rem 0.75rem;
-        }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/photos.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -301,11 +282,21 @@
                     updatePagination(currentPage, totalPages);
                     function updatePagination(page, totalPages) {
                         pagination.innerHTML = '';
-                        if (totalPages <= 1) return;
+                        pagination.className = 'pagination-dock';
+                        const dockInner = document.createElement('div');
+                        dockInner.className = 'pagination-dock-inner';
+                        const pageInfo = document.createElement('div');
+                        pageInfo.className = 'pagination-summary';
+                        pageInfo.textContent = `第 ${page} 页（共 ${totalPages} 页） - 共 ${data.count} 张图片`;
+                        dockInner.appendChild(pageInfo);
+                        if (totalPages <= 1) {
+                            pagination.appendChild(dockInner);
+                            return;
+                        }
                         const nav = document.createElement('nav');
-                        nav.className = 'pagination-container';
+                        nav.setAttribute('aria-label', '照片管理分页');
                         const ul = document.createElement('ul');
-                        ul.className = 'pagination justify-content-center';
+                        ul.className = 'pagination pagination-touch justify-content-center mb-0';
                         
                         // 上一页按钮
                         const prevLi = document.createElement('li');
@@ -394,11 +385,8 @@
                         ul.appendChild(nextLi);
                         
                         nav.appendChild(ul);
-                        pagination.appendChild(nav);
-                        const pageInfo = document.createElement('div');
-                        pageInfo.className = 'text-center mt-3';
-                        pageInfo.textContent = `第 ${page} 页（共 ${totalPages} 页） - 共 ${data.count} 张图片`;
-                        pagination.appendChild(pageInfo);
+                        dockInner.appendChild(nav);
+                        pagination.appendChild(dockInner);
                     }
                 })
                 .catch(error => {

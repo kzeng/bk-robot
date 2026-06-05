@@ -73,6 +73,7 @@ class Config:
     FTP_USER = os.environ.get('FTP_USER', 'username')
     FTP_PASS = os.environ.get('FTP_PASS', 'password')
     ENABLE_SOFT_KEYBOARD = os.environ.get('ENABLE_SOFT_KEYBOARD', 'true').lower() in ('1', 'true', 'yes', 'on')
+    ENABLE_APP_LOGGING = os.environ.get('ENABLE_APP_LOGGING', 'false').lower() in ('1', 'true', 'yes', 'on')
 
 
     # School configuration

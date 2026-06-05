@@ -43,13 +43,15 @@
             <div id="video-list" class="row g-3">
                 <!-- 视频缩略图通过JS动态填充 -->
             </div>
-            <div class="pagination-container">
-                <nav>
-                    <ul class="pagination justify-content-center pagination-sm mb-0" id="video-pagination">
-                        <!-- 分页通过JS动态填充 -->
-                    </ul>
-                </nav>
-                <div id="video-page-info" class="text-center text-muted small mt-1"></div>
+            <div class="pagination-dock">
+                <div class="pagination-dock-inner">
+                    <div id="video-page-info" class="pagination-summary"></div>
+                    <nav aria-label="视频管理分页">
+                        <ul class="pagination pagination-touch justify-content-center mb-0" id="video-pagination">
+                            <!-- 分页通过JS动态填充 -->
+                        </ul>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>
