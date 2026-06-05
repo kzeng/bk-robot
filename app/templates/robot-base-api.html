@@ -289,7 +289,11 @@ async function executeOperation(confirmed = false) {
     }
 
     if (selectedOperation.isWrite && !confirmed) {
-        if (!confirm('该接口可能修改底座状态，确认执行？')) {
+        if (!await appConfirm('该接口可能修改底座状态，确认执行？', {
+            title: '危险接口',
+            okText: '执行',
+            variant: 'danger'
+        })) {
             return;
         }
         confirmed = true;

@@ -1,11 +1,15 @@
-function confirmAndRunTask(taskId) {
-    if (confirm('确定要执行此任务吗？')) {
+async function confirmAndRunTask(taskId) {
+    if (await appConfirm('确定要执行此任务吗？')) {
         runTask(taskId);
     }
 }
 
 async function clearLogs() {
-    if (!confirm('确定要清空所有日志吗？此操作不可撤销！')) {
+    if (!await appConfirm('确定要清空所有日志吗？此操作不可撤销！', {
+        title: '危险操作',
+        okText: '清空',
+        variant: 'danger'
+    })) {
         return;
     }
     
@@ -28,7 +32,7 @@ async function clearLogs() {
 }
 
 async function runTask(taskId) {    // Show confirmation dialog
-    if (!confirm('确定要执行此任务吗？')) {
+    if (!await appConfirm('确定要执行此任务吗？')) {
         return;
     }
 

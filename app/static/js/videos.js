@@ -22,7 +22,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('请先选择要上传的视频目录');
                 return;
             }
-            if (!confirm(`确定要上传目录 ${currentDir} 下的所有视频到FTP服务器？`)) return;
+            if (!await appConfirm(`确定要上传目录 ${currentDir} 下的所有视频到FTP服务器？`, {
+                title: '上传视频',
+                okText: '上传'
+            })) return;
             oneClickUploadBtn.disabled = true;
             let oldText = oneClickUploadBtn.innerHTML;
             oneClickUploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>上传中...';
@@ -270,9 +273,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 删除当前目录
-    function deleteCurrentDir() {
+    async function deleteCurrentDir() {
         if (!currentDir) return;
-        if (!confirm(`确定要删除目录 ${currentDir} 吗？此操作不可恢复！`)) return;
+        if (!await appConfirm(`确定要删除目录 ${currentDir} 吗？此操作不可恢复！`, {
+            title: '危险操作',
+            okText: '删除',
+            variant: 'danger'
+        })) return;
         fetch('/videos/delete_directory', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -288,8 +295,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 清空所有视频
-    function clearAllVideos() {
-        if (!confirm('确定要清空所有视频文件吗？此操作不可恢复！')) return;
+    async function clearAllVideos() {
+        if (!await appConfirm('确定要清空所有视频文件吗？此操作不可恢复！', {
+            title: '危险操作',
+            okText: '清空',
+            variant: 'danger'
+        })) return;
         fetch('/videos/clear_all', {method: 'POST'})
             .then(res => res.json())
             .then(data => {

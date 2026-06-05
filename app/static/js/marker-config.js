@@ -58,8 +58,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 同步地图按钮点击事件
-    document.getElementById('syncMarkersButton').addEventListener('click', function() {
-        if (confirm('确定要从机器人同步地图点位吗？这将会覆盖现有配置。')) {
+    document.getElementById('syncMarkersButton').addEventListener('click', async function() {
+        if (await appConfirm('确定要从机器人同步地图点位吗？这将会覆盖现有配置。', {
+            title: '同步地图',
+            okText: '同步'
+        })) {
             fetch('/api/marker-config/sync', {
                 method: 'POST'
             })
@@ -87,8 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 清空点位按钮点击事件
-    document.getElementById('clearMarkersButton').addEventListener('click', function() {
-        if (confirm('确定要清空所有点位配置吗？此操作不可恢复！')) {
+    document.getElementById('clearMarkersButton').addEventListener('click', async function() {
+        if (await appConfirm('确定要清空所有点位配置吗？此操作不可恢复！', {
+            title: '危险操作',
+            okText: '清空',
+            variant: 'danger'
+        })) {
             fetch('/api/marker-config/clear', {
                 method: 'POST'
             })
@@ -557,8 +564,12 @@ function saveMarkerConfig() {
     });
 }
 
-function deleteMarkerConfig(id) {
-    if (!confirm('确定要删除这个点位配置吗？')) {
+async function deleteMarkerConfig(id) {
+    if (!await appConfirm('确定要删除这个点位配置吗？', {
+        title: '删除点位',
+        okText: '删除',
+        variant: 'danger'
+    })) {
         return;
     }
 

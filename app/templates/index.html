@@ -25,6 +25,16 @@
         #polling-icon {
             font-size: 1.3rem;
         }
+        .btn-charge {
+            background: linear-gradient(135deg, #2ecc71 60%, #58d68d 100%) !important;
+            border: none !important;
+            color: #fff !important;
+            box-shadow: 0 2px 8px rgba(46, 204, 113, 0.18) !important;
+        }
+        .btn-charge:hover {
+            background: linear-gradient(135deg, #27ae60 60%, #2ecc71 100%) !important;
+            box-shadow: 0 4px 16px rgba(46, 204, 113, 0.25) !important;
+        }
         .mb-4 {
         margin-bottom: 0.8rem !important;
         margin-left: 20px;
@@ -71,7 +81,7 @@
                         退出急停 <i class="fas fa-play ms-2"></i>
                     </button>
 
-                    <button class="btn btn-lg btn-warning" onclick="recharge()">
+                    <button class="btn btn-lg btn-charge" onclick="recharge()">
                         前往充电 <i class="fas fa-plug ms-2"></i>
                     </button>
                  
