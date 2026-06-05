@@ -224,7 +224,7 @@
                                     <th width="30%">标记点</th>
                                     <th>操作类型</th>
                                     <th>描述</th>
-                                    <th>创建时间</th>
+                                    <th>更新时间</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -414,7 +414,7 @@
                             </td>
                             <td>${getActionText(task.action)}</td>
                             <td>${task.description}</td>
-                            <td>${task.create_at ? task.create_at.slice(0,10) : ''}</td>
+                            <td>${task.update_at ? task.update_at.slice(0,10) : ''}</td>
                             <td>
                                 {% if session.role == 'super_user' %}
                                     <button class="btn btn-sm btn-primary" onclick="editTask(${task.task_id})" title="编辑" aria-label="编辑任务">
