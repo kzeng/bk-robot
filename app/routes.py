@@ -1534,19 +1534,8 @@ def robot_recharge():
         # 按mid_short排序，确保一致性
         cd_markers.sort(key=lambda m: m.mid_short)
         target_marker = cd_markers[0].mid_short
-        
-        # 3. 先检查当前是否已在目标充电点
-        status = robot_control.get_status()
-        if status.get('results', {}).get('move_target') == target_marker and \
-           status.get('results', {}).get('move_status') == 'succeeded':
-            return jsonify({
-                "status": "OK",
-                "message": f"Already at charging station ({target_marker})",
-                "results": status.get('results', {})
-            })
-        
-        # 4. 如果不在充电点，则发送充电命令
-        # 修改recharge方法以接受参数，或者直接调用send_command
+
+        # 3. 找到充电点后直接发送充电命令
         result = robot_control.send_command(f"/api/move?marker={target_marker}")
         
         return jsonify({
