@@ -1536,7 +1536,10 @@ def robot_recharge():
         target_marker = cd_markers[0].mid_short
 
         # 3. 找到充电点后直接发送充电命令
-        result = robot_control.send_command(f"/api/move?marker={target_marker}")
+        # Use the generic CD marker so the robot resolves the charging point
+        # for the currently active map/floor, matching the task return flow.
+        # result = robot_control.send_command(f"/api/move?marker={target_marker}")
+        result = robot_control.send_command(f"/api/move?marker=CD")
         
         return jsonify({
             "status": result.get("status", "ERROR"),
